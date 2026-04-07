@@ -5,7 +5,7 @@ Shopify Admin API → Supabase (orders, line items, locations, inventory levels)
 Env:
   SHOPIFY_STORE              — shop handle without .myshopify.com (e.g. yttmhc-p0)
   SHOPIFY_ACCESS_TOKEN       — Admin API access token (Custom app)
-  SHOPIFY_API_VERSION        — optional, default 2024-10
+  SHOPIFY_API_VERSION        — optional, default 2026-01
   SUPABASE_URL
   SUPABASE_SERVICE_ROLE_KEY
 
@@ -46,7 +46,7 @@ log = logging.getLogger("sync_shopify")
 
 # GitHub Actions often sets SHOPIFY_API_VERSION from a missing secret → "".
 # os.environ.get("X", "default") still returns "" if X is present but empty.
-DEFAULT_API_VERSION_FALLBACK = "2024-10"
+DEFAULT_API_VERSION_FALLBACK = "2026-01"
 
 
 def _resolved_api_version() -> str:
@@ -188,10 +188,11 @@ def shopify_graphql(
             continue
         if resp.status_code == 401:
             log.error(
-                "Shopify 401 Unauthorized for %s — check SHOPIFY_ACCESS_TOKEN and SHOPIFY_STORE. "
-                "Token must be the Admin API access token from this store's app (Develop apps → "
-                "API credentials → Reveal; prefix may be shpat_, shpca_, shpss_, shpua_, etc.). "
-                "Not the Client secret. Store must be the shop handle only, same store where the app is installed.",
+                "Shopify 401 Unauthorized for %s — token shape looks OK but Shopify rejected it. "
+                "Most often: SHOPIFY_STORE must be the exact myshopify handle of the SAME shop where "
+                "this token was issued (admin URL …/store/HANDLE). Token from shop A will 401 on shop B. "
+                "Also try SHOPIFY_API_VERSION=2026-01 (or latest in Shopify docs) if your shop deprecated old API. "
+                "Re-Reveal a fresh Admin API access token if the app was reinstalled.",
                 url,
             )
             log.error("Response (truncated): %s", (resp.text or "")[:800])

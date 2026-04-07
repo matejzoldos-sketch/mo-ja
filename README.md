@@ -54,9 +54,9 @@ Workflow: každý deň o ~04:15 UTC reconciliácia (`--days 14`); **v pondelok**
 1. **`SHOPIFY_ACCESS_TOKEN`** musí byť **Admin API access token** z **obchodného adminu**: **Settings → Apps and sales channels → Develop apps → [appka] → API credentials → Reveal** (až po **Install app**). Prefix môže byť napr. **`shpat_`**, **`shpca_`**, **`shpss_`**, **`shpua_`** (závisí od typu appky) — ide o **celý** reťazec z Reveal.  
    **Nie** Client secret, **nie** „API secret key“ z Partner Dashboardu, **nie** API key z karty Configuration.
 
-2. **`SHOPIFY_STORE`** = len handle (napr. `yttmhc-p0`), nie celá URL.
+2. **`SHOPIFY_STORE`** = len handle (napr. `yttmhc-p0`), nie celá URL. **Musí to byť ten istý obchod**, v ktorom si vygeneroval token (iný handle → **401** aj pri správnom `shpss_` / `shpat_`).
 
-3. Po spustení Actions v logu skontroluj **`SHOPIFY_ACCESS_TOKEN length=`** a **`Token prefix OK (...)`** (akceptované prefixy vrátane `shpss_` atď.). Ak nie, secret v GitHube je stále zlý typ hodnoty.
+3. Po spustení Actions v logu skontroluj **`Token prefix OK`**. Ak áno a predsa **401**, skontroluj znova bod 2, pridaj GitHub secret **`SHOPIFY_API_VERSION`** = `2026-01` (alebo aktuálnu verziu z [Shopify API versioning](https://shopify.dev/docs/api/usage/versioning)), prípadne v appke **znova Reveal** tokenu po reinstall.
 
 4. Rýchly test v termináli (lokálne, token nezdieľaj):
 
@@ -67,7 +67,7 @@ Workflow: každý deň o ~04:15 UTC reconciliácia (`--days 14`); **v pondelok**
      -H "Content-Type: application/json" \
      -H "X-Shopify-Access-Token: $SHOPIFY_ACCESS_TOKEN" \
      -d '{"query":"{ shop { name } }"}' \
-     "https://${SHOPIFY_STORE}.myshopify.com/admin/api/2024-10/graphql.json"
+     "https://${SHOPIFY_STORE}.myshopify.com/admin/api/2026-01/graphql.json"
    ```
 
    Očakávané: HTTP **200** a JSON s `data.shop.name`. Ak **401**, token alebo store nesedí.
