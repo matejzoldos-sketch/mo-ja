@@ -1,4 +1,4 @@
--- Sklad stock chart: x-axis from 7 April (same calendar year as YTD) — first reliable snapshots ~that week.
+-- Bump chart window start from 1 Apr to 7 Apr (same year); for DBs that already applied 013 with day=1.
 
 CREATE OR REPLACE FUNCTION public.get_shopify_inventory_stock_chart_ytd()
 RETURNS json

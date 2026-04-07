@@ -8,11 +8,11 @@ export type StockChartYtd = {
   points: { date: string; sku: string; stock: number }[];
 };
 
-/** Sklad chart: no reliable snapshots before 1 Apr — clamp even if RPC still returns Jan 1 (old migration). */
+/** Sklad chart: first useful snapshots from ~7 Apr — clamp if RPC still returns Jan 1 / 1 Apr. */
 function effectiveChartFromIso(s: StockChartYtd): string {
   const y = s.year ?? new Date().getFullYear();
-  const april1 = `${y}-04-01`;
-  if (!s.from || s.from < april1) return april1;
+  const april7 = `${y}-04-07`;
+  if (!s.from || s.from < april7) return april7;
   return s.from;
 }
 
