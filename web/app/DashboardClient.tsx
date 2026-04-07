@@ -14,6 +14,7 @@ import {
   Legend,
   Filler,
 } from "chart.js";
+import type { ChartData, ChartOptions } from "chart.js";
 import { Line, Bar } from "react-chartjs-2";
 import { HeaderBrand, HeaderSectionSelect } from "./components/HeaderNav";
 
@@ -153,7 +154,7 @@ function skuLineColor(i: number, total: number): string {
 
 function buildSkuUnitsLineChart(
   s: SkuDailyYtd | undefined
-): { labels: string[]; datasets: object[] } | null {
+): ChartData<"line"> | null {
   if (!s?.skuOrder?.length) return null;
   const days = enumerateInclusiveDays(s.from, s.to);
   if (days.length === 0) return null;
@@ -163,7 +164,7 @@ function buildSkuUnitsLineChart(
     m.set(key(p.date, p.sku), Number(p.units));
   }
   const n = s.skuOrder.length;
-  const datasets = s.skuOrder.map((sku, i) => ({
+  const datasets: ChartData<"line">["datasets"] = s.skuOrder.map((sku, i) => ({
     label: sku.length > 40 ? `${sku.slice(0, 38)}…` : sku,
     data: days.map((d) => m.get(key(d, sku)) ?? 0),
     borderColor: skuLineColor(i, n),
@@ -327,23 +328,23 @@ export default function DashboardClient() {
     ? buildSkuUnitsLineChart(data.skuDailyYtd)
     : null;
 
-  const skuYtdLineOptions = {
+  const skuYtdLineOptions: ChartOptions<"line"> = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
       legend: {
-        position: "bottom" as const,
+        position: "bottom",
         labels: {
           color: TEXT,
           font: { family: "Manrope", size: 11 },
           boxWidth: 12,
           padding: 10,
           usePointStyle: true,
-          pointStyle: "line" as const,
+          pointStyle: "line",
         },
       },
       tooltip: {
-        mode: "index" as const,
+        mode: "index",
         intersect: false,
       },
     },
@@ -359,8 +360,8 @@ export default function DashboardClient() {
       },
     },
     interaction: {
-      mode: "nearest" as const,
-      axis: "x" as const,
+      mode: "nearest",
+      axis: "x",
       intersect: false,
     },
   };
