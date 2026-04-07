@@ -293,10 +293,13 @@ query Orders($cursor: String, $query: String!) {
           edges {
             node {
               id
+              name
               title
+              variantTitle
+              currentQuantity
               quantity
               sku
-              variant { id sku inventoryItem { id } }
+              variant { id sku inventoryItem { id legacyResourceId } }
               originalUnitPriceSet { shopMoney { amount } }
             }
           }
@@ -419,8 +422,18 @@ def order_node_to_rows(
             continue
         variant = ln.get("variant") or {}
         var_id = gid_to_int(variant.get("id"))
-        inv_item = (variant.get("inventoryItem") or {}).get("id")
-        inv_item_id = gid_to_int(inv_item)
+        inv_item_obj = variant.get("inventoryItem") or {}
+        inv_item_id = gid_to_int(inv_item_obj.get("id"))
+        if inv_item_id is None:
+            leg = inv_item_obj.get("legacyResourceId")
+            if leg is not None:
+                try:
+                    inv_item_id = int(leg)
+                except (TypeError, ValueError):
+                    inv_item_id = None
+        qty_raw = ln.get("currentQuantity")
+        if qty_raw is None:
+            qty_raw = ln.get("quantity")
         price_set = (ln.get("originalUnitPriceSet") or {}).get("shopMoney") or {}
         amt = price_set.get("amount")
         line_rows.append(
@@ -429,7 +442,7 @@ def order_node_to_rows(
                 "line_item_id": lid,
                 "title": ln.get("title"),
                 "sku": ln.get("sku") or variant.get("sku"),
-                "quantity": ln.get("quantity"),
+                "quantity": qty_raw,
                 "variant_id": var_id,
                 "inventory_item_id": inv_item_id,
                 "unit_price": float(amt) if amt is not None else None,

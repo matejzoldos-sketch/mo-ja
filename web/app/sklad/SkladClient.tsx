@@ -171,14 +171,14 @@ export default function SkladClient() {
             <section className="table-card">
               <h2>Aktuálny stav podľa lokácie a SKU</h2>
               <p className="chart-card__subtitle">
-                Priemerná denná spotreba YTD = predané kusy (paid / čiastočne) od 1. 1.
-                delené počtom dní v roku až po dnes. Predaj sa páruje podľa inventory item ID
-                (vrátane ID v <code>raw_json</code> riadku), inak podľa SKU / variant SKU / názov
-                (normalizované +). V appke Shopify musí byť scope{" "}
-                <strong>read_all_orders</strong>, inak API vráti len objednávky približne za
-                posledných 60 dní — tabuľka potom nemá celý kalendárny rok. Spusti{" "}
-                <code>sync_shopify.py --ytd</code> po migrácii DB. Odhad dní = dostupné ÷ tento
-                priemer; pri nulovom predaji prázdne.
+                Priemerná denná spotreba YTD = predané kusy (paid / čiastočne / autorizované platby)
+                od 1. 1. delené počtom dní v roku až po dnes. Predaj sa páruje podľa inventory item
+                ID (stĺpec alebo <code>raw_json</code>), inak podľa SKU / variantTitle / názov
+                riadku (normalizované +). Scopes: <strong>read_all_orders</strong> (inak ~60 dní
+                histórie) a <strong>read_products</strong> (inak GraphQL často vráti{" "}
+                <code>variant: null</code> a bez inventory item ID nejde spoľahlivo spojiť predaj so
+                skladom). Po migrácii DB spusti <code>sync_shopify.py --ytd</code>. Odhad dní =
+                dostupné ÷ tento priemer; pri nulovom predaji prázdne.
               </p>
               {rows.length === 0 ? (
                 <p className="msg">

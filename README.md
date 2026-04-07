@@ -4,7 +4,7 @@ Synchronizácia **objednávok**, **riadkov**, **lokácií** a **skladových zás
 
 ## Požiadavky
 
-- Shopify **Admin API** prístup so scopes: `read_inventory`, `read_locations`, `read_products` a **`read_all_orders`** (odporúčané pre YTD dashboard / Sklad — bez neho Shopify vracia len objednávky približne za **posledných 60 dní**). Alternatíva `read_orders` len s kratšou históriou. Mená zákazníkov sync neťahá — `read_customers` nepotrebuješ, kým to nezapneš v `sync_shopify.py`.
+- Shopify **Admin API** prístup so scopes: `read_inventory`, `read_locations`, **`read_products`** (bez neho často chýba `variant` / `inventoryItem` na riadkoch objednávok → Sklad nevie spájať predaj so skladom) a **`read_all_orders`** (pre YTD — bez neho ~**posledných 60 dní** objednávok). Alternatíva `read_orders` len s kratšou históriou. Mená zákazníkov sync neťahá — `read_customers` nepotrebuješ, kým to nezapneš v `sync_shopify.py`.
 
 ### Od 1. 1. 2026 (Dev Dashboard)
 
