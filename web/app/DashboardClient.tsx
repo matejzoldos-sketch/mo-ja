@@ -257,6 +257,14 @@ export default function DashboardClient() {
     },
   };
 
+  const lineChartOptions = {
+    ...chartOptions,
+    plugins: {
+      ...chartOptions.plugins,
+      legend: { display: false as const },
+    },
+  };
+
   return (
     <>
       <header className="site-header">
@@ -321,8 +329,33 @@ export default function DashboardClient() {
                   {periodLabel ? ` (${periodLabel})` : ""}
                 </h2>
                 {lineData ? (
-                  <div style={{ height: 260 }}>
-                    <Line data={lineData} options={chartOptions} />
+                  <div className="line-chart-block">
+                    <div className="line-chart-block__canvas">
+                      <Line data={lineData} options={lineChartOptions} />
+                    </div>
+                    <ul
+                      className="chart-legend-minimal"
+                      aria-label="Legenda grafu tržieb"
+                    >
+                      <li className="chart-legend-minimal__item">
+                        <span
+                          className="chart-legend-minimal__mark chart-legend-minimal__mark--fill"
+                          style={{ backgroundColor: SECONDARY }}
+                          aria-hidden
+                        />
+                        <span>Tržby (deň)</span>
+                      </li>
+                      <li className="chart-legend-minimal__item">
+                        <span
+                          className="chart-legend-minimal__mark chart-legend-minimal__mark--dash"
+                          style={{
+                            backgroundImage: `repeating-linear-gradient(90deg, ${TREND_LINE} 0, ${TREND_LINE} 4px, transparent 4px, transparent 7px)`,
+                          }}
+                          aria-hidden
+                        />
+                        <span>Trend (lineárna)</span>
+                      </li>
+                    </ul>
                   </div>
                 ) : null}
               </div>
