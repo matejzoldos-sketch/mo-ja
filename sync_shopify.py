@@ -76,12 +76,18 @@ def _normalize_store(raw: str) -> str:
 
 
 def _normalize_token(raw: str) -> str:
-    t = raw.strip()
+    t = (raw or "").strip().strip("\ufeff")
+    for zw in ("\u200b", "\u200c", "\u200d", "\ufeff"):
+        t = t.replace(zw, "")
+    t = t.strip()
     if t.lower().startswith("bearer "):
         t = t[7:].strip()
     # GitHub secret pasted as "shpat_..." with quotes → breaks prefix check and auth.
     if len(t) >= 2 and t[0] == t[-1] and t[0] in "\"'":
         t = t[1:-1].strip()
+    # Shopify uses lowercase shpat_; pasted Shpat_ breaks startswith and maybe API.
+    if len(t) >= 6 and t[:6].lower() == "shpat_" and not t.startswith("shpat_"):
+        t = "shpat_" + t[6:]
     return t
 
 
@@ -94,6 +100,13 @@ def _log_token_hint(token: str) -> None:
         if n < 32:
             log.warning("Token looks unusually short; confirm you copied the full Admin API access token.")
         return
+    if token:
+        c0 = token[0]
+        log.warning(
+            "Token first character is U+%04X (expected Latin 's' = U+0073 for shpat_). "
+            "If this is not 0073, re-copy the token from Shopify into a plain-text editor, then into GitHub.",
+            ord(c0),
+        )
     log.warning(
         "Token does NOT start with shpat_. The runner is NOT using your Shopify Admin API token. "
         "Fix: GitHub repo → Settings → Secrets → Actions → update SHOPIFY_ACCESS_TOKEN for THIS repository "
