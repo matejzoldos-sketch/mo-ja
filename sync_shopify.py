@@ -79,6 +79,9 @@ def _normalize_token(raw: str) -> str:
     t = raw.strip()
     if t.lower().startswith("bearer "):
         t = t[7:].strip()
+    # GitHub secret pasted as "shpat_..." with quotes → breaks prefix check and auth.
+    if len(t) >= 2 and t[0] == t[-1] and t[0] in "\"'":
+        t = t[1:-1].strip()
     return t
 
 
@@ -88,12 +91,15 @@ def _log_token_hint(token: str) -> None:
     log.info("SHOPIFY_ACCESS_TOKEN length=%d", n)
     if token.startswith("shpat_"):
         log.info("Token prefix OK (shpat_ — Admin API access token from Develop apps)")
+        if n < 32:
+            log.warning("Token looks unusually short; confirm you copied the full Admin API access token.")
         return
     log.warning(
-        "Token does NOT start with shpat_. Wrong value in GitHub secret is the #1 cause of 401. "
-        "Use Admin API access token from: Store admin → Settings → Apps → Develop apps → "
-        "[Your app] → API credentials → Reveal (after Install). "
-        "Do NOT use Client secret, API key, or Partner Dashboard client secret."
+        "Token does NOT start with shpat_. The runner is NOT using your Shopify Admin API token. "
+        "Fix: GitHub repo → Settings → Secrets → Actions → update SHOPIFY_ACCESS_TOKEN for THIS repository "
+        "(no quotes in the value). Paste the full string from Develop apps → API credentials → Reveal. "
+        "Typical length is ~38+ characters including the shpat_ prefix. "
+        "Do NOT use Client secret, API key, or Partner client secret."
     )
 
 
