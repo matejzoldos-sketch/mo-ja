@@ -147,13 +147,6 @@ export default function SkladClient() {
                 Vývoj skladu podľa SKU (od 7. 4.{" "}
                 {stockChartYtd?.year ?? new Date().getFullYear()})
               </h2>
-              <p className="chart-card__subtitle">
-                Súčet dostupných kusov na všetkých lokáciách; po nasadení migrácie
-                007 sa pri každom synci inventára uloží snímka. Os času začína 7. 4.
-                (predtým nemáme spoľahlivú históriu). Graf ukazuje max. 10 SKU s
-                najvyšším aktuálnym stavom; medzi snímkami sa hodnota drží (posledná
-                známa).
-              </p>
               {stockLineData ? (
                 <div className="sku-ytd-chart-wrap">
                   <Line
@@ -171,16 +164,6 @@ export default function SkladClient() {
 
             <section className="table-card">
               <h2>Aktuálny stav podľa lokácie a SKU</h2>
-              <p className="chart-card__subtitle">
-                Priemerná denná spotreba YTD = predané kusy (paid / čiastočne / autorizované platby)
-                od 1. 1. delené počtom dní v roku až po dnes. Predaj sa páruje podľa inventory item
-                ID (stĺpec alebo <code>raw_json</code>), inak podľa SKU / variantTitle / názov
-                riadku (normalizované +). Scopes: <strong>read_all_orders</strong> (inak ~60 dní
-                histórie) a <strong>read_products</strong> (inak GraphQL často vráti{" "}
-                <code>variant: null</code> a bez inventory item ID nejde spoľahlivo spojiť predaj so
-                skladom). Po migrácii DB spusti <code>sync_shopify.py --ytd</code>. Odhad dní =
-                dostupné ÷ tento priemer; pri nulovom predaji prázdne.
-              </p>
               {rows.length === 0 ? (
                 <p className="msg">
                   Žiadne dáta o sklade. Spusti synchronizáciu s inventárom (
