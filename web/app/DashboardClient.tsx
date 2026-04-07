@@ -452,7 +452,7 @@ export default function DashboardClient() {
               </div>
               <div className="chart-card" style={{ minHeight: 320 }}>
                 <h2>
-                  Top 5 produktov (tržby)
+                  Tržby podľa produktu
                   {periodLabel ? ` (${periodLabel})` : ""}
                 </h2>
                 {barData ? (
