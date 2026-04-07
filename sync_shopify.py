@@ -43,7 +43,16 @@ logging.basicConfig(
 logging.getLogger("httpx").setLevel(logging.WARNING)
 log = logging.getLogger("sync_shopify")
 
-DEFAULT_API_VERSION = os.environ.get("SHOPIFY_API_VERSION", "2024-10")
+# GitHub Actions often sets SHOPIFY_API_VERSION from a missing secret → "".
+# os.environ.get("X", "default") still returns "" if X is present but empty.
+DEFAULT_API_VERSION_FALLBACK = "2024-10"
+
+
+def _resolved_api_version() -> str:
+    raw = (os.environ.get("SHOPIFY_API_VERSION") or "").strip()
+    return raw or DEFAULT_API_VERSION_FALLBACK
+
+
 ORDERS_PAGE_SIZE = 40
 INVENTORY_ITEMS_PAGE_SIZE = 50
 UPSERT_CHUNK = 150
@@ -454,7 +463,8 @@ def main() -> None:
     token = _require_env("SHOPIFY_ACCESS_TOKEN")
     sb_url = _require_env("SUPABASE_URL")
     sb_key = _require_env("SUPABASE_SERVICE_ROLE_KEY")
-    ver = os.environ.get("SHOPIFY_API_VERSION", DEFAULT_API_VERSION).strip() or DEFAULT_API_VERSION
+    ver = _resolved_api_version()
+    log.info("Shopify API version %s", ver)
 
     supabase = create_client(sb_url, sb_key)
 
