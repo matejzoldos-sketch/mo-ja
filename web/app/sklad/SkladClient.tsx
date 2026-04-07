@@ -144,14 +144,15 @@ export default function SkladClient() {
           <>
             <section className="chart-card chart-card--sku-ytd sklad-chart-section">
               <h2>
-                Vývoj skladu podľa SKU (od 1. 1.{" "}
+                Vývoj skladu podľa SKU (od 1. 4.{" "}
                 {stockChartYtd?.year ?? new Date().getFullYear()})
               </h2>
               <p className="chart-card__subtitle">
                 Súčet dostupných kusov na všetkých lokáciách; po nasadení migrácie
-                007 sa pri každom synci inventára uloží snímka. Graf ukazuje max. 10
-                SKU s najvyšším aktuálnym stavom; medzi snímkami sa hodnota drží
-                (posledná známa).
+                007 sa pri každom synci inventára uloží snímka. Os času začína 1. 4.
+                (predtým nemáme spoľahlivú históriu). Graf ukazuje max. 10 SKU s
+                najvyšším aktuálnym stavom; medzi snímkami sa hodnota drží (posledná
+                známa).
               </p>
               {stockLineData ? (
                 <div className="sku-ytd-chart-wrap">

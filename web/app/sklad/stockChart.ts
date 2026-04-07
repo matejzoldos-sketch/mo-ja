@@ -14,6 +14,7 @@ function enumerateInclusiveDays(fromIso: string, toIso: string): string[] {
   const [ty, tm, td] = toIso.split("-").map(Number);
   const cur = new Date(Date.UTC(fy, (fm || 1) - 1, fd || 1));
   const end = new Date(Date.UTC(ty, (tm || 1) - 1, td || 1));
+  if (cur.getTime() > end.getTime()) return [];
   while (cur.getTime() <= end.getTime()) {
     const y = cur.getUTCFullYear();
     const m = String(cur.getUTCMonth() + 1).padStart(2, "0");
