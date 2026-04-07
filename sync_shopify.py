@@ -16,8 +16,8 @@ Auth (2026+): New apps use Dev Dashboard; tokens are obtained via POST /admin/oa
 If SHOPIFY_CLIENT_ID and SHOPIFY_CLIENT_SECRET are set, they take precedence over SHOPIFY_ACCESS_TOKEN.
 
 Usage:
-  python sync_shopify.py                    # last 14 days by updated_at + inventory + locations
-  python sync_shopify.py --days 7
+  python sync_shopify.py                    # orders created_at YTD (current year) + inventory + locations
+  python sync_shopify.py --days 7           # narrower: updated_at ≥ today−days
   python sync_shopify.py --ytd              # orders with created_at >= Jan 1 (current year)
   python sync_shopify.py --from 2026-01-01   # updated_at >= date (YYYY-MM-DD)
   python sync_shopify.py --orders-only
@@ -591,8 +591,8 @@ def build_orders_search_query(args: argparse.Namespace) -> str:
     if args.days is not None:
         start = date.today() - timedelta(days=int(args.days))
         return f"updated_at:>={start.isoformat()}"
-    start = date.today() - timedelta(days=14)
-    return f"updated_at:>={start.isoformat()}"
+    y = date.today().year
+    return f"created_at:>={y}-01-01"
 
 
 def main() -> None:

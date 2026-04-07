@@ -6,13 +6,13 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "Sync mode"
+        description: "Sync mode (ytd = full year orders for dashboards; daily = last 14d updated_at only)"
         required: true
-        default: "daily"
+        default: "ytd"
         type: choice
         options:
-          - daily
           - ytd
+          - daily
 
 env:
   SHOPIFY_STORE: ${{ secrets.SHOPIFY_STORE }}
@@ -47,16 +47,14 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "mode=${{ inputs.mode }}" >> "$GITHUB_OUTPUT"
-          elif [ "$(TZ=Europe/Bratislava date +%u)" = "1" ]; then
-            echo "mode=ytd" >> "$GITHUB_OUTPUT"
           else
-            echo "mode=daily" >> "$GITHUB_OUTPUT"
+            echo "mode=ytd" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Daily sync (14 days + inventory)
+      - name: Quick sync (updated last 14 days + inventory)
         if: steps.mode.outputs.mode == 'daily'
         run: python sync_shopify.py --days 14
 
-      - name: YTD orders + inventory
+      - name: YTD orders + inventory (matches dashboard / sklad YTD)
         if: steps.mode.outputs.mode == 'ytd'
         run: python sync_shopify.py --ytd

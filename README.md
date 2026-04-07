@@ -32,15 +32,15 @@ Staršie obchody s existujúcou legacy appkou môžu naďalej používať len **
    python -m venv .venv
    source .venv/bin/activate
    pip install -r requirements.txt
-   python sync_shopify.py --days 14
+   python sync_shopify.py
    ```
 
 ## Použitie `sync_shopify.py`
 
 | Príkaz | Popis |
 |--------|--------|
-| `python sync_shopify.py` | Predvolené: `updated_at` ≥ dnes − 14 dní + lokácie + sklad |
-| `python sync_shopify.py --days 7` | Užšie okno podľa `updated_at` |
+| `python sync_shopify.py` | Predvolené: objednávky s `created_at` od 1. 1. **aktuálneho roka** + lokácie + sklad (zhoda s YTD v dashboarde) |
+| `python sync_shopify.py --days 7` | Len objednávky s `updated_at` ≥ dnes − N dní (rýchly inkrementálny beh) |
 | `python sync_shopify.py --ytd` | Objednávky s `created_at` ≥ 1. január **aktuálneho roka** |
 | `python sync_shopify.py --ytd --ytd-year 2026` | Rovnaké pre konkrétny rok |
 | `python sync_shopify.py --from 2026-01-01` | `updated_at` ≥ dátum |
@@ -56,7 +56,7 @@ V repozitári nastav **Secrets**:
 - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
 - voliteľne `SHOPIFY_API_VERSION`
 
-Workflow: každý deň o ~04:15 UTC reconciliácia (`--days 14`); **v pondelok** (kalendár Europe/Bratislava) beh `--ytd`. Manuálne `workflow_dispatch` s voľbou `daily` / `ytd`.
+Workflow: každý deň o ~04:15 UTC beh **`--ytd`** (objednávky vytvorené od 1. 1., aby YTD metriky v Sklade sedeli s dátami v DB). Manuálne `workflow_dispatch`: **`ytd`** = rovnaké; **`daily`** = rýchly beh len `updated_at` za posledných 14 dní.
 
 ### Shopify 401 / „Invalid API key or access token“
 

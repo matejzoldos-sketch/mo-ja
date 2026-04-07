@@ -186,9 +186,12 @@ export default function SkladClient() {
               <h2>Aktuálny stav podľa lokácie a SKU</h2>
               <p className="chart-card__subtitle">
                 Priemerná denná spotreba YTD = predané kusy (paid / čiastočne) od 1. 1.
-                delené počtom dní v roku až po dnes (rovnaký SKU / názov riadku ako pri
-                inventári). Odhad dní = dostupné ÷ tento priemer; pri nulovom predaji
-                prázdne.
+                delené počtom dní v roku až po dnes. Predaj sa páruje najprv podľa
+                inventory item ID zo Shopify, inak podľa SKU (bez rozlišovania veľkých/malých
+                písmen). V DB musia byť načítané objednávky za celý rok (predvolený beh{" "}
+                <code>sync_shopify.py</code> alebo Actions režim <code>ytd</code>), nie len
+                posledných 14 dní podľa <code>updated_at</code>. Odhad dní = dostupné ÷ tento
+                priemer; pri nulovom predaji prázdne.
               </p>
               {rows.length === 0 ? (
                 <p className="msg">
