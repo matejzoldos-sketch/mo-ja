@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import IdleSessionGuard from "./components/IdleSessionGuard";
 
 export const metadata: Metadata = {
   title: {
@@ -16,7 +17,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="sk">
-      <body>{children}</body>
+      <body>
+        <IdleSessionGuard />
+        {children}
+      </body>
     </html>
   );
 }

@@ -39,10 +39,18 @@ export default function LoginClient() {
     }
   }
 
+  const idleNote =
+    searchParams.get("reason") === "idle" ? (
+      <p className="login-card__idle" role="status">
+        Relácia vypršala po nečinnosti. Prihlás sa znova.
+      </p>
+    ) : null;
+
   return (
     <main className="main-wrap login-page">
       <div className="login-card">
         <h1 className="login-card__title">MO–JA dashboard</h1>
+        {idleNote}
         <p className="login-card__hint">Zadaj heslo na pokračovanie.</p>
         <form onSubmit={onSubmit} className="login-form">
           <label className="login-form__label" htmlFor="pw">
