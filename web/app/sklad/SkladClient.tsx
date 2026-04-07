@@ -39,6 +39,8 @@ type InvRow = {
   available: number;
   updated_at: string | null;
   fetched_at: string | null;
+  avg_daily_units_sold_ytd: number | null;
+  estimated_days_of_stock: number | null;
 };
 
 function formatWhen(iso: string | null) {
@@ -53,6 +55,24 @@ function formatWhen(iso: string | null) {
   } catch {
     return iso;
   }
+}
+
+function formatAvgDaily(n: number | null | undefined) {
+  if (n == null || Number.isNaN(Number(n))) return "—";
+  return new Intl.NumberFormat("sk-SK", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 4,
+  }).format(Number(n));
+}
+
+function formatDaysStock(n: number | null | undefined) {
+  if (n == null || Number.isNaN(Number(n))) return "—";
+  const x = Number(n);
+  if (x === 0) return "0";
+  return new Intl.NumberFormat("sk-SK", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
+  }).format(x);
 }
 
 export default function SkladClient() {
@@ -119,7 +139,8 @@ export default function SkladClient() {
           <p className="msg msg-error">
             {err}{" "}
             Skontroluj env a migrácie <code>005_inventory_dashboard_rpc.sql</code>,{" "}
-            <code>007_inventory_snapshots.sql</code>.
+            <code>007_inventory_snapshots.sql</code>,{" "}
+            <code>008_inventory_dashboard_consumption.sql</code>.
           </p>
         )}
         {!loading && !err && rows && (
@@ -163,6 +184,12 @@ export default function SkladClient() {
 
             <section className="table-card">
               <h2>Aktuálny stav podľa lokácie a SKU</h2>
+              <p className="chart-card__subtitle">
+                Priemerná denná spotreba YTD = predané kusy (paid / čiastočne) od 1. 1.
+                delené počtom dní v roku až po dnes (rovnaký SKU / názov riadku ako pri
+                inventári). Odhad dní = dostupné ÷ tento priemer; pri nulovom predaji
+                prázdne.
+              </p>
               {rows.length === 0 ? (
                 <p className="msg">
                   Žiadne dáta o sklade. Spusti synchronizáciu s inventárom (
@@ -176,6 +203,8 @@ export default function SkladClient() {
                         <th>Lokácia</th>
                         <th>SKU</th>
                         <th>Dostupné</th>
+                        <th>Priem. denná spotreba YTD</th>
+                        <th>Odhad dní zásoby</th>
                         <th>Shopify updated</th>
                         <th>Sync</th>
                       </tr>
@@ -188,6 +217,16 @@ export default function SkladClient() {
                           <td>{r.location_name || "—"}</td>
                           <td>{r.sku}</td>
                           <td>{r.available}</td>
+                          <td>
+                            {formatAvgDaily(
+                              r.avg_daily_units_sold_ytd ?? null
+                            )}
+                          </td>
+                          <td>
+                            {formatDaysStock(
+                              r.estimated_days_of_stock ?? null
+                            )}
+                          </td>
                           <td>{formatWhen(r.updated_at)}</td>
                           <td>{formatWhen(r.fetched_at)}</td>
                         </tr>
