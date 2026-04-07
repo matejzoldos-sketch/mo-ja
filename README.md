@@ -5,13 +5,13 @@ Synchronizácia **objednávok**, **riadkov**, **lokácií** a **skladových zás
 ## Požiadavky
 
 - Shopify **Custom app** s Admin API tokenom a scopes: `read_orders`, `read_inventory`, `read_locations`, `read_products` (voliteľne `read_customers`).
-- Supabase projekt; migráciu spustiť pred prvým syncom.
+- Supabase projekt; migrácie `001` (+ `002` pre dashboard) spustiť pred prvým syncom / pred webom.
 
 ## Nastavenie
 
 1. Skopíruj `.env.example` na `.env` a doplň hodnoty (tokeny neukladaj do gitu).
 
-2. V [Supabase SQL Editor](https://supabase.com/dashboard) spusti obsah súboru `supabase/migrations/001_shopify_core.sql`, alebo:
+2. V [Supabase SQL Editor](https://supabase.com/dashboard) spusti `001_shopify_core.sql` a potom `002_dashboard_mvp.sql`, alebo:
 
    ```bash
    supabase link --project-ref kqsmsegcqdhuhiofxyuu
@@ -49,9 +49,26 @@ V repozitári nastav **Secrets**:
 
 Workflow: každý deň o ~04:15 UTC reconciliácia (`--days 14`); **v pondelok** (kalendár Europe/Bratislava) beh `--ytd`. Manuálne `workflow_dispatch` s voľbou `daily` / `ytd`.
 
+## Dashboard (Next.js na Vercel)
+
+Priečinok [`web/`](web/): KPI, grafy (Chart.js), tabuľka posledných objednávok. Dáta z RPC `get_shopify_dashboard_mvp()` v Supabase.
+
+```bash
+cd web
+cp .env.example .env.local
+# doplň SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY
+npm install
+npm run dev
+```
+
+- **Ukážkové dáta bez DB:** v UI tlačidlo „Ukážkové dáta“ alebo `GET /api/dashboard?mock=1`.
+- **Vercel:** Root Directory = `web`; rovnaké env ako v `.env.example`. Voliteľne `DASHBOARD_TOKEN` a potom volať API s hlavičkou `Authorization: Bearer <token>`.
+
+Ak GraphQL pri synci spadne na `customer`, pridaj do app scope **`read_customers`** (alebo dočasne odstráň `customer { displayName }` z query).
+
 ## Tabuľky
 
-- `shopify_orders`, `shopify_order_line_items`, `shopify_locations`, `shopify_inventory_levels`, `shopify_sync_state`
+- `shopify_orders` (+ `customer_display_name` po migrácii `002`), `shopify_order_line_items`, `shopify_locations`, `shopify_inventory_levels`, `shopify_sync_state`
 
 RLS je zapnuté bez politík pre anon — prístup len cez **service role** (skript / server).
 

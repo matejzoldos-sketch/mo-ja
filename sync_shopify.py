@@ -139,6 +139,9 @@ query Orders($cursor: String, $query: String!) {
         displayFinancialStatus
         displayFulfillmentStatus
         currencyCode
+        customer {
+          displayName
+        }
         totalPriceSet { shopMoney { amount currencyCode } }
         subtotalPriceSet { shopMoney { amount currencyCode } }
         lineItems(first: 250) {
@@ -247,6 +250,7 @@ def order_node_to_rows(
     total_price = total_set.get("amount")
     subtotal_price = sub_set.get("amount")
 
+    cust = node.get("customer") or {}
     order_row = {
         "id": oid,
         "shopify_gid": node.get("id"),
@@ -258,6 +262,7 @@ def order_node_to_rows(
         "currency": node.get("currencyCode") or total_set.get("currencyCode"),
         "total_price": float(total_price) if total_price is not None else None,
         "subtotal_price": float(subtotal_price) if subtotal_price is not None else None,
+        "customer_display_name": cust.get("displayName"),
         "raw_json": node,
     }
 

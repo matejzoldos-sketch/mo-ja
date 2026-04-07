@@ -1,0 +1,292 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler,
+} from "chart.js";
+import { Line, Bar } from "react-chartjs-2";
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
+
+type Kpis = {
+  revenue: number;
+  orders: number;
+  aov: number;
+  currency: string | null;
+};
+
+type Daily = { date: string; revenue: number };
+type TopProduct = { label: string; revenue: number; units: number };
+type RecentOrder = {
+  id: number;
+  name: string;
+  created_at: string;
+  financial_status: string | null;
+  fulfillment_status: string | null;
+  customer_display_name: string | null;
+  total_price: number;
+  currency: string | null;
+};
+
+type Payload = {
+  kpis: Kpis;
+  dailyRevenue: Daily[];
+  topProducts: TopProduct[];
+  recentOrders: RecentOrder[];
+};
+
+const PRIMARY = "#f7f775";
+const SECONDARY = "#9d9a89";
+const TEXT = "#333333";
+const GRID = "rgba(51,51,51,0.08)";
+
+function formatMoney(amount: number, currency: string | null) {
+  const c = currency || "EUR";
+  try {
+    return new Intl.NumberFormat("sk-SK", {
+      style: "currency",
+      currency: c,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${amount.toFixed(2)} ${c}`;
+  }
+}
+
+export default function DashboardClient() {
+  const [data, setData] = useState<Payload | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [mock, setMock] = useState(false);
+
+  const load = useCallback(async (useMock: boolean) => {
+    setLoading(true);
+    setErr(null);
+    try {
+      const q = useMock ? "?mock=1" : "";
+      const res = await fetch(`/api/dashboard${q}`);
+      const json = await res.json();
+      if (!res.ok) {
+        setErr(json.error || `HTTP ${res.status}`);
+        setData(null);
+        return;
+      }
+      setData(json as Payload);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Fetch failed");
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load(mock);
+  }, [load, mock]);
+
+  const lineData = data
+    ? {
+        labels: data.dailyRevenue.map((d) => d.date),
+        datasets: [
+          {
+            label: "Tržby (deň)",
+            data: data.dailyRevenue.map((d) => Number(d.revenue)),
+            borderColor: SECONDARY,
+            backgroundColor: "rgba(157, 154, 137, 0.15)",
+            fill: true,
+            tension: 0.25,
+            pointBackgroundColor: PRIMARY,
+            pointBorderColor: TEXT,
+            pointRadius: 3,
+          },
+        ],
+      }
+    : null;
+
+  const barData = data
+    ? {
+        labels: data.topProducts.map((p) =>
+          p.label.length > 28 ? `${p.label.slice(0, 26)}…` : p.label
+        ),
+        datasets: [
+          {
+            label: "Tržby",
+            data: data.topProducts.map((p) => Number(p.revenue)),
+            backgroundColor: PRIMARY,
+            borderColor: TEXT,
+            borderWidth: 1,
+          },
+        ],
+      }
+    : null;
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        labels: { color: TEXT, font: { family: "Manrope" } },
+      },
+    },
+    scales: {
+      x: {
+        ticks: { color: TEXT, maxRotation: 45, minRotation: 0 },
+        grid: { color: GRID },
+      },
+      y: {
+        ticks: { color: TEXT },
+        grid: { color: GRID },
+        beginAtZero: true,
+      },
+    },
+  };
+
+  return (
+    <>
+      <header className="site-header">
+        <div className="site-header__inner">
+          <h1>MOJA PHASE — predaj</h1>
+          <div className="toolbar">
+            <a
+              className="btn btn-ghost"
+              href="https://shop.mo-ja.com/"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Obchod
+            </a>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => setMock((m) => !m)}
+            >
+              {mock ? "Načítať Supabase" : "Ukážkové dáta"}
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => load(mock)}
+            >
+              Obnoviť
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="main-wrap">
+        {loading && <p className="msg">Načítavam…</p>}
+        {err && !loading && (
+          <p className="msg msg-error">
+            {err}
+            {mock ? null : (
+              <>
+                {" "}
+                Skús „Ukážkové dáta“ alebo skontroluj migráciu{" "}
+                <code>002_dashboard_mvp.sql</code>.
+              </>
+            )}
+          </p>
+        )}
+        {data && !loading && (
+          <>
+            <section className="kpi-grid">
+              <div className="kpi-card">
+                <div className="kpi-card__label">Obrat YTD (2026)</div>
+                <div className="kpi-card__value">
+                  {formatMoney(Number(data.kpis.revenue), data.kpis.currency)}
+                </div>
+              </div>
+              <div className="kpi-card">
+                <div className="kpi-card__label">Počet objednávok</div>
+                <div className="kpi-card__value">{data.kpis.orders}</div>
+              </div>
+              <div className="kpi-card">
+                <div className="kpi-card__label">AOV</div>
+                <div className="kpi-card__value">
+                  {formatMoney(Number(data.kpis.aov), data.kpis.currency)}
+                </div>
+              </div>
+            </section>
+
+            <section className="charts-row">
+              <div className="chart-card" style={{ minHeight: 320 }}>
+                <h2>Tržby po dňoch (od 1. 1. 2026)</h2>
+                {lineData ? (
+                  <div style={{ height: 260 }}>
+                    <Line data={lineData} options={chartOptions} />
+                  </div>
+                ) : null}
+              </div>
+              <div className="chart-card" style={{ minHeight: 320 }}>
+                <h2>Top 5 produktov (tržby)</h2>
+                {barData ? (
+                  <div style={{ height: 260 }}>
+                    <Bar
+                      data={barData}
+                      options={{
+                        ...chartOptions,
+                        indexAxis: "y" as const,
+                      }}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            </section>
+
+            <section className="table-card">
+              <h2>Posledných 10 objednávok</h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Objednávka</th>
+                    <th>Dátum</th>
+                    <th>Zákazník</th>
+                    <th>Platba</th>
+                    <th>Vybavenie</th>
+                    <th>Suma</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.recentOrders.map((o) => (
+                    <tr key={o.id}>
+                      <td>{o.name}</td>
+                      <td>{o.created_at}</td>
+                      <td>{o.customer_display_name || "—"}</td>
+                      <td>{o.financial_status || "—"}</td>
+                      <td>{o.fulfillment_status || "—"}</td>
+                      <td>
+                        {formatMoney(
+                          Number(o.total_price),
+                          o.currency || data.kpis.currency
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          </>
+        )}
+      </main>
+    </>
+  );
+}
