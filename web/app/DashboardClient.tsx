@@ -269,7 +269,7 @@ export default function DashboardClient() {
     <>
       <header className="site-header">
         <div className="site-header__inner">
-          <h1>MO–JA dashboard</h1>
+          <h1>MO–JA predaj</h1>
           <label className="period-filter">
             <span className="period-filter__label">Obdobie</span>
             <select
