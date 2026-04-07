@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 
 export function HeaderBrand() {
-  return <span className="header-brand-nav__title">MO–JA</span>;
+  return <span className="header-brand-nav__title">MO–JA dashboard</span>;
 }
 
 export function HeaderSectionSelect() {
