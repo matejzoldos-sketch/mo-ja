@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -47,17 +48,41 @@ type RecentOrder = {
   currency: string | null;
 };
 
+type RangeKey = "ytd" | "30d" | "90d" | "365d";
+
+type PayloadMeta = { range: string; from: string; to: string };
+
 type Payload = {
+  meta: PayloadMeta;
   kpis: Kpis;
   dailyRevenue: Daily[];
   topProducts: TopProduct[];
   recentOrders: RecentOrder[];
 };
 
+const RANGE_OPTIONS: { value: RangeKey; label: string }[] = [
+  { value: "ytd", label: "Od začiatku roka" },
+  { value: "30d", label: "Posledných 30 dní" },
+  { value: "90d", label: "Posledných 90 dní" },
+  { value: "365d", label: "Posledných 12 mesiacov" },
+];
+
+function parseRangeParam(raw: string | null): RangeKey {
+  const s = (raw || "").toLowerCase().trim();
+  if (s === "30d" || s === "90d" || s === "365d" || s === "ytd") return s;
+  return "ytd";
+}
+
 const PRIMARY = "#f7f775";
 const SECONDARY = "#9d9a89";
 const TEXT = "#333333";
 const GRID = "rgba(51,51,51,0.08)";
+
+function formatSkDate(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  return `${d}. ${m}. ${y}`;
+}
 
 function formatMoney(amount: number, currency: string | null) {
   const c = currency || "EUR";
@@ -73,15 +98,26 @@ function formatMoney(amount: number, currency: string | null) {
 }
 
 export default function DashboardClient() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const rangeFromUrl = parseRangeParam(searchParams.get("range"));
+  const [range, setRange] = useState<RangeKey>(rangeFromUrl);
+
+  useEffect(() => {
+    setRange(rangeFromUrl);
+  }, [rangeFromUrl]);
+
   const [data, setData] = useState<Payload | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (r: RangeKey) => {
     setLoading(true);
     setErr(null);
     try {
-      const res = await fetch("/api/dashboard");
+      const q = r === "ytd" ? "" : `?range=${encodeURIComponent(r)}`;
+      const res = await fetch(`/api/dashboard${q}`);
       const json = await res.json();
       if (!res.ok) {
         setErr(json.error || `HTTP ${res.status}`);
@@ -98,8 +134,23 @@ export default function DashboardClient() {
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    load(range);
+  }, [load, range]);
+
+  function onRangeChange(next: RangeKey) {
+    setRange(next);
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === "ytd") params.delete("range");
+    else params.set("range", next);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }
+
+  const periodLabel = data?.meta
+    ? data.meta.range === "ytd"
+      ? `YTD ${data.meta.from.slice(0, 4)}`
+      : `${formatSkDate(data.meta.from)} – ${formatSkDate(data.meta.to)}`
+    : "";
 
   const lineData = data
     ? {
@@ -163,6 +214,21 @@ export default function DashboardClient() {
       <header className="site-header">
         <div className="site-header__inner">
           <h1>MOJA PHASE — predaj</h1>
+          <label className="period-filter">
+            <span className="period-filter__label">Obdobie</span>
+            <select
+              className="period-filter__select"
+              value={range}
+              onChange={(e) => onRangeChange(e.target.value as RangeKey)}
+              aria-label="Časové obdobie dashboardu"
+            >
+              {RANGE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       </header>
 
@@ -173,14 +239,16 @@ export default function DashboardClient() {
             {err}{" "}
             Skontroluj env na Verceli (<code>SUPABASE_URL</code>,{" "}
             <code>SUPABASE_SERVICE_ROLE_KEY</code>) a migráciu{" "}
-            <code>002_dashboard_mvp.sql</code>.
+            <code>002_dashboard_mvp.sql</code>, <code>003_dashboard_range.sql</code>.
           </p>
         )}
         {data && !loading && (
           <>
             <section className="kpi-grid">
               <div className="kpi-card">
-                <div className="kpi-card__label">Obrat YTD (2026)</div>
+                <div className="kpi-card__label">
+                  Obrat{periodLabel ? ` (${periodLabel})` : ""}
+                </div>
                 <div className="kpi-card__value">
                   {formatMoney(Number(data.kpis.revenue), data.kpis.currency)}
                 </div>
@@ -199,7 +267,10 @@ export default function DashboardClient() {
 
             <section className="charts-row">
               <div className="chart-card" style={{ minHeight: 320 }}>
-                <h2>Tržby po dňoch (od 1. 1. 2026)</h2>
+                <h2>
+                  Tržby po dňoch
+                  {periodLabel ? ` (${periodLabel})` : ""}
+                </h2>
                 {lineData ? (
                   <div style={{ height: 260 }}>
                     <Line data={lineData} options={chartOptions} />
@@ -207,7 +278,10 @@ export default function DashboardClient() {
                 ) : null}
               </div>
               <div className="chart-card" style={{ minHeight: 320 }}>
-                <h2>Top 5 produktov (tržby)</h2>
+                <h2>
+                  Top 5 produktov (tržby)
+                  {periodLabel ? ` (${periodLabel})` : ""}
+                </h2>
                 {barData ? (
                   <div style={{ height: 260 }}>
                     <Bar
@@ -223,7 +297,10 @@ export default function DashboardClient() {
             </section>
 
             <section className="table-card">
-              <h2>Posledných 10 objednávok</h2>
+              <h2>
+                10 najnovších objednávok v období
+                {periodLabel ? ` (${periodLabel})` : ""}
+              </h2>
               <table>
                 <thead>
                   <tr>

@@ -3,7 +3,14 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
+const ALLOWED_RANGE = new Set(["ytd", "30d", "90d", "365d"]);
+
 const MOCK_PAYLOAD = {
+  meta: {
+    range: "ytd",
+    from: "2026-01-01",
+    to: "2026-04-04",
+  },
   kpis: {
     revenue: 12840.5,
     orders: 156,
@@ -53,8 +60,16 @@ function checkAuth(request: Request): boolean {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
+  const rawRangeEarly = url.searchParams.get("range")?.toLowerCase().trim() ?? "";
+  const rangeEarly = ALLOWED_RANGE.has(rawRangeEarly) ? rawRangeEarly : "ytd";
   if (url.searchParams.get("mock") === "1") {
-    return NextResponse.json(MOCK_PAYLOAD);
+    return NextResponse.json({
+      ...MOCK_PAYLOAD,
+      meta: {
+        ...MOCK_PAYLOAD.meta,
+        range: rangeEarly,
+      },
+    });
   }
 
   if (!checkAuth(request)) {
@@ -77,7 +92,9 @@ export async function GET(request: Request) {
   }
 
   const supabase = createClient(supabaseUrl, serviceKey);
-  const { data, error } = await supabase.rpc("get_shopify_dashboard_mvp");
+  const { data, error } = await supabase.rpc("get_shopify_dashboard_mvp", {
+    p_range: rangeEarly,
+  });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

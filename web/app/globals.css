@@ -56,9 +56,40 @@ a:hover {
   margin: 0 auto;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
+}
+
+.period-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.period-filter__label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--header-text);
+  opacity: 0.85;
+}
+
+.period-filter__select {
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--header-text);
+  cursor: pointer;
+  min-width: 200px;
+}
+
+.period-filter__select:focus {
+  outline: 2px solid var(--primary, #f7f775);
+  outline-offset: 2px;
 }
 
 .site-header h1 {
