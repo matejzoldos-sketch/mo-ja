@@ -56,7 +56,7 @@ a:hover {
   margin: 0 auto;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   flex-wrap: wrap;
   gap: 12px;
 }
@@ -160,13 +160,6 @@ th {
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.02em;
-}
-
-.toolbar {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  flex-wrap: wrap;
 }
 
 .btn {

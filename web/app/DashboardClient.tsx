@@ -76,14 +76,12 @@ export default function DashboardClient() {
   const [data, setData] = useState<Payload | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [mock, setMock] = useState(false);
 
-  const load = useCallback(async (useMock: boolean) => {
+  const load = useCallback(async () => {
     setLoading(true);
     setErr(null);
     try {
-      const q = useMock ? "?mock=1" : "";
-      const res = await fetch(`/api/dashboard${q}`);
+      const res = await fetch("/api/dashboard");
       const json = await res.json();
       if (!res.ok) {
         setErr(json.error || `HTTP ${res.status}`);
@@ -100,8 +98,8 @@ export default function DashboardClient() {
   }, []);
 
   useEffect(() => {
-    load(mock);
-  }, [load, mock]);
+    load();
+  }, [load]);
 
   const lineData = data
     ? {
@@ -165,30 +163,6 @@ export default function DashboardClient() {
       <header className="site-header">
         <div className="site-header__inner">
           <h1>MOJA PHASE — predaj</h1>
-          <div className="toolbar">
-            <a
-              className="btn btn-ghost"
-              href="https://shop.mo-ja.com/"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Obchod
-            </a>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={() => setMock((m) => !m)}
-            >
-              {mock ? "Načítať Supabase" : "Ukážkové dáta"}
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={() => load(mock)}
-            >
-              Obnoviť
-            </button>
-          </div>
         </div>
       </header>
 
@@ -196,14 +170,10 @@ export default function DashboardClient() {
         {loading && <p className="msg">Načítavam…</p>}
         {err && !loading && (
           <p className="msg msg-error">
-            {err}
-            {mock ? null : (
-              <>
-                {" "}
-                Skús „Ukážkové dáta“ alebo skontroluj migráciu{" "}
-                <code>002_dashboard_mvp.sql</code>.
-              </>
-            )}
+            {err}{" "}
+            Skontroluj env na Verceli (<code>SUPABASE_URL</code>,{" "}
+            <code>SUPABASE_SERVICE_ROLE_KEY</code>) a migráciu{" "}
+            <code>002_dashboard_mvp.sql</code>.
           </p>
         )}
         {data && !loading && (
