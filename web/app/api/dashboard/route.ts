@@ -61,11 +61,17 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = (process.env.SUPABASE_URL || "").trim();
+  const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
   if (!supabaseUrl || !serviceKey) {
+    const missing = [
+      !supabaseUrl && "SUPABASE_URL",
+      !serviceKey && "SUPABASE_SERVICE_ROLE_KEY",
+    ].filter(Boolean) as string[];
     return NextResponse.json(
-      { error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" },
+      {
+        error: `Chýba: ${missing.join(", ")}. Vercel → Project → Settings → Environment Variables: pridaj obe pre Production, potom Redeploy. (Názvy presne takto; service_role secret, nie anon.)`,
+      },
       { status: 500 }
     );
   }
