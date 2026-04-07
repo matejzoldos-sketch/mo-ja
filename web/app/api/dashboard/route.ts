@@ -49,6 +49,23 @@ const MOCK_PAYLOAD = {
       };
     }
   ),
+  skuDailyYtd: {
+    year: 2026,
+    from: "2026-01-01",
+    to: "2026-04-04",
+    skuOrder: ["MOJA Phase", "MOJA Phase+", "DUO pack"],
+    points: [
+      { date: "2026-01-02", sku: "MOJA Phase", units: 3 },
+      { date: "2026-01-02", sku: "MOJA Phase+", units: 1 },
+      { date: "2026-01-05", sku: "MOJA Phase", units: 2 },
+      { date: "2026-01-05", sku: "DUO pack", units: 4 },
+      { date: "2026-01-08", sku: "MOJA Phase+", units: 5 },
+      { date: "2026-01-10", sku: "MOJA Phase", units: 1 },
+      { date: "2026-01-12", sku: "DUO pack", units: 2 },
+      { date: "2026-01-15", sku: "MOJA Phase", units: 4 },
+      { date: "2026-01-18", sku: "MOJA Phase+", units: 2 },
+    ],
+  },
 };
 
 function checkAuth(request: Request): boolean {
@@ -92,13 +109,27 @@ export async function GET(request: Request) {
   }
 
   const supabase = createClient(supabaseUrl, serviceKey);
-  const { data, error } = await supabase.rpc("get_shopify_dashboard_mvp", {
-    p_range: rangeEarly,
-  });
+  const [dashRes, skuRes] = await Promise.all([
+    supabase.rpc("get_shopify_dashboard_mvp", { p_range: rangeEarly }),
+    supabase.rpc("get_shopify_sku_units_daily_ytd"),
+  ]);
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (dashRes.error) {
+    return NextResponse.json({ error: dashRes.error.message }, { status: 500 });
+  }
+  if (skuRes.error) {
+    return NextResponse.json({ error: skuRes.error.message }, { status: 500 });
   }
 
-  return NextResponse.json(data);
+  const base =
+    dashRes.data !== null &&
+    typeof dashRes.data === "object" &&
+    !Array.isArray(dashRes.data)
+      ? (dashRes.data as Record<string, unknown>)
+      : {};
+
+  return NextResponse.json({
+    ...base,
+    skuDailyYtd: skuRes.data,
+  });
 }

@@ -53,12 +53,21 @@ type RangeKey = "ytd" | "30d" | "90d";
 
 type PayloadMeta = { range: string; from: string; to: string };
 
+type SkuDailyYtd = {
+  year: number;
+  from: string;
+  to: string;
+  skuOrder: string[];
+  points: { date: string; sku: string; units: number }[];
+};
+
 type Payload = {
   meta: PayloadMeta;
   kpis: Kpis;
   dailyRevenue: Daily[];
   topProducts: TopProduct[];
   recentOrders: RecentOrder[];
+  skuDailyYtd?: SkuDailyYtd;
 };
 
 const RANGE_OPTIONS: { value: RangeKey; label: string }[] = [
@@ -118,6 +127,54 @@ function linearTrendSeries(y: number[]): number[] {
   const m = (n * sumXY - sumX * sumY) / denom;
   const b = (sumY - m * sumX) / n;
   return y.map((_, i) => m * i + b);
+}
+
+function enumerateInclusiveDays(fromIso: string, toIso: string): string[] {
+  const out: string[] = [];
+  const [fy, fm, fd] = fromIso.split("-").map(Number);
+  const [ty, tm, td] = toIso.split("-").map(Number);
+  const cur = new Date(Date.UTC(fy, (fm || 1) - 1, fd || 1));
+  const end = new Date(Date.UTC(ty, (tm || 1) - 1, td || 1));
+  while (cur.getTime() <= end.getTime()) {
+    const y = cur.getUTCFullYear();
+    const m = String(cur.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(cur.getUTCDate()).padStart(2, "0");
+    out.push(`${y}-${m}-${d}`);
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+  return out;
+}
+
+function skuLineColor(i: number, total: number): string {
+  const step = total > 0 ? 360 / total : 0;
+  const h = Math.round((i * step) % 360);
+  return `hsl(${h} 42% 38%)`;
+}
+
+function buildSkuUnitsLineChart(
+  s: SkuDailyYtd | undefined
+): { labels: string[]; datasets: object[] } | null {
+  if (!s?.skuOrder?.length) return null;
+  const days = enumerateInclusiveDays(s.from, s.to);
+  if (days.length === 0) return null;
+  const key = (d: string, sku: string) => `${d}|${sku}`;
+  const m = new Map<string, number>();
+  for (const p of s.points) {
+    m.set(key(p.date, p.sku), Number(p.units));
+  }
+  const n = s.skuOrder.length;
+  const datasets = s.skuOrder.map((sku, i) => ({
+    label: sku.length > 40 ? `${sku.slice(0, 38)}…` : sku,
+    data: days.map((d) => m.get(key(d, sku)) ?? 0),
+    borderColor: skuLineColor(i, n),
+    backgroundColor: "transparent",
+    fill: false,
+    tension: 0.2,
+    pointRadius: 0,
+    pointHoverRadius: 4,
+    borderWidth: 2,
+  }));
+  return { labels: days, datasets };
 }
 
 export default function DashboardClient() {
@@ -266,6 +323,48 @@ export default function DashboardClient() {
     },
   };
 
+  const skuYtdLineData = data?.skuDailyYtd
+    ? buildSkuUnitsLineChart(data.skuDailyYtd)
+    : null;
+
+  const skuYtdLineOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: "bottom" as const,
+        labels: {
+          color: TEXT,
+          font: { family: "Manrope", size: 11 },
+          boxWidth: 12,
+          padding: 10,
+          usePointStyle: true,
+          pointStyle: "line" as const,
+        },
+      },
+      tooltip: {
+        mode: "index" as const,
+        intersect: false,
+      },
+    },
+    scales: {
+      x: {
+        ticks: { color: TEXT, maxRotation: 45, minRotation: 0 },
+        grid: { color: GRID },
+      },
+      y: {
+        ticks: { color: TEXT },
+        grid: { color: GRID },
+        beginAtZero: true,
+      },
+    },
+    interaction: {
+      mode: "nearest" as const,
+      axis: "x" as const,
+      intersect: false,
+    },
+  };
+
   return (
     <>
       <header className="site-header">
@@ -298,7 +397,8 @@ export default function DashboardClient() {
             <code>SUPABASE_SERVICE_ROLE_KEY</code>) a migráciu{" "}
             <code>002_dashboard_mvp.sql</code>, <code>003_dashboard_range.sql</code>,{" "}
             <code>004_dashboard_remove_365d.sql</code>,{" "}
-            <code>005_inventory_dashboard_rpc.sql</code> (sklad).
+            <code>005_inventory_dashboard_rpc.sql</code> (sklad),{" "}
+            <code>006_sku_units_daily_ytd.sql</code>.
           </p>
         )}
         {data && !loading && (
@@ -379,6 +479,31 @@ export default function DashboardClient() {
                 ) : null}
               </div>
             </section>
+
+            {data.skuDailyYtd && skuYtdLineData ? (
+              <section className="chart-card chart-card--sku-ytd">
+                <h2>
+                  Denné predané kusy podľa SKU (od 1. 1. {data.skuDailyYtd.year})
+                </h2>
+                <p className="chart-card__subtitle">
+                  Kalendárny rok podľa Europe/Bratislava; rovnaký filter platby ako
+                  KPI. Zobrazených max. 10 SKU s najväčším objemom kusov YTD (label =
+                  SKU alebo názov riadku).
+                </p>
+                <div className="sku-ytd-chart-wrap">
+                  <Line data={skuYtdLineData} options={skuYtdLineOptions} />
+                </div>
+              </section>
+            ) : data.skuDailyYtd &&
+              data.skuDailyYtd.skuOrder.length === 0 &&
+              skuYtdLineData === null ? (
+              <section className="chart-card chart-card--sku-ytd">
+                <h2>
+                  Denné predané kusy podľa SKU (od 1. 1. {data.skuDailyYtd.year})
+                </h2>
+                <p className="msg">Zatiaľ žiadne predaje v tomto roku.</p>
+              </section>
+            ) : null}
 
             <section className="table-card">
               <h2>
