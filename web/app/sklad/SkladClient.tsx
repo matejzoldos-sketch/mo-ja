@@ -1,7 +1,35 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler,
+} from "chart.js";
+import { Line } from "react-chartjs-2";
 import { HeaderBrand, HeaderSectionSelect } from "../components/HeaderNav";
+import {
+  buildStockHistoryChart,
+  stockHistoryChartOptions,
+  type StockChartYtd,
+} from "./stockChart";
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 type InvRow = {
   inventory_item_id: number;
@@ -29,6 +57,9 @@ function formatWhen(iso: string | null) {
 
 export default function SkladClient() {
   const [rows, setRows] = useState<InvRow[] | null>(null);
+  const [stockChartYtd, setStockChartYtd] = useState<StockChartYtd | null>(
+    null
+  );
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -41,12 +72,20 @@ export default function SkladClient() {
       if (!res.ok) {
         setErr(json.error || `HTTP ${res.status}`);
         setRows(null);
+        setStockChartYtd(null);
         return;
       }
-      setRows(json as InvRow[]);
+      if (Array.isArray(json)) {
+        setRows(json as InvRow[]);
+        setStockChartYtd(null);
+        return;
+      }
+      setRows((json.levels as InvRow[]) ?? []);
+      setStockChartYtd((json.stockChartYtd as StockChartYtd) ?? null);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Fetch failed");
       setRows(null);
+      setStockChartYtd(null);
     } finally {
       setLoading(false);
     }
@@ -58,6 +97,10 @@ export default function SkladClient() {
 
   const totalAvailable =
     rows?.reduce((s, r) => s + Number(r.available), 0) ?? 0;
+
+  const stockLineData = stockChartYtd
+    ? buildStockHistoryChart(stockChartYtd)
+    : null;
 
   return (
     <>
@@ -75,7 +118,8 @@ export default function SkladClient() {
         {err && !loading && (
           <p className="msg msg-error">
             {err}{" "}
-            Skontroluj env a migráciu <code>005_inventory_dashboard_rpc.sql</code>.
+            Skontroluj env a migrácie <code>005_inventory_dashboard_rpc.sql</code>,{" "}
+            <code>007_inventory_snapshots.sql</code>.
           </p>
         )}
         {!loading && !err && rows && (
@@ -89,6 +133,32 @@ export default function SkladClient() {
                 <div className="kpi-card__label">Dostupné kusy (súčet)</div>
                 <div className="kpi-card__value">{totalAvailable}</div>
               </div>
+            </section>
+
+            <section className="chart-card chart-card--sku-ytd sklad-chart-section">
+              <h2>
+                Vývoj skladu podľa SKU (od 1. 1.{" "}
+                {stockChartYtd?.year ?? new Date().getFullYear()})
+              </h2>
+              <p className="chart-card__subtitle">
+                Súčet dostupných kusov na všetkých lokáciách; po nasadení migrácie
+                007 sa pri každom synci inventára uloží snímka. Graf ukazuje max. 10
+                SKU s najvyšším aktuálnym stavom; medzi snímkami sa hodnota drží
+                (posledná známa).
+              </p>
+              {stockLineData ? (
+                <div className="sku-ytd-chart-wrap">
+                  <Line
+                    data={stockLineData}
+                    options={stockHistoryChartOptions}
+                  />
+                </div>
+              ) : (
+                <p className="msg">
+                  Zatiaľ žiadne snapshoty — po prvom behu syncu s inventárom sa tu
+                  začne plniť história.
+                </p>
+              )}
             </section>
 
             <section className="table-card">

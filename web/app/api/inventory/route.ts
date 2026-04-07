@@ -31,11 +31,21 @@ export async function GET(request: Request) {
   }
 
   const supabase = createClient(supabaseUrl, serviceKey);
-  const { data, error } = await supabase.rpc("get_shopify_inventory_dashboard");
+  const [levelsRes, chartRes] = await Promise.all([
+    supabase.rpc("get_shopify_inventory_dashboard"),
+    supabase.rpc("get_shopify_inventory_stock_chart_ytd"),
+  ]);
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (levelsRes.error) {
+    return NextResponse.json({ error: levelsRes.error.message }, { status: 500 });
+  }
+  if (chartRes.error) {
+    return NextResponse.json({ error: chartRes.error.message }, { status: 500 });
   }
 
-  return NextResponse.json(Array.isArray(data) ? data : []);
+  const levels = Array.isArray(levelsRes.data) ? levelsRes.data : [];
+  return NextResponse.json({
+    levels,
+    stockChartYtd: chartRes.data,
+  });
 }

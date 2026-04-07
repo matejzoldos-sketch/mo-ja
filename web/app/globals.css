@@ -197,6 +197,10 @@ a:hover {
   margin-bottom: var(--space-gutter);
 }
 
+.sklad-chart-section {
+  margin-bottom: var(--space-gutter);
+}
+
 .sku-ytd-chart-wrap {
   position: relative;
   height: 380px;

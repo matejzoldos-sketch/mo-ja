@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Shopify Admin API → Supabase (orders, line items, locations, inventory levels).
+Shopify Admin API → Supabase (orders, line items, locations, inventory levels, stock snapshots).
 
 Env:
   SHOPIFY_STORE              — shop handle without .myshopify.com (e.g. yttmhc-p0)
@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+from collections import defaultdict
 import os
 import re
 import sys
@@ -556,6 +557,29 @@ def sync_inventory(
         "inventory_item_id,location_id",
     )
     log.info("Upserted %d inventory level rows", len(level_rows))
+
+    by_sku: Dict[str, int] = defaultdict(int)
+    for r in level_rows:
+        raw = r.get("raw_json") or {}
+        if isinstance(raw, dict):
+            sku = (raw.get("inventoryItemSku") or "").strip()
+        else:
+            sku = ""
+        label = sku if sku else "—"
+        by_sku[label] += int(r.get("available") or 0)
+
+    snapshot_rows = [
+        {"sku_label": k, "total_available": v} for k, v in sorted(by_sku.items())
+    ]
+    if snapshot_rows:
+        try:
+            supabase.table("shopify_inventory_snapshots").insert(snapshot_rows).execute()
+            log.info("Inserted %d inventory snapshot rows", len(snapshot_rows))
+        except Exception as e:
+            log.warning(
+                "Could not insert shopify_inventory_snapshots (run migration 007?): %s",
+                e,
+            )
 
 
 def build_orders_search_query(args: argparse.Namespace) -> str:
