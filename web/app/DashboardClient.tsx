@@ -89,6 +89,9 @@ const TEXT = "#333333";
 const GRID = "rgba(51,51,51,0.08)";
 const TREND_LINE = "rgba(51, 51, 51, 0.5)";
 
+/** Suffix on trend dataset labels; filtered out of legend (still in tooltip). */
+const SKU_CHART_TREND_SUFFIX = " (trend)";
+
 function formatSkDate(iso: string) {
   const [y, m, d] = iso.split("-").map(Number);
   if (!y || !m || !d) return iso;
@@ -164,33 +167,36 @@ function buildSkuUnitsLineChart(
     m.set(key(p.date, p.sku), Number(p.units));
   }
   const n = s.skuOrder.length;
-  const datasets: ChartData<"line">["datasets"] = s.skuOrder.map((sku, i) => ({
-    label: sku.length > 40 ? `${sku.slice(0, 38)}…` : sku,
-    data: days.map((d) => m.get(key(d, sku)) ?? 0),
-    borderColor: skuLineColor(i, n),
-    backgroundColor: "transparent",
-    fill: false,
-    tension: 0.2,
-    pointRadius: 0,
-    pointHoverRadius: 4,
-    borderWidth: 2,
-  }));
-  const dailyTotals = days.map((d) =>
-    s.skuOrder.reduce((sum, sku) => sum + (m.get(key(d, sku)) ?? 0), 0)
-  );
-  const trend = linearTrendSeries(dailyTotals);
-  datasets.push({
-    label: "Trend (súčet kusov)",
-    data: trend,
-    borderColor: TREND_LINE,
-    borderWidth: 2,
-    borderDash: [6, 4],
-    pointRadius: 0,
-    pointHoverRadius: 0,
-    fill: false,
-    tension: 0,
-    backgroundColor: "transparent",
-  });
+  const datasets: ChartData<"line">["datasets"] = [];
+  for (let i = 0; i < s.skuOrder.length; i++) {
+    const sku = s.skuOrder[i];
+    const label = sku.length > 40 ? `${sku.slice(0, 38)}…` : sku;
+    const color = skuLineColor(i, n);
+    const row = days.map((d) => m.get(key(d, sku)) ?? 0);
+    datasets.push({
+      label,
+      data: row,
+      borderColor: color,
+      backgroundColor: "transparent",
+      fill: false,
+      tension: 0.2,
+      pointRadius: 0,
+      pointHoverRadius: 4,
+      borderWidth: 2,
+    });
+    datasets.push({
+      label: `${label}${SKU_CHART_TREND_SUFFIX}`,
+      data: linearTrendSeries(row),
+      borderColor: color,
+      backgroundColor: "transparent",
+      fill: false,
+      tension: 0,
+      borderWidth: 2,
+      borderDash: [5, 5],
+      pointRadius: 0,
+      pointHoverRadius: 0,
+    });
+  }
   return { labels: days, datasets };
 }
 
@@ -357,6 +363,9 @@ export default function DashboardClient() {
           padding: 10,
           usePointStyle: true,
           pointStyle: "line",
+          filter: (item) =>
+            typeof item.text === "string" &&
+            !item.text.endsWith(SKU_CHART_TREND_SUFFIX),
         },
       },
       tooltip: {
@@ -505,8 +514,8 @@ export default function DashboardClient() {
                 <p className="chart-card__subtitle">
                   Kalendárny rok podľa Europe/Bratislava; rovnaký filter platby ako
                   KPI. Zobrazených max. 10 SKU s najväčším objemom kusov YTD (label =
-                  SKU alebo názov riadku). Prerušovaná čiara = lineárny trend denného
-                  súčtu kusov týchto SKU.
+                  SKU alebo názov riadku). Prerušované čiary = lineárny trend kusov
+                  pre každý produkt (farba zodpovedá plnej čiare).
                 </p>
                 <div className="sku-ytd-chart-wrap">
                   <Line data={skuYtdLineData} options={skuYtdLineOptions} />
