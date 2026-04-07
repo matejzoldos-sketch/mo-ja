@@ -82,6 +82,21 @@ def _normalize_token(raw: str) -> str:
     return t
 
 
+def _log_token_hint(token: str) -> None:
+    """Safe diagnostics for CI (never log the full secret)."""
+    n = len(token)
+    log.info("SHOPIFY_ACCESS_TOKEN length=%d", n)
+    if token.startswith("shpat_"):
+        log.info("Token prefix OK (shpat_ — Admin API access token from Develop apps)")
+        return
+    log.warning(
+        "Token does NOT start with shpat_. Wrong value in GitHub secret is the #1 cause of 401. "
+        "Use Admin API access token from: Store admin → Settings → Apps → Develop apps → "
+        "[Your app] → API credentials → Reveal (after Install). "
+        "Do NOT use Client secret, API key, or Partner Dashboard client secret."
+    )
+
+
 def gid_to_int(gid: Optional[str]) -> Optional[int]:
     if not gid or not isinstance(gid, str):
         return None
@@ -486,6 +501,7 @@ def main() -> None:
 
     store = _normalize_store(_require_env("SHOPIFY_STORE"))
     token = _normalize_token(_require_env("SHOPIFY_ACCESS_TOKEN"))
+    _log_token_hint(token)
     sb_url = _require_env("SUPABASE_URL")
     sb_key = _require_env("SUPABASE_SERVICE_ROLE_KEY")
     ver = _resolved_api_version()

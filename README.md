@@ -49,6 +49,31 @@ V repozitári nastav **Secrets**:
 
 Workflow: každý deň o ~04:15 UTC reconciliácia (`--days 14`); **v pondelok** (kalendár Europe/Bratislava) beh `--ytd`. Manuálne `workflow_dispatch` s voľbou `daily` / `ytd`.
 
+### Shopify 401 / „Invalid API key or access token“
+
+1. **`SHOPIFY_ACCESS_TOKEN`** musí byť **Admin API access token** z **obchodného adminu**: **Settings → Apps and sales channels → Develop apps → [appka] → API credentials → Reveal** (až po **Install app**). Zvyčajne začína **`shpat_`**.  
+   **Nie** Client secret, **nie** „API secret key“ z Partner Dashboardu, **nie** API key z karty Configuration.
+
+2. **`SHOPIFY_STORE`** = len handle (napr. `yttmhc-p0`), nie celá URL.
+
+3. Po spustení Actions v logu skontroluj riadok **`SHOPIFY_ACCESS_TOKEN length=`** a či je **`Token prefix OK (shpat_…)`**. Ak nie, secret v GitHube je stále zlý typ hodnoty.
+
+4. Rýchly test v termináli (lokálne, token nezdieľaj):
+
+   ```bash
+   export SHOPIFY_STORE=tvoj-handle
+   export SHOPIFY_ACCESS_TOKEN='shpat_...'
+   curl -sS -w "\nHTTP %{http_code}\n" \
+     -H "Content-Type: application/json" \
+     -H "X-Shopify-Access-Token: $SHOPIFY_ACCESS_TOKEN" \
+     -d '{"query":"{ shop { name } }"}' \
+     "https://${SHOPIFY_STORE}.myshopify.com/admin/api/2024-10/graphql.json"
+   ```
+
+   Očakávané: HTTP **200** a JSON s `data.shop.name`. Ak **401**, token alebo store nesedí.
+
+5. Ak appku máš **len v Partner Dashboard** a nie v **Develop apps** v tom obchode, statický `shpat_` token tam nemusí existovať — potrebuješ **OAuth access token** po inštalácii na daný obchod, alebo zjednodušiť: vytvor **Develop apps** priamo v obchode a použi ten **Admin API access token**.
+
 ## Dashboard (Next.js na Vercel)
 
 Priečinok [`web/`](web/): KPI, grafy (Chart.js), tabuľka posledných objednávok. Dáta z RPC `get_shopify_dashboard_mvp()` v Supabase.
