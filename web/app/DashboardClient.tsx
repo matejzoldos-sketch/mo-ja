@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Chart as ChartJS,
@@ -119,6 +119,88 @@ function linearTrendSeries(y: number[]): number[] {
   return y.map((_, i) => m * i + b);
 }
 
+const DOW_SK = ["Po", "Ut", "St", "Št", "Pi", "So", "Ne"];
+
+type HeatCell = { iso: string; inRange: boolean; revenue: number };
+
+function utcDateFromIso(iso: string): Date {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y || 1970, (m || 1) - 1, d || 1));
+}
+
+function isoFromUtcDate(d: Date): string {
+  const y = d.getUTCFullYear();
+  const m = d.getUTCMonth() + 1;
+  const day = d.getUTCDate();
+  return `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function addUtcDays(d: Date, n: number): Date {
+  const x = new Date(d.getTime());
+  x.setUTCDate(x.getUTCDate() + n);
+  return x;
+}
+
+/** Monday = 0 … Sunday = 6 (UTC calendar day). */
+function mondayIndexUtc(d: Date): number {
+  const w = d.getUTCDay();
+  return w === 0 ? 6 : w - 1;
+}
+
+function mondayOnOrBeforeUtc(d: Date): Date {
+  return addUtcDays(d, -mondayIndexUtc(d));
+}
+
+function sundayOnOrAfterUtc(d: Date): Date {
+  return addUtcDays(d, 6 - mondayIndexUtc(d));
+}
+
+function buildSalesHeatmapColumns(
+  daily: Daily[],
+  fromIso: string,
+  toIso: string
+): { columns: HeatCell[][]; maxRev: number } {
+  const rev = new Map(daily.map((x) => [x.date, Number(x.revenue)]));
+  const fromD = utcDateFromIso(fromIso);
+  const toD = utcDateFromIso(toIso);
+  const gridStart = mondayOnOrBeforeUtc(fromD);
+  const gridEnd = sundayOnOrAfterUtc(toD);
+  const columns: HeatCell[][] = [];
+  let cursor = new Date(gridStart.getTime());
+  const endMs = gridEnd.getTime();
+  while (cursor.getTime() <= endMs) {
+    const col: HeatCell[] = [];
+    for (let i = 0; i < 7; i++) {
+      const cellD = addUtcDays(cursor, i);
+      const iso = isoFromUtcDate(cellD);
+      const inRange = iso >= fromIso && iso <= toIso;
+      const revenue = inRange ? rev.get(iso) ?? 0 : 0;
+      col.push({ iso, inRange, revenue });
+    }
+    columns.push(col);
+    cursor = addUtcDays(cursor, 7);
+  }
+  let maxRev = 0;
+  for (const col of columns) {
+    for (const c of col) {
+      if (c.inRange && c.revenue > maxRev) maxRev = c.revenue;
+    }
+  }
+  return { columns, maxRev };
+}
+
+function heatmapCellBackground(
+  inRange: boolean,
+  revenue: number,
+  maxRev: number
+): string {
+  if (!inRange) return "transparent";
+  if (maxRev <= 0) return "rgba(157, 154, 137, 0.06)";
+  const t = Math.min(1, revenue / maxRev);
+  const alpha = 0.1 + t * 0.82;
+  return `rgba(157, 154, 137, ${alpha})`;
+}
+
 export default function DashboardClient() {
   const router = useRouter();
   const pathname = usePathname();
@@ -184,6 +266,15 @@ export default function DashboardClient() {
       ? `YTD ${data.meta.from.slice(0, 4)}`
       : `${formatSkDate(data.meta.from)} – ${formatSkDate(data.meta.to)}`
     : "";
+
+  const heatmapModel = useMemo(() => {
+    if (!data?.meta) return null;
+    return buildSalesHeatmapColumns(
+      data.dailyRevenue,
+      data.meta.from,
+      data.meta.to
+    );
+  }, [data]);
 
   const lineData = data
     ? (() => {
@@ -377,6 +468,74 @@ export default function DashboardClient() {
                 ) : null}
               </div>
             </section>
+
+            {heatmapModel && heatmapModel.columns.length > 0 ? (
+              <section className="chart-card heatmap-card">
+                <h2>
+                  Heat mapa tržieb (po dňoch)
+                  {periodLabel ? ` (${periodLabel})` : ""}
+                </h2>
+                <p className="heatmap-card__hint">
+                  Každý štvorček je jeden deň; intenzita = tržby v ten deň (v rámci
+                  zvoleného obdobia).
+                </p>
+                <div className="heatmap">
+                  <div className="heatmap__scroll" role="grid" aria-label="Tržby po dňoch">
+                    {DOW_SK.map((dowLabel, dow) => (
+                      <div key={dowLabel} className="heatmap__row" role="row">
+                        <div className="heatmap__row-label" role="rowheader">
+                          {dowLabel}
+                        </div>
+                        <div className="heatmap__row-cells">
+                          {heatmapModel.columns.map((week, wi) => {
+                            const cell = week[dow];
+                            const title = cell.inRange
+                              ? `${formatSkDate(cell.iso)}: ${formatMoney(
+                                  cell.revenue,
+                                  data.kpis.currency
+                                )}`
+                              : "";
+                            return (
+                              <div
+                                key={`${wi}-${cell.iso}`}
+                                className="heatmap__cell-wrap"
+                                role="gridcell"
+                                title={title}
+                              >
+                                {cell.inRange ? (
+                                  <div
+                                    className="heatmap__cell"
+                                    style={{
+                                      backgroundColor: heatmapCellBackground(
+                                        cell.inRange,
+                                        cell.revenue,
+                                        heatmapModel.maxRev
+                                      ),
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="heatmap__cell heatmap__cell--empty" />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="heatmap__scale" aria-hidden>
+                  <span>menej</span>
+                  <div
+                    className="heatmap__scale-bar"
+                    style={{
+                      background: `linear-gradient(90deg, rgba(157,154,137,0.1), rgba(157,154,137,0.92))`,
+                    }}
+                  />
+                  <span>viac</span>
+                </div>
+              </section>
+            ) : null}
 
             <section className="table-card">
               <h2>
