@@ -511,12 +511,6 @@ export default function DashboardClient() {
                 <h2>
                   Denné predané kusy podľa SKU (od 1. 1. {data.skuDailyYtd.year})
                 </h2>
-                <p className="chart-card__subtitle">
-                  Kalendárny rok podľa Europe/Bratislava; rovnaký filter platby ako
-                  KPI. Zobrazených max. 10 SKU s najväčším objemom kusov YTD (label =
-                  SKU alebo názov riadku). Prerušované čiary = lineárny trend kusov
-                  pre každý produkt (farba zodpovedá plnej čiare).
-                </p>
                 <div className="sku-ytd-chart-wrap">
                   <Line data={skuYtdLineData} options={skuYtdLineOptions} />
                 </div>
