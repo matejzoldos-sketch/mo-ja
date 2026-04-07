@@ -76,6 +76,7 @@ const PRIMARY = "#f7f775";
 const SECONDARY = "#9d9a89";
 const TEXT = "#333333";
 const GRID = "rgba(51,51,51,0.08)";
+const TREND_LINE = "rgba(51, 51, 51, 0.5)";
 
 function formatSkDate(iso: string) {
   const [y, m, d] = iso.split("-").map(Number);
@@ -94,6 +95,28 @@ function formatMoney(amount: number, currency: string | null) {
   } catch {
     return `${amount.toFixed(2)} ${c}`;
   }
+}
+
+/** Least-squares line through points (i, y[i]); one point → flat line. */
+function linearTrendSeries(y: number[]): number[] {
+  const n = y.length;
+  if (n === 0) return [];
+  if (n === 1) return [y[0]];
+  let sumX = 0;
+  let sumY = 0;
+  let sumXY = 0;
+  let sumXX = 0;
+  for (let i = 0; i < n; i++) {
+    sumX += i;
+    sumY += y[i];
+    sumXY += i * y[i];
+    sumXX += i * i;
+  }
+  const denom = n * sumXX - sumX * sumX;
+  if (denom === 0) return y.slice();
+  const m = (n * sumXY - sumX * sumY) / denom;
+  const b = (sumY - m * sumX) / n;
+  return y.map((_, i) => m * i + b);
 }
 
 export default function DashboardClient() {
@@ -163,22 +186,37 @@ export default function DashboardClient() {
     : "";
 
   const lineData = data
-    ? {
-        labels: data.dailyRevenue.map((d) => d.date),
-        datasets: [
-          {
-            label: "Tržby (deň)",
-            data: data.dailyRevenue.map((d) => Number(d.revenue)),
-            borderColor: SECONDARY,
-            backgroundColor: "rgba(157, 154, 137, 0.15)",
-            fill: true,
-            tension: 0.25,
-            pointBackgroundColor: PRIMARY,
-            pointBorderColor: TEXT,
-            pointRadius: 3,
-          },
-        ],
-      }
+    ? (() => {
+        const revenues = data.dailyRevenue.map((d) => Number(d.revenue));
+        const trend = linearTrendSeries(revenues);
+        return {
+          labels: data.dailyRevenue.map((d) => d.date),
+          datasets: [
+            {
+              label: "Tržby (deň)",
+              data: revenues,
+              borderColor: SECONDARY,
+              backgroundColor: "rgba(157, 154, 137, 0.15)",
+              fill: true,
+              tension: 0.25,
+              pointBackgroundColor: PRIMARY,
+              pointBorderColor: TEXT,
+              pointRadius: 3,
+            },
+            {
+              label: "Trend (lineárna)",
+              data: trend,
+              borderColor: TREND_LINE,
+              borderWidth: 2,
+              borderDash: [6, 4],
+              pointRadius: 0,
+              pointHoverRadius: 0,
+              fill: false,
+              tension: 0,
+            },
+          ],
+        };
+      })()
     : null;
 
   const barData = data
