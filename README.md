@@ -4,7 +4,15 @@ Synchronizácia **objednávok**, **riadkov**, **lokácií** a **skladových zás
 
 ## Požiadavky
 
-- Shopify **Custom app** s Admin API tokenom a scopes: `read_inventory`, `read_locations`, `read_products` a `read_orders` alebo `read_all_orders` (pre dlhšiu históriu). Mená zákazníkov sync neťahá — `read_customers` nepotrebuješ, kým to nezapneš v `sync_shopify.py`.
+- Shopify **Admin API** prístup so scopes: `read_inventory`, `read_locations`, `read_products` a `read_orders` alebo `read_all_orders` (pre dlhšiu históriu). Mená zákazníkov sync neťahá — `read_customers` nepotrebuješ, kým to nezapneš v `sync_shopify.py`.
+
+### Od 1. 1. 2026 (Dev Dashboard)
+
+Shopify už **nepovoľuje nové** „legacy“ custom appky v admine s jednorazovým **Reveal** tokenom. Nové appky vznikajú v **[Dev Dashboard](https://dev.shopify.com/dashboard/)**; autentifikácia je **Client ID + Client secret** a skript si cez [client credentials grant](https://shopify.dev/docs/apps/build/dev-dashboard/get-api-access-tokens) vyžiada krátkodobý `access_token` (nemusí začínať `shpat_`).
+
+V `.env` / GitHub Secrets nastav **`SHOPIFY_CLIENT_ID`** a **`SHOPIFY_CLIENT_SECRET`** z Dev Dashboard → appka → **Settings** (a **`SHOPIFY_STORE`**). **`SHOPIFY_ACCESS_TOKEN`** môže byť prázdny — ak sú vyplnené Client ID aj secret, skript ich použije namiesto neho.
+
+Staršie obchody s existujúcou legacy appkou môžu naďalej používať len **`SHOPIFY_ACCESS_TOKEN`**.
 - Supabase projekt; migrácie `001` (+ `002` pre dashboard) spustiť pred prvým syncom / pred webom.
 
 ## Nastavenie
@@ -43,9 +51,10 @@ Synchronizácia **objednávok**, **riadkov**, **lokácií** a **skladových zás
 
 V repozitári nastav **Secrets**:
 
-- `SHOPIFY_STORE`, `SHOPIFY_ACCESS_TOKEN`
-- `SUPABASE_URL` (voliteľné ak použiješ default v workflow)
-- `SUPABASE_SERVICE_ROLE_KEY`
+- `SHOPIFY_STORE`
+- **Buď** `SHOPIFY_CLIENT_ID` + `SHOPIFY_CLIENT_SECRET` (Dev Dashboard, od 2026), **alebo** `SHOPIFY_ACCESS_TOKEN` (legacy custom app)
+- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+- voliteľne `SHOPIFY_API_VERSION`
 
 Workflow: každý deň o ~04:15 UTC reconciliácia (`--days 14`); **v pondelok** (kalendár Europe/Bratislava) beh `--ytd`. Manuálne `workflow_dispatch` s voľbou `daily` / `ytd`.
 

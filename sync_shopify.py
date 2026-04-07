@@ -4,10 +4,16 @@ Shopify Admin API → Supabase (orders, line items, locations, inventory levels)
 
 Env:
   SHOPIFY_STORE              — shop handle without .myshopify.com (e.g. yttmhc-p0)
-  SHOPIFY_ACCESS_TOKEN       — Admin API access token (Custom app)
+  SHOPIFY_ACCESS_TOKEN       — legacy Admin API token (Develop apps, before 2026-01-01), optional if using OAuth below
+  SHOPIFY_CLIENT_ID          — Dev Dashboard app Client ID (with SHOPIFY_CLIENT_SECRET → OAuth client_credentials)
+  SHOPIFY_CLIENT_SECRET      — Dev Dashboard app Client secret
   SHOPIFY_API_VERSION        — optional, default 2026-01
   SUPABASE_URL
   SUPABASE_SERVICE_ROLE_KEY
+
+Auth (2026+): New apps use Dev Dashboard; tokens are obtained via POST /admin/oauth/access_token
+(client_credentials). See https://shopify.dev/docs/apps/build/dev-dashboard/get-api-access-tokens
+If SHOPIFY_CLIENT_ID and SHOPIFY_CLIENT_SECRET are set, they take precedence over SHOPIFY_ACCESS_TOKEN.
 
 Usage:
   python sync_shopify.py                    # last 14 days by updated_at + inventory + locations
@@ -151,6 +157,41 @@ def _log_token_hint(token: str) -> None:
         "Develop apps → API credentials → Reveal (not Client secret / API key).",
         _SHOPIFY_ADMIN_API_PREFIXES,
     )
+
+
+def fetch_admin_token_client_credentials(
+    client: httpx.Client,
+    store: str,
+    client_id: str,
+    client_secret: str,
+) -> str:
+    """Exchange Dev Dashboard Client ID/secret for a short-lived Admin API access_token."""
+    url = f"https://{store}.myshopify.com/admin/oauth/access_token"
+    resp = client.post(
+        url,
+        data={
+            "grant_type": "client_credentials",
+            "client_id": client_id.strip(),
+            "client_secret": client_secret.strip(),
+        },
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    if not resp.is_success:
+        log.error(
+            "OAuth client_credentials failed HTTP %s for %s — body (truncated): %s",
+            resp.status_code,
+            url,
+            (resp.text or "")[:800],
+        )
+    resp.raise_for_status()
+    body = resp.json()
+    tok = body.get("access_token")
+    if not tok:
+        log.error("OAuth response missing access_token: %s", body)
+        sys.exit(1)
+    expires_in = body.get("expires_in", "?")
+    log.info("Admin API token via client_credentials (expires_in=%s s)", expires_in)
+    return str(tok).strip()
 
 
 def gid_to_int(gid: Optional[str]) -> Optional[int]:
@@ -557,8 +598,10 @@ def main() -> None:
     args.ytd_year = args.ytd_year or date.today().year
 
     store = _normalize_store(_require_env("SHOPIFY_STORE"))
-    token = _normalize_token(_require_env("SHOPIFY_ACCESS_TOKEN"))
-    _log_token_hint(token)
+    client_id = os.environ.get("SHOPIFY_CLIENT_ID", "").strip()
+    client_secret = os.environ.get("SHOPIFY_CLIENT_SECRET", "").strip()
+    raw_access = os.environ.get("SHOPIFY_ACCESS_TOKEN", "").strip()
+
     sb_url = _require_env("SUPABASE_URL")
     sb_key = _require_env("SUPABASE_SERVICE_ROLE_KEY")
     ver = _resolved_api_version()
@@ -573,7 +616,20 @@ def main() -> None:
         log.error("Choose at most one of --inventory-only / --orders-only")
         sys.exit(1)
 
+    if not (client_id and client_secret) and not raw_access:
+        log.error(
+            "Shopify auth: set SHOPIFY_CLIENT_ID + SHOPIFY_CLIENT_SECRET (Dev Dashboard, Jan 2026+), "
+            "or SHOPIFY_ACCESS_TOKEN (legacy custom app). See README."
+        )
+        sys.exit(1)
+
     with httpx.Client(timeout=120.0) as client:
+        if client_id and client_secret:
+            token = fetch_admin_token_client_credentials(client, store, client_id, client_secret)
+        else:
+            token = _normalize_token(raw_access)
+            _log_token_hint(token)
+
         if not inv_only:
             sync_locations(supabase, client, store, token, ver)
         if not inv_only:
