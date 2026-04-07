@@ -58,6 +58,30 @@ ORDERS_PAGE_SIZE = 40
 INVENTORY_ITEMS_PAGE_SIZE = 50
 UPSERT_CHUNK = 150
 
+# Admin API access tokens from Shopify use several prefixes (not only shpat_).
+# See Shopify community / docs on token types; shpss_ appears for some legacy / app setups.
+_SHOPIFY_ADMIN_API_PREFIXES: Tuple[str, ...] = (
+    "shpat_",
+    "shpca_",
+    "shpss_",
+    "shpua_",
+)
+
+
+def _admin_token_prefix(token: str) -> Optional[str]:
+    for p in _SHOPIFY_ADMIN_API_PREFIXES:
+        if token.startswith(p):
+            return p
+    return None
+
+
+def _fix_token_prefix_casing(t: str) -> str:
+    for p in _SHOPIFY_ADMIN_API_PREFIXES:
+        n = len(p)
+        if len(t) >= n and t[:n].lower() == p and not t.startswith(p):
+            return p + t[n:]
+    return t
+
 
 def _require_env(name: str) -> str:
     v = os.environ.get(name, "").strip()
@@ -95,9 +119,7 @@ def _normalize_token(raw: str) -> str:
     # GitHub secret pasted as "shpat_..." with quotes → breaks prefix check and auth.
     if len(t) >= 2 and t[0] == t[-1] and t[0] in "\"'":
         t = t[1:-1].strip()
-    # Shopify uses lowercase shpat_; pasted Shpat_ breaks startswith and maybe API.
-    if len(t) >= 6 and t[:6].lower() == "shpat_" and not t.startswith("shpat_"):
-        t = "shpat_" + t[6:]
+    t = _fix_token_prefix_casing(t)
     return t
 
 
@@ -105,29 +127,29 @@ def _log_token_hint(token: str) -> None:
     """Safe diagnostics for CI (never log the full secret)."""
     n = len(token)
     log.info("SHOPIFY_ACCESS_TOKEN length=%d", n)
-    if token.startswith("shpat_"):
-        log.info("Token prefix OK (shpat_ — Admin API access token from Develop apps)")
+    prefix = _admin_token_prefix(token)
+    if prefix:
+        log.info("Token prefix OK (%s — Shopify Admin API-style access token)", prefix)
         if n < 32:
             log.warning("Token looks unusually short; confirm you copied the full Admin API access token.")
         return
     if token:
         c0 = token[0]
         log.warning(
-            "Token first character is U+%04X (expected Latin 's' = U+0073 for shpat_). "
+            "Token first character is U+%04X (expected U+0073 's' for Shopify admin tokens). "
             "If this is not 0073, re-copy the token from Shopify into a plain-text editor, then into GitHub.",
             ord(c0),
         )
         cps = " ".join(f"U+{ord(c):04X}" for c in token[:9])
         log.warning(
-            "Token first 9 codepoints (debug): %s — expect U+0073 U+0068 U+0070 U+0061 U+0074 U+005F for shpat_",
+            "Token first 9 codepoints (debug): %s — common prefixes: shpat_, shpca_, shpss_, shpua_",
             cps,
         )
     log.warning(
-        "Token does NOT start with shpat_. The runner is NOT using your Shopify Admin API token. "
-        "Fix: GitHub repo → Settings → Secrets → Actions → update SHOPIFY_ACCESS_TOKEN for THIS repository "
-        "(no quotes in the value). Paste the full string from Develop apps → API credentials → Reveal. "
-        "Typical length is ~38+ characters including the shpat_ prefix. "
-        "Do NOT use Client secret, API key, or Partner client secret."
+        "Token does not match known Shopify Admin API prefixes %s. "
+        "Fix: GitHub → Settings → Secrets → Actions → SHOPIFY_ACCESS_TOKEN = full value from "
+        "Develop apps → API credentials → Reveal (not Client secret / API key).",
+        _SHOPIFY_ADMIN_API_PREFIXES,
     )
 
 
@@ -167,8 +189,8 @@ def shopify_graphql(
         if resp.status_code == 401:
             log.error(
                 "Shopify 401 Unauthorized for %s — check SHOPIFY_ACCESS_TOKEN and SHOPIFY_STORE. "
-                "Token must be the Admin API access token from this store's app (Custom app: "
-                "Develop apps → API credentials → Admin API access token, often starts with shpat_). "
+                "Token must be the Admin API access token from this store's app (Develop apps → "
+                "API credentials → Reveal; prefix may be shpat_, shpca_, shpss_, shpua_, etc.). "
                 "Not the Client secret. Store must be the shop handle only, same store where the app is installed.",
                 url,
             )

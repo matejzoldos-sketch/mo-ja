@@ -51,12 +51,12 @@ Workflow: každý deň o ~04:15 UTC reconciliácia (`--days 14`); **v pondelok**
 
 ### Shopify 401 / „Invalid API key or access token“
 
-1. **`SHOPIFY_ACCESS_TOKEN`** musí byť **Admin API access token** z **obchodného adminu**: **Settings → Apps and sales channels → Develop apps → [appka] → API credentials → Reveal** (až po **Install app**). Zvyčajne začína **`shpat_`**.  
+1. **`SHOPIFY_ACCESS_TOKEN`** musí byť **Admin API access token** z **obchodného adminu**: **Settings → Apps and sales channels → Develop apps → [appka] → API credentials → Reveal** (až po **Install app**). Prefix môže byť napr. **`shpat_`**, **`shpca_`**, **`shpss_`**, **`shpua_`** (závisí od typu appky) — ide o **celý** reťazec z Reveal.  
    **Nie** Client secret, **nie** „API secret key“ z Partner Dashboardu, **nie** API key z karty Configuration.
 
 2. **`SHOPIFY_STORE`** = len handle (napr. `yttmhc-p0`), nie celá URL.
 
-3. Po spustení Actions v logu skontroluj riadok **`SHOPIFY_ACCESS_TOKEN length=`** a či je **`Token prefix OK (shpat_…)`**. Ak nie, secret v GitHube je stále zlý typ hodnoty.
+3. Po spustení Actions v logu skontroluj **`SHOPIFY_ACCESS_TOKEN length=`** a **`Token prefix OK (...)`** (akceptované prefixy vrátane `shpss_` atď.). Ak nie, secret v GitHube je stále zlý typ hodnoty.
 
 4. Rýchly test v termináli (lokálne, token nezdieľaj):
 
