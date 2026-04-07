@@ -4,7 +4,7 @@ Synchronizácia **objednávok**, **riadkov**, **lokácií** a **skladových zás
 
 ## Požiadavky
 
-- Shopify **Custom app** s Admin API tokenom a scopes: `read_orders`, `read_inventory`, `read_locations`, `read_products` (voliteľne `read_customers`).
+- Shopify **Custom app** s Admin API tokenom a scopes: `read_inventory`, `read_locations`, `read_products` a `read_orders` alebo `read_all_orders` (pre dlhšiu históriu). Mená zákazníkov sync neťahá — `read_customers` nepotrebuješ, kým to nezapneš v `sync_shopify.py`.
 - Supabase projekt; migrácie `001` (+ `002` pre dashboard) spustiť pred prvým syncom / pred webom.
 
 ## Nastavenie
