@@ -98,6 +98,34 @@ a:hover {
   font-weight: 600;
 }
 
+.header-brand-nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+}
+
+.header-brand-nav__title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.header-brand-nav__section.period-filter {
+  margin: 0;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  margin: 0 calc(-1 * var(--space-inner));
+  padding: 0 var(--space-inner);
+}
+
+.sklad-kpi {
+  margin-bottom: var(--space-gutter);
+}
+
 .main-wrap {
   max-width: var(--layout-max);
   margin: 0 auto;

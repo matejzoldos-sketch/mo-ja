@@ -2,8 +2,11 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "MO–JA predaj",
-  description: "Prehľad objednávok zo Shopify",
+  title: {
+    default: "MO–JA predaj",
+    template: "%s",
+  },
+  description: "MO–JA interné prehľady",
 };
 
 export default function RootLayout({

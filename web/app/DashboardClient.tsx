@@ -15,6 +15,7 @@ import {
   Filler,
 } from "chart.js";
 import { Line, Bar } from "react-chartjs-2";
+import { HeaderNav } from "./components/HeaderNav";
 
 ChartJS.register(
   CategoryScale,
@@ -269,7 +270,7 @@ export default function DashboardClient() {
     <>
       <header className="site-header">
         <div className="site-header__inner">
-          <h1>MO–JA predaj</h1>
+          <HeaderNav />
           <label className="period-filter">
             <span className="period-filter__label">Obdobie</span>
             <select
@@ -296,7 +297,8 @@ export default function DashboardClient() {
             Skontroluj env na Verceli (<code>SUPABASE_URL</code>,{" "}
             <code>SUPABASE_SERVICE_ROLE_KEY</code>) a migráciu{" "}
             <code>002_dashboard_mvp.sql</code>, <code>003_dashboard_range.sql</code>,{" "}
-            <code>004_dashboard_remove_365d.sql</code>.
+            <code>004_dashboard_remove_365d.sql</code>,{" "}
+            <code>005_inventory_dashboard_rpc.sql</code> (sklad).
           </p>
         )}
         {data && !loading && (
