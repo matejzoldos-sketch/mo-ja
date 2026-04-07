@@ -175,6 +175,22 @@ function buildSkuUnitsLineChart(
     pointHoverRadius: 4,
     borderWidth: 2,
   }));
+  const dailyTotals = days.map((d) =>
+    s.skuOrder.reduce((sum, sku) => sum + (m.get(key(d, sku)) ?? 0), 0)
+  );
+  const trend = linearTrendSeries(dailyTotals);
+  datasets.push({
+    label: "Trend (súčet kusov)",
+    data: trend,
+    borderColor: TREND_LINE,
+    borderWidth: 2,
+    borderDash: [6, 4],
+    pointRadius: 0,
+    pointHoverRadius: 0,
+    fill: false,
+    tension: 0,
+    backgroundColor: "transparent",
+  });
   return { labels: days, datasets };
 }
 
@@ -489,7 +505,8 @@ export default function DashboardClient() {
                 <p className="chart-card__subtitle">
                   Kalendárny rok podľa Europe/Bratislava; rovnaký filter platby ako
                   KPI. Zobrazených max. 10 SKU s najväčším objemom kusov YTD (label =
-                  SKU alebo názov riadku).
+                  SKU alebo názov riadku). Prerušovaná čiara = lineárny trend denného
+                  súčtu kusov týchto SKU.
                 </p>
                 <div className="sku-ytd-chart-wrap">
                   <Line data={skuYtdLineData} options={skuYtdLineOptions} />
