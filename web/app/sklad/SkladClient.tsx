@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { HeaderNav } from "../components/HeaderNav";
+import { HeaderBrand, HeaderSectionSelect } from "../components/HeaderNav";
 
 type InvRow = {
   inventory_item_id: number;
@@ -63,7 +63,10 @@ export default function SkladClient() {
     <>
       <header className="site-header">
         <div className="site-header__inner">
-          <HeaderNav />
+          <HeaderBrand />
+          <div className="site-header__dropdowns">
+            <HeaderSectionSelect />
+          </div>
         </div>
       </header>
 

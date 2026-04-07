@@ -61,6 +61,18 @@ a:hover {
   gap: 12px;
 }
 
+.site-header__dropdowns {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.site-header__dropdowns .period-filter__select {
+  min-width: min(200px, 46vw);
+}
+
 .period-filter {
   display: flex;
   align-items: center;
@@ -98,22 +110,11 @@ a:hover {
   font-weight: 600;
 }
 
-.header-brand-nav {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px 16px;
-}
-
 .header-brand-nav__title {
   margin: 0;
   font-size: 1.25rem;
   font-weight: 600;
   letter-spacing: -0.02em;
-}
-
-.header-brand-nav__section.period-filter {
-  margin: 0;
 }
 
 .table-scroll {

@@ -15,7 +15,7 @@ import {
   Filler,
 } from "chart.js";
 import { Line, Bar } from "react-chartjs-2";
-import { HeaderNav } from "./components/HeaderNav";
+import { HeaderBrand, HeaderSectionSelect } from "./components/HeaderNav";
 
 ChartJS.register(
   CategoryScale,
@@ -270,14 +270,14 @@ export default function DashboardClient() {
     <>
       <header className="site-header">
         <div className="site-header__inner">
-          <HeaderNav />
-          <label className="period-filter">
-            <span className="period-filter__label">Obdobie</span>
+          <HeaderBrand />
+          <div className="site-header__dropdowns">
+            <HeaderSectionSelect />
             <select
               className="period-filter__select"
               value={range}
               onChange={(e) => onRangeChange(e.target.value as RangeKey)}
-              aria-label="Časové obdobie dashboardu"
+              aria-label="Obdobie"
             >
               {RANGE_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -285,7 +285,7 @@ export default function DashboardClient() {
                 </option>
               ))}
             </select>
-          </label>
+          </div>
         </div>
       </header>
 
