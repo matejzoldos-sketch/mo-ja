@@ -26,6 +26,7 @@ import os
 import re
 import sys
 import time
+import unicodedata
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -80,6 +81,15 @@ def _normalize_token(raw: str) -> str:
     for zw in ("\u200b", "\u200c", "\u200d", "\ufeff"):
         t = t.replace(zw, "")
     t = t.strip()
+    t = unicodedata.normalize("NFKC", t)
+    # Copy/paste from some UIs uses fullwidth/low-line chars that look like _ but break shpat_ checks & API.
+    for bad in (
+        "\uff3f",  # FULLWIDTH LOW LINE
+        "\u2017",  # DOUBLE LOW LINE
+        "\u203f",  # UNDERTIE
+        "\ufe58",  # SMALL EM DASH
+    ):
+        t = t.replace(bad, "_")
     if t.lower().startswith("bearer "):
         t = t[7:].strip()
     # GitHub secret pasted as "shpat_..." with quotes → breaks prefix check and auth.
@@ -106,6 +116,11 @@ def _log_token_hint(token: str) -> None:
             "Token first character is U+%04X (expected Latin 's' = U+0073 for shpat_). "
             "If this is not 0073, re-copy the token from Shopify into a plain-text editor, then into GitHub.",
             ord(c0),
+        )
+        cps = " ".join(f"U+{ord(c):04X}" for c in token[:9])
+        log.warning(
+            "Token first 9 codepoints (debug): %s — expect U+0073 U+0068 U+0070 U+0061 U+0074 U+005F for shpat_",
+            cps,
         )
     log.warning(
         "Token does NOT start with shpat_. The runner is NOT using your Shopify Admin API token. "
