@@ -48,7 +48,7 @@ type RecentOrder = {
   currency: string | null;
 };
 
-type RangeKey = "ytd" | "30d" | "90d" | "365d";
+type RangeKey = "ytd" | "30d" | "90d";
 
 type PayloadMeta = { range: string; from: string; to: string };
 
@@ -64,12 +64,11 @@ const RANGE_OPTIONS: { value: RangeKey; label: string }[] = [
   { value: "ytd", label: "Od začiatku roka" },
   { value: "30d", label: "Posledných 30 dní" },
   { value: "90d", label: "Posledných 90 dní" },
-  { value: "365d", label: "Posledných 12 mesiacov" },
 ];
 
 function parseRangeParam(raw: string | null): RangeKey {
   const s = (raw || "").toLowerCase().trim();
-  if (s === "30d" || s === "90d" || s === "365d" || s === "ytd") return s;
+  if (s === "30d" || s === "90d" || s === "ytd") return s;
   return "ytd";
 }
 
@@ -107,6 +106,17 @@ export default function DashboardClient() {
   useEffect(() => {
     setRange(rangeFromUrl);
   }, [rangeFromUrl]);
+
+  useEffect(() => {
+    const raw = searchParams.get("range");
+    if (!raw) return;
+    const s = raw.toLowerCase().trim();
+    if (s === "30d" || s === "90d" || s === "ytd") return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("range");
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [searchParams, pathname, router]);
 
   const [data, setData] = useState<Payload | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -239,7 +249,8 @@ export default function DashboardClient() {
             {err}{" "}
             Skontroluj env na Verceli (<code>SUPABASE_URL</code>,{" "}
             <code>SUPABASE_SERVICE_ROLE_KEY</code>) a migráciu{" "}
-            <code>002_dashboard_mvp.sql</code>, <code>003_dashboard_range.sql</code>.
+            <code>002_dashboard_mvp.sql</code>, <code>003_dashboard_range.sql</code>,{" "}
+            <code>004_dashboard_remove_365d.sql</code>.
           </p>
         )}
         {data && !loading && (

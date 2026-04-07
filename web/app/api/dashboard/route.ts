@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-const ALLOWED_RANGE = new Set(["ytd", "30d", "90d", "365d"]);
+const ALLOWED_RANGE = new Set(["ytd", "30d", "90d"]);
 
 const MOCK_PAYLOAD = {
   meta: {
