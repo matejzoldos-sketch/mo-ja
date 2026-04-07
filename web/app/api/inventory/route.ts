@@ -1,17 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { isAuthorizedRequest } from "@/lib/dashboardAuth";
 
 export const dynamic = "force-dynamic";
 
-function checkAuth(request: Request): boolean {
-  const token = process.env.DASHBOARD_TOKEN;
-  if (!token) return true;
-  const auth = request.headers.get("authorization");
-  return auth === `Bearer ${token}`;
-}
-
 export async function GET(request: Request) {
-  if (!checkAuth(request)) {
+  if (!(await isAuthorizedRequest(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

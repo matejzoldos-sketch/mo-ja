@@ -95,8 +95,9 @@ npm install
 npm run dev
 ```
 
-- **Ukážkové dáta bez DB:** v UI tlačidlo „Ukážkové dáta“ alebo `GET /api/dashboard?mock=1`.
-- **Vercel:** Root Directory = `web`; rovnaké env ako v `.env.example`. Voliteľne `DASHBOARD_TOKEN` a potom volať API s hlavičkou `Authorization: Bearer <token>`.
+- **Ukážkové dáta bez DB:** v UI tlačidlo „Ukážkové dáta“ alebo `GET /api/dashboard?mock=1` (aj mock vyžaduje prihlásenie, ak je zapnuté heslo).
+- **Vercel:** Root Directory = `web`; rovnaké env ako v `.env.example`.
+- **Zamknutie dashboardu:** nastav **`DASHBOARD_PASSWORD`** (silné heslo). Potom `/` a `/sklad` presmerujú na `/login`; po zadaní hesla sa nastaví httpOnly cookie (30 dní). API `/api/dashboard` a `/api/inventory` akceptujú buď túto cookie, alebo hlavičku `Authorization: Bearer <rovnaké heslo>` (napr. skripty). Spätne kompatibilné: ak máš len **`DASHBOARD_TOKEN`**, správa sa ako heslo (rovnaké správanie). Ak nie je ani heslo ani token, aplikácia ostáva otvorená ako doteraz.
 
 Ak GraphQL pri synci spadne na `customer`, pridaj do app scope **`read_customers`** (alebo dočasne odstráň `customer { displayName }` z query).
 

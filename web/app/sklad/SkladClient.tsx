@@ -13,7 +13,11 @@ import {
   Filler,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
-import { HeaderBrand, HeaderSectionSelect } from "../components/HeaderNav";
+import {
+  HeaderBrand,
+  HeaderLogout,
+  HeaderSectionSelect,
+} from "../components/HeaderNav";
 import {
   buildStockHistoryChart,
   stockHistoryChartOptions,
@@ -125,6 +129,7 @@ export default function SkladClient() {
         <div className="site-header__inner">
           <HeaderBrand />
           <div className="site-header__dropdowns">
+            <HeaderLogout />
             <HeaderSectionSelect />
           </div>
         </div>

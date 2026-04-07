@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { isAuthorizedRequest } from "@/lib/dashboardAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -68,14 +69,11 @@ const MOCK_PAYLOAD = {
   },
 };
 
-function checkAuth(request: Request): boolean {
-  const token = process.env.DASHBOARD_TOKEN;
-  if (!token) return true;
-  const auth = request.headers.get("authorization");
-  return auth === `Bearer ${token}`;
-}
-
 export async function GET(request: Request) {
+  if (!(await isAuthorizedRequest(request))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const url = new URL(request.url);
   const rawRangeEarly = url.searchParams.get("range")?.toLowerCase().trim() ?? "";
   const rangeEarly = ALLOWED_RANGE.has(rawRangeEarly) ? rawRangeEarly : "ytd";
@@ -87,10 +85,6 @@ export async function GET(request: Request) {
         range: rangeEarly,
       },
     });
-  }
-
-  if (!checkAuth(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const supabaseUrl = (process.env.SUPABASE_URL || "").trim();

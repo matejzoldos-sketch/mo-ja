@@ -16,7 +16,11 @@ import {
 } from "chart.js";
 import type { ChartData, ChartOptions } from "chart.js";
 import { Line, Bar } from "react-chartjs-2";
-import { HeaderBrand, HeaderSectionSelect } from "./components/HeaderNav";
+import {
+  HeaderBrand,
+  HeaderLogout,
+  HeaderSectionSelect,
+} from "./components/HeaderNav";
 
 ChartJS.register(
   CategoryScale,
@@ -397,6 +401,7 @@ export default function DashboardClient() {
         <div className="site-header__inner">
           <HeaderBrand />
           <div className="site-header__dropdowns">
+            <HeaderLogout />
             <HeaderSectionSelect />
             <select
               className="period-filter__select"
