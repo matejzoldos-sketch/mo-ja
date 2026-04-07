@@ -8,6 +8,14 @@ export type StockChartYtd = {
   points: { date: string; sku: string; stock: number }[];
 };
 
+/** Sklad chart: no reliable snapshots before 1 Apr — clamp even if RPC still returns Jan 1 (old migration). */
+function effectiveChartFromIso(s: StockChartYtd): string {
+  const y = s.year ?? new Date().getFullYear();
+  const april1 = `${y}-04-01`;
+  if (!s.from || s.from < april1) return april1;
+  return s.from;
+}
+
 function enumerateInclusiveDays(fromIso: string, toIso: string): string[] {
   const out: string[] = [];
   const [fy, fm, fd] = fromIso.split("-").map(Number);
@@ -52,7 +60,8 @@ export function buildStockHistoryChart(
   s: StockChartYtd | undefined
 ): ChartData<"line"> | null {
   if (!s?.skuOrder?.length) return null;
-  const days = enumerateInclusiveDays(s.from, s.to);
+  const fromIso = effectiveChartFromIso(s);
+  const days = enumerateInclusiveDays(fromIso, s.to);
   if (days.length === 0) return null;
   const n = s.skuOrder.length;
   const datasets: ChartData<"line">["datasets"] = [];
