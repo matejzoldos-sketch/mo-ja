@@ -115,9 +115,6 @@ export default function SkladClient() {
     load();
   }, [load]);
 
-  const totalAvailable =
-    rows?.reduce((s, r) => s + Number(r.available), 0) ?? 0;
-
   const stockLineData = stockChartYtd
     ? buildStockHistoryChart(stockChartYtd)
     : null;
@@ -145,17 +142,6 @@ export default function SkladClient() {
         )}
         {!loading && !err && rows && (
           <>
-            <section className="kpi-grid sklad-kpi">
-              <div className="kpi-card">
-                <div className="kpi-card__label">Položiek v zozname</div>
-                <div className="kpi-card__value">{rows.length}</div>
-              </div>
-              <div className="kpi-card">
-                <div className="kpi-card__label">Dostupné kusy (súčet)</div>
-                <div className="kpi-card__value">{totalAvailable}</div>
-              </div>
-            </section>
-
             <section className="chart-card chart-card--sku-ytd sklad-chart-section">
               <h2>
                 Vývoj skladu podľa SKU (od 1. 1.{" "}

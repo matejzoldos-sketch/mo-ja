@@ -123,10 +123,6 @@ a:hover {
   padding: 0 var(--space-inner);
 }
 
-.sklad-kpi {
-  margin-bottom: var(--space-gutter);
-}
-
 .main-wrap {
   max-width: var(--layout-max);
   margin: 0 auto;
