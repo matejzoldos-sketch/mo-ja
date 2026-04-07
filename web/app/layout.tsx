@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "MOJA PHASE — predaj",
+  title: "MO–JA DASHBOARD",
   description: "Prehľad objednávok zo Shopify",
 };
 
