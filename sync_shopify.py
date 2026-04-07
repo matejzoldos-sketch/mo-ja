@@ -66,6 +66,22 @@ def _require_env(name: str) -> str:
     return v
 
 
+def _normalize_store(raw: str) -> str:
+    """Accept handle only or full myshopify URL; secrets often include extra cruft."""
+    s = raw.strip()
+    s = re.sub(r"^https?://", "", s, flags=re.IGNORECASE).rstrip("/")
+    if s.endswith(".myshopify.com"):
+        s = s[: -len(".myshopify.com")]
+    return s.strip()
+
+
+def _normalize_token(raw: str) -> str:
+    t = raw.strip()
+    if t.lower().startswith("bearer "):
+        t = t[7:].strip()
+    return t
+
+
 def gid_to_int(gid: Optional[str]) -> Optional[int]:
     if not gid or not isinstance(gid, str):
         return None
@@ -99,6 +115,15 @@ def shopify_graphql(
             log.warning("429 rate limited, sleeping %.1fs (attempt %s)", wait, attempt + 1)
             time.sleep(wait)
             continue
+        if resp.status_code == 401:
+            log.error(
+                "Shopify 401 Unauthorized for %s — check SHOPIFY_ACCESS_TOKEN and SHOPIFY_STORE. "
+                "Token must be the Admin API access token from this store's app (Custom app: "
+                "Develop apps → API credentials → Admin API access token, often starts with shpat_). "
+                "Not the Client secret. Store must be the shop handle only, same store where the app is installed.",
+                url,
+            )
+            log.error("Response (truncated): %s", (resp.text or "")[:800])
         resp.raise_for_status()
         data = resp.json()
         if data.get("errors"):
@@ -459,12 +484,13 @@ def main() -> None:
     args = parser.parse_args()
     args.ytd_year = args.ytd_year or date.today().year
 
-    store = _require_env("SHOPIFY_STORE")
-    token = _require_env("SHOPIFY_ACCESS_TOKEN")
+    store = _normalize_store(_require_env("SHOPIFY_STORE"))
+    token = _normalize_token(_require_env("SHOPIFY_ACCESS_TOKEN"))
     sb_url = _require_env("SUPABASE_URL")
     sb_key = _require_env("SUPABASE_SERVICE_ROLE_KEY")
     ver = _resolved_api_version()
     log.info("Shopify API version %s", ver)
+    log.info("Shopify store %s.myshopify.com", store)
 
     supabase = create_client(sb_url, sb_key)
 
