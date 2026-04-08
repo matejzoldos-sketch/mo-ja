@@ -101,9 +101,9 @@ npm run dev
 - **Zamknutie dashboardu:** nastav **`DASHBOARD_PASSWORD`** (silné heslo). Potom `/` a `/sklad` presmerujú na `/login`; po zadaní hesla sa nastaví httpOnly cookie (30 dní). API `/api/dashboard` a `/api/inventory` akceptujú buď túto cookie, alebo hlavičku `Authorization: Bearer <rovnaké heslo>` (napr. skripty). Spätne kompatibilné: ak máš len **`DASHBOARD_TOKEN`**, správa sa ako heslo (rovnaké správanie). Ak nie je ani heslo ani token, aplikácia ostáva otvorená ako doteraz.
 - **Nečinnosť:** po **30 minútach** bez aktivity (myš, klávesnica, scroll, dotyk) sa zavolá odhlásenie a presmeruje na `/login`. Nastav **`NEXT_PUBLIC_DASHBOARD_IDLE_MINUTES`** (minimum 5, maximum 1440), ak chceš inú hodnotu — po zmene treba znova build / redeploy.
 
-Po migráciách **`015`–`017`** spusti znova **`python sync_shopify.py --ytd`**, aby sa doplnili **`customer_id`** (ak máš v odpovedi `customer` z GraphQL) a **`customer_email`** z poľa **`email`**.
+Po migráciách **`015`–`018`** spusti znova **`python sync_shopify.py --ytd`**, aby sa doplnili **`customer_id`** (ak máš v odpovedi `customer` z GraphQL) a **`customer_email`** z poľa **`email`**.
 
-**KPI „Vracajúci sa“** (RPC + migrácia **`017`**): rovnaký „zákazník“ = **`customer_id`**, ak je známy, inak **normalizovaný email** objednávky (stĺpec alebo `raw_json`). Objednávky **bez ID aj bez emailu** sa nepočítajú. Percento = unikát v období (paid-ish), ktorý mal aspoň jednu takú objednávku **pred** začiatkom obdobia (`Europe/Bratislava`). Neúplná história v DB môže metriku **podhodnotiť**; rovnaký email na viacerých účtoch môže **zlúčiť** dvoch ľudí.
+**KPI „Vracajúci sa“** (RPC, **`017`** + **`018`**): rovnaký „zákazník“ = **`customer_id`** alebo **normalizovaný email** (stĺpec / `raw_json`). **YTD:** % zákazníkov s **aspoň 2** paid-ish objednávkami **v tom kalendárnom roku** (opakovaný nákup v roku — funguje aj bez histórie pred 1.1.). **30d / 90d:** % s aspoň jednou paid-ish objednávkou **pred** začiatkom okna (`Europe/Bratislava`). Objednávky bez ID aj bez emailu sa nepočítajú.
 
 ## Tabuľky
 
