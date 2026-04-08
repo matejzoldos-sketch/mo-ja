@@ -289,9 +289,7 @@ query Orders($cursor: String, $query: String!) {
         currencyCode
         totalPriceSet { shopMoney { amount currencyCode } }
         subtotalPriceSet { shopMoney { amount currencyCode } }
-        customer {
-          id
-        }
+        email
         lineItems(first: 250) {
           edges {
             node {
@@ -401,8 +399,15 @@ def order_node_to_rows(
     total_price = total_set.get("amount")
     subtotal_price = sub_set.get("amount")
 
+    # customer { id } vyžaduje read_customers — KPI používa Order.email (read_orders) + customer_email v DB.
     cust = node.get("customer") if isinstance(node.get("customer"), dict) else None
     customer_id = gid_to_int((cust or {}).get("id")) if cust else None
+
+    em = node.get("email")
+    if isinstance(em, str):
+        customer_email = em.strip().lower() or None
+    else:
+        customer_email = None
 
     order_row = {
         "id": oid,
@@ -416,7 +421,8 @@ def order_node_to_rows(
         "total_price": float(total_price) if total_price is not None else None,
         "subtotal_price": float(subtotal_price) if subtotal_price is not None else None,
         "customer_id": customer_id,
-        # displayName: do ORDERS_QUERY pridaj customer { displayName } a nastav read_customers.
+        "customer_email": customer_email,
+        # displayName: ORDERS_QUERY + read_customers.
         "customer_display_name": None,
         "raw_json": node,
     }

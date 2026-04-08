@@ -437,6 +437,7 @@ export default function DashboardClient() {
             <code>004_dashboard_remove_365d.sql</code>,{" "}
             <code>015_shopify_orders_customer_id_returning_kpi.sql</code>,{" "}
             <code>016_returning_kpi_effective_customer_id.sql</code>,{" "}
+            <code>017_returning_kpi_order_email.sql</code>,{" "}
             <code>005_inventory_dashboard_rpc.sql</code> (sklad),{" "}
             <code>006_sku_units_daily_ytd.sql</code>.
           </p>
@@ -464,7 +465,7 @@ export default function DashboardClient() {
               </div>
               <div
                 className="kpi-card"
-                title="Z unikátnych zákazníkov so známym Shopify customer ID v období (paid / čiastočne zaplatené / čiastočne refundované): koľko % malo aspoň jednu rovnako započítanú objednávku pred začiatkom obdobia. Guest objednávky sa nepočítajú."
+                title="Z unikátnych zákazníkov v období (paid / čiastočne zaplatené / čiastočne refundované), ktorých vieme identifikovať cez Shopify customer ID alebo email objednávky: koľko % malo aspoň jednu rovnako započítanú objednávku pred začiatkom obdobia. Bez emailu aj bez ID sa nepočítajú."
               >
                 <div className="kpi-card__label">
                   Vracajúci sa zákazníci
