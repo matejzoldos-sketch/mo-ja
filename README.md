@@ -103,7 +103,7 @@ npm run dev
 
 Po migráciách **`015`–`018`** spusti znova **`python sync_shopify.py --ytd`**, aby sa doplnili **`customer_id`** (ak máš v odpovedi `customer` z GraphQL) a **`customer_email`** z poľa **`email`**.
 
-**KPI „Vracajúci sa“** (RPC, **`017`** + **`018`**): rovnaký „zákazník“ = **`customer_id`** alebo **normalizovaný email** (stĺpec / `raw_json`). **YTD:** % zákazníkov s **aspoň 2** paid-ish objednávkami **v tom kalendárnom roku** (opakovaný nákup v roku — funguje aj bez histórie pred 1.1.). **30d / 90d:** % s aspoň jednou paid-ish objednávkou **pred** začiatkom okna (`Europe/Bratislava`). Objednávky bez ID aj bez emailu sa nepočítajú.
+**KPI „Vracajúci sa“** (RPC, **`017`** + **`018`**): rovnaký „zákazník“ = **`customer_id`** alebo **normalizovaný email** (stĺpec / `raw_json`). **YTD:** % zákazníkov s **aspoň 2** paid-ish objednávkami **v tom kalendárnom roku**. **30d / 90d:** v RPC stále % s objednávkou **pred** oknom — na webe sa táto karta **nezobrazuje** (len výber YTD). Objednávky bez ID aj bez emailu sa nepočítajú.
 
 ## Tabuľky
 

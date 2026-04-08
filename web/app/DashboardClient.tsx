@@ -464,22 +464,20 @@ export default function DashboardClient() {
                   {formatMoney(Number(data.kpis.aov), data.kpis.currency)}
                 </div>
               </div>
-              <div
-                className="kpi-card"
-                title={
-                  data.meta.range === "ytd"
-                    ? "YTD (kalendárny rok): zákazníci identifikovaní cez customer ID alebo email objednávky (paid / čiastočne zaplatené / čiastočne refundované). Ukazuje % tých, ktorí majú v tomto roku aspoň dve také objednávky, zo všetkých, čo v roku aspoň jednu mali. (Bez dát pred 1.1. by stará definícia „vrátil sa spred roka“ dávala 0 %.)"
-                    : "Zákazníci identifikovaní cez customer ID alebo email (paid / čiastočne zaplatené / čiastočne refundované): koľko % malo aspoň jednu rovnako započítanú objednávku pred začiatkom zvoleného okna (30 alebo 90 dní). Bez emailu aj bez ID sa nepočítajú."
-                }
-              >
-                <div className="kpi-card__label">
-                  Vracajúci sa zákazníci
-                  {periodLabel ? ` (${periodLabel})` : ""}
+              {range === "ytd" && (
+                <div
+                  className="kpi-card"
+                  title="YTD (kalendárny rok): zákazníci identifikovaní cez customer ID alebo email objednávky (paid / čiastočne zaplatené / čiastočne refundované). Ukazuje % tých, ktorí majú v tomto roku aspoň dve také objednávky, zo všetkých, čo v roku aspoň jednu mali."
+                >
+                  <div className="kpi-card__label">
+                    Vracajúci sa zákazníci
+                    {periodLabel ? ` (${periodLabel})` : ""}
+                  </div>
+                  <div className="kpi-card__value">
+                    {formatReturningPct(data.kpis.returning_customers_pct)}
+                  </div>
                 </div>
-                <div className="kpi-card__value">
-                  {formatReturningPct(data.kpis.returning_customers_pct)}
-                </div>
-              </div>
+              )}
             </section>
 
             <section className="charts-row">
