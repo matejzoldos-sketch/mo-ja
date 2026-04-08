@@ -35,6 +35,8 @@ type Kpis = {
   orders: number;
   aov: number;
   currency: string | null;
+  /** % distinct customers in window with a prior paid-ish order before window; null if no known customer_id in window */
+  returning_customers_pct?: number | null;
 };
 
 type Daily = { date: string; revenue: number };
@@ -109,6 +111,16 @@ function formatMoney(amount: number, currency: string | null) {
   } catch {
     return `${amount.toFixed(2)} ${c}`;
   }
+}
+
+function formatReturningPct(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "—";
+  }
+  return `${Number(value).toLocaleString("sk-SK", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  })} %`;
 }
 
 /** Least-squares line through points (i, y[i]); one point → flat line. */
@@ -423,6 +435,7 @@ export default function DashboardClient() {
             <code>SUPABASE_SERVICE_ROLE_KEY</code>) a migráciu{" "}
             <code>002_dashboard_mvp.sql</code>, <code>003_dashboard_range.sql</code>,{" "}
             <code>004_dashboard_remove_365d.sql</code>,{" "}
+            <code>015_shopify_orders_customer_id_returning_kpi.sql</code>,{" "}
             <code>005_inventory_dashboard_rpc.sql</code> (sklad),{" "}
             <code>006_sku_units_daily_ytd.sql</code>.
           </p>
@@ -446,6 +459,18 @@ export default function DashboardClient() {
                 <div className="kpi-card__label">AOV</div>
                 <div className="kpi-card__value">
                   {formatMoney(Number(data.kpis.aov), data.kpis.currency)}
+                </div>
+              </div>
+              <div
+                className="kpi-card"
+                title="Z unikátnych zákazníkov so známym Shopify customer ID v období (paid / čiastočne zaplatené / čiastočne refundované): koľko % malo aspoň jednu rovnako započítanú objednávku pred začiatkom obdobia. Guest objednávky sa nepočítajú."
+              >
+                <div className="kpi-card__label">
+                  Vracajúci sa zákazníci
+                  {periodLabel ? ` (${periodLabel})` : ""}
+                </div>
+                <div className="kpi-card__value">
+                  {formatReturningPct(data.kpis.returning_customers_pct)}
                 </div>
               </div>
             </section>

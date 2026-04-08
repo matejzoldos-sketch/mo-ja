@@ -17,6 +17,7 @@ const MOCK_PAYLOAD = {
     orders: 156,
     aov: 82.31,
     currency: "EUR",
+    returning_customers_pct: 42.5,
   },
   dailyRevenue: Array.from({ length: 14 }, (_, i) => {
     const d = new Date(Date.UTC(2026, 3, 1 + i));

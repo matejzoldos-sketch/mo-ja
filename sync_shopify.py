@@ -289,6 +289,9 @@ query Orders($cursor: String, $query: String!) {
         currencyCode
         totalPriceSet { shopMoney { amount currencyCode } }
         subtotalPriceSet { shopMoney { amount currencyCode } }
+        customer {
+          id
+        }
         lineItems(first: 250) {
           edges {
             node {
@@ -398,6 +401,9 @@ def order_node_to_rows(
     total_price = total_set.get("amount")
     subtotal_price = sub_set.get("amount")
 
+    cust = node.get("customer") if isinstance(node.get("customer"), dict) else None
+    customer_id = gid_to_int((cust or {}).get("id")) if cust else None
+
     order_row = {
         "id": oid,
         "shopify_gid": node.get("id"),
@@ -409,7 +415,8 @@ def order_node_to_rows(
         "currency": node.get("currencyCode") or total_set.get("currencyCode"),
         "total_price": float(total_price) if total_price is not None else None,
         "subtotal_price": float(subtotal_price) if subtotal_price is not None else None,
-        # Bez read_customers scope — dopln customer { displayName } do query ak pridáš scope.
+        "customer_id": customer_id,
+        # displayName: do ORDERS_QUERY pridaj customer { displayName } a nastav read_customers.
         "customer_display_name": None,
         "raw_json": node,
     }

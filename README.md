@@ -4,7 +4,8 @@ Synchronizácia **objednávok**, **riadkov**, **lokácií** a **skladových zás
 
 ## Požiadavky
 
-- Shopify **Admin API** prístup so scopes: `read_inventory`, `read_locations`, **`read_products`** (bez neho často chýba `variant` / `inventoryItem` na riadkoch objednávok → Sklad nevie spájať predaj so skladom) a **`read_all_orders`** (pre YTD — bez neho ~**posledných 60 dní** objednávok). Alternatíva `read_orders` len s kratšou históriou. Mená zákazníkov sync neťahá — `read_customers` nepotrebuješ, kým to nezapneš v `sync_shopify.py`.
+- Shopify **Admin API** prístup so scopes: `read_inventory`, `read_locations`, **`read_products`** (bez neho často chýba `variant` / `inventoryItem` na riadkoch objednávok → Sklad nevie spájať predaj so skladom) a **`read_all_orders`** (pre YTD — bez neho ~**posledných 60 dní** objednávok). Alternatíva `read_orders` len s kratšou históriou.
+- **`customer_id` na objednávkach** (pre KPI „vracajúci sa“ na dashboarde): v `sync_shopify.py` je v GraphQL `customer { id }`. Ak sync spadne alebo `customer` chýba, v Dev apps doplň scope **`read_customers`**. Meno zákazníka (`displayName`) sync stále defaultne neťahá — treba ho doplniť do query + `read_customers`.
 
 ### Od 1. 1. 2026 (Dev Dashboard)
 
@@ -100,11 +101,13 @@ npm run dev
 - **Zamknutie dashboardu:** nastav **`DASHBOARD_PASSWORD`** (silné heslo). Potom `/` a `/sklad` presmerujú na `/login`; po zadaní hesla sa nastaví httpOnly cookie (30 dní). API `/api/dashboard` a `/api/inventory` akceptujú buď túto cookie, alebo hlavičku `Authorization: Bearer <rovnaké heslo>` (napr. skripty). Spätne kompatibilné: ak máš len **`DASHBOARD_TOKEN`**, správa sa ako heslo (rovnaké správanie). Ak nie je ani heslo ani token, aplikácia ostáva otvorená ako doteraz.
 - **Nečinnosť:** po **30 minútach** bez aktivity (myš, klávesnica, scroll, dotyk) sa zavolá odhlásenie a presmeruje na `/login`. Nastav **`NEXT_PUBLIC_DASHBOARD_IDLE_MINUTES`** (minimum 5, maximum 1440), ak chceš inú hodnotu — po zmene treba znova build / redeploy.
 
-Ak GraphQL pri synci spadne na `customer`, pridaj do app scope **`read_customers`** (alebo dočasne odstráň `customer { displayName }` z query).
+Ak GraphQL pri synci spadne na poli `customer`, pridaj do app scope **`read_customers`**. Po migrácii **`015_shopify_orders_customer_id_returning_kpi.sql`** spusti znova **`python sync_shopify.py --ytd`** (alebo širší beh), aby sa doplnil `customer_id` na už existujúce objednávky.
+
+**KPI „Vracajúci sa“** na dashboarde: počíta sa len z objednávok so **`customer_id`** (nie guest). Percento = unikátny zákazník v období so „paid-ish“ stavom, ktorý mal aspoň jednu rovnakú kategóriu objednávku **pred** začiatkom obdobia (dátumy podľa `Europe/Bratislava`). Neúplná história v DB (krátky `read_orders` okno) môže metriku **podhodnotiť**.
 
 ## Tabuľky
 
-- `shopify_orders` (+ `customer_display_name` po migrácii `002`), `shopify_order_line_items`, `shopify_locations`, `shopify_inventory_levels`, `shopify_sync_state`
+- `shopify_orders` (`customer_display_name` po `002`, `customer_id` po `015`), `shopify_order_line_items`, `shopify_locations`, `shopify_inventory_levels`, `shopify_sync_state`
 
 RLS je zapnuté bez politík pre anon — prístup len cez **service role** (skript / server).
 
