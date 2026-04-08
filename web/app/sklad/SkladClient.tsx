@@ -121,7 +121,7 @@ export default function SkladClient() {
 
   return (
     <>
-      <header className="site-header">
+      <header className="site-header site-header--sklad">
         <div className="site-header__inner">
           <HeaderBrand />
           <div className="site-header__dropdowns">

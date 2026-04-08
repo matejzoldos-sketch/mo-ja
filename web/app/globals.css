@@ -73,6 +73,20 @@ a:hover {
   min-width: min(200px, 46vw);
 }
 
+/* Sklad: na mobile dropdown vľavo (Predaj ostáva vpravo s dvoma selectmi) */
+@media (max-width: 768px) {
+  .site-header--sklad .site-header__inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .site-header--sklad .site-header__dropdowns {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
 .period-filter {
   display: flex;
   align-items: center;
