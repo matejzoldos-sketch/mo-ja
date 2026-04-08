@@ -103,7 +103,7 @@ npm run dev
 
 Ak GraphQL pri synci spadne na poli `customer`, pridaj do app scope **`read_customers`**. Po migrácii **`015_shopify_orders_customer_id_returning_kpi.sql`** spusti znova **`python sync_shopify.py --ytd`** (alebo širší beh), aby sa doplnil `customer_id` na už existujúce objednávky.
 
-**KPI „Vracajúci sa“** na dashboarde: počíta sa len z objednávok so **`customer_id`** (nie guest). Percento = unikátny zákazník v období so „paid-ish“ stavom, ktorý mal aspoň jednu rovnakú kategóriu objednávku **pred** začiatkom obdobia (dátumy podľa `Europe/Bratislava`). Neúplná história v DB (krátky `read_orders` okno) môže metriku **podhodnotiť**.
+**KPI „Vracajúci sa“** na dashboarde: počíta sa len z objednávok so známym zákazníkom (**`customer_id`** alebo po migrácii **`016_returning_kpi_effective_customer_id.sql`** aj tail z **`raw_json.customer.id`**, ak stĺpec ešte nebol vyplnený). Guest objednávky ostávajú mimo. Percento = unikátny zákazník v období so „paid-ish“ stavom, ktorý mal aspoň jednu rovnakú kategóriu objednávku **pred** začiatkom obdobia (`Europe/Bratislava`). Neúplná história v DB môže metriku **podhodnotiť**.
 
 ## Tabuľky
 
