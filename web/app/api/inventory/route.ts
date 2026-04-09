@@ -4,6 +4,47 @@ import { isAuthorizedRequest } from "@/lib/dashboardAuth";
 
 export const dynamic = "force-dynamic";
 
+/** Skryje prázdne / placeholder SKU (sync + DB môžu mať rôzne „dash“ znaky). */
+function isRealInventorySku(s: unknown): boolean {
+  const t = String(s ?? "").trim();
+  if (!t) return false;
+  const noDash = t
+    .replace(/\u2014/g, "")
+    .replace(/\u2013/g, "")
+    .replace(/-/g, "");
+  return noDash.length > 0;
+}
+
+function sanitizeLevels(rows: unknown[]): unknown[] {
+  return rows.filter(
+    (r) =>
+      r &&
+      typeof r === "object" &&
+      isRealInventorySku((r as { sku?: unknown }).sku)
+  );
+}
+
+function sanitizeStockChartYtd(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const o = raw as {
+    points?: unknown;
+    skuOrder?: unknown;
+    [key: string]: unknown;
+  };
+  const points = Array.isArray(o.points)
+    ? o.points.filter(
+        (p) =>
+          p &&
+          typeof p === "object" &&
+          isRealInventorySku((p as { sku?: unknown }).sku)
+      )
+    : [];
+  const skuOrder = Array.isArray(o.skuOrder)
+    ? o.skuOrder.filter((x) => typeof x === "string" && isRealInventorySku(x))
+    : [];
+  return { ...o, points, skuOrder };
+}
+
 export async function GET(request: Request) {
   if (!(await isAuthorizedRequest(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -37,9 +78,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: chartRes.error.message }, { status: 500 });
   }
 
-  const levels = Array.isArray(levelsRes.data) ? levelsRes.data : [];
+  const levelsRaw = Array.isArray(levelsRes.data) ? levelsRes.data : [];
+  const levels = sanitizeLevels(levelsRaw);
+  const stockChartYtd = sanitizeStockChartYtd(chartRes.data);
   return NextResponse.json({
     levels,
-    stockChartYtd: chartRes.data,
+    stockChartYtd,
   });
 }

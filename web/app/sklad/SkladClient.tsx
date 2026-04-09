@@ -139,7 +139,8 @@ export default function SkladClient() {
             <code>007_inventory_snapshots.sql</code>,{" "}
             <code>008_inventory_dashboard_consumption.sql</code>,{" "}
             <code>019_inventory_dashboard_skip_empty_sku.sql</code>,{" "}
-            <code>020_inventory_stock_chart_skip_empty_sku.sql</code>.
+            <code>020_inventory_stock_chart_skip_empty_sku.sql</code>,{" "}
+            <code>021_inventory_skip_empty_sku_robust.sql</code>.
           </p>
         )}
         {!loading && !err && rows && (
