@@ -57,7 +57,7 @@ V repozitári nastav **Secrets**:
 - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
 - voliteľne `SHOPIFY_API_VERSION`
 
-Workflow: každý deň o ~04:15 UTC beh **`--ytd`** (objednávky vytvorené od 1. 1., aby YTD metriky v Sklade sedeli s dátami v DB). Manuálne `workflow_dispatch`: **`ytd`** = rovnaké; **`daily`** = rýchly beh len `updated_at` za posledných 14 dní.
+Workflow: každý deň o **00:00 UTC** (približne **02:00** Bratislava v CEST) beh **`--ytd`** (objednávky vytvorené od 1. 1., aby YTD metriky v Sklade sedeli s dátami v DB). GitHub môže naplánovaný beh oneskoriť o desiatky minút; čas v hlavičke je **koniec** behu — pri dlhom YTD synce preto môže vyzerať „okolo 10:00“, aj keď štart bol skôr. Manuálne `workflow_dispatch`: **`ytd`** = rovnaké; **`daily`** = rýchly beh len `updated_at` za posledných 14 dní.
 
 ### Shopify 401 / „Invalid API key or access token“
 
