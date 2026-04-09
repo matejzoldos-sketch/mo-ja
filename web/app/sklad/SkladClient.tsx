@@ -137,7 +137,8 @@ export default function SkladClient() {
             {err}{" "}
             Skontroluj env a migrácie <code>005_inventory_dashboard_rpc.sql</code>,{" "}
             <code>007_inventory_snapshots.sql</code>,{" "}
-            <code>008_inventory_dashboard_consumption.sql</code>.
+            <code>008_inventory_dashboard_consumption.sql</code>,{" "}
+            <code>019_inventory_dashboard_skip_empty_sku.sql</code>.
           </p>
         )}
         {!loading && !err && rows && (
