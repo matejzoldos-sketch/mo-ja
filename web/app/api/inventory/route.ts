@@ -66,9 +66,14 @@ export async function GET(request: Request) {
   }
 
   const supabase = createClient(supabaseUrl, serviceKey);
-  const [levelsRes, chartRes] = await Promise.all([
+  const [levelsRes, chartRes, syncRes] = await Promise.all([
     supabase.rpc("get_shopify_inventory_dashboard"),
     supabase.rpc("get_shopify_inventory_stock_chart_ytd"),
+    supabase
+      .from("shopify_sync_state")
+      .select("last_success_at")
+      .eq("resource", "full_sync")
+      .maybeSingle(),
   ]);
 
   if (levelsRes.error) {
@@ -81,8 +86,14 @@ export async function GET(request: Request) {
   const levelsRaw = Array.isArray(levelsRes.data) ? levelsRes.data : [];
   const levels = sanitizeLevels(levelsRaw);
   const stockChartYtd = sanitizeStockChartYtd(chartRes.data);
+  const lastSyncAt =
+    !syncRes.error && syncRes.data?.last_success_at != null
+      ? String(syncRes.data.last_success_at)
+      : null;
+
   return NextResponse.json({
     levels,
     stockChartYtd,
+    lastSyncAt,
   });
 }

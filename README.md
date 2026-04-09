@@ -107,7 +107,7 @@ Po migráciách **`015`–`018`** spusti znova **`python sync_shopify.py --ytd`*
 
 ## Tabuľky
 
-- `shopify_orders` (`customer_display_name` po `002`, `customer_id` po `015`, `customer_email` po `017`), `shopify_order_line_items`, `shopify_locations`, `shopify_inventory_levels`, `shopify_sync_state`
+- `shopify_orders` (`customer_display_name` po `002`, `customer_id` po `015`, `customer_email` po `017`), `shopify_order_line_items`, `shopify_locations`, `shopify_inventory_levels`, `shopify_sync_state` (po behu `sync_shopify.py` riadok `full_sync` + `last_success_at` — zobrazuje sa v hlavičke Predaj / Sklad)
 
 RLS je zapnuté bez politík pre anon — prístup len cez **service role** (skript / server).
 

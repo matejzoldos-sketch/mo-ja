@@ -51,6 +51,7 @@ const MOCK_PAYLOAD = {
       };
     }
   ),
+  lastSyncAt: "2026-04-07T17:23:00.000Z",
   skuDailyYtd: {
     year: 2026,
     from: "2026-01-01",
@@ -104,9 +105,14 @@ export async function GET(request: Request) {
   }
 
   const supabase = createClient(supabaseUrl, serviceKey);
-  const [dashRes, skuRes] = await Promise.all([
+  const [dashRes, skuRes, syncRes] = await Promise.all([
     supabase.rpc("get_shopify_dashboard_mvp", { p_range: rangeEarly }),
     supabase.rpc("get_shopify_sku_units_daily_ytd"),
+    supabase
+      .from("shopify_sync_state")
+      .select("last_success_at")
+      .eq("resource", "full_sync")
+      .maybeSingle(),
   ]);
 
   if (dashRes.error) {
@@ -123,8 +129,14 @@ export async function GET(request: Request) {
       ? (dashRes.data as Record<string, unknown>)
       : {};
 
+  const lastSyncAt =
+    !syncRes.error && syncRes.data?.last_success_at != null
+      ? String(syncRes.data.last_success_at)
+      : null;
+
   return NextResponse.json({
     ...base,
     skuDailyYtd: skuRes.data,
+    lastSyncAt,
   });
 }

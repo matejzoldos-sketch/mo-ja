@@ -17,6 +17,7 @@ import {
 import type { ChartData, ChartOptions } from "chart.js";
 import { Line, Bar } from "react-chartjs-2";
 import { HeaderBrand, HeaderSectionSelect } from "./components/HeaderNav";
+import { formatLastSyncDisplay } from "@/lib/formatLastSync";
 
 ChartJS.register(
   CategoryScale,
@@ -71,6 +72,8 @@ type Payload = {
   topProducts: TopProduct[];
   recentOrders: RecentOrder[];
   skuDailyYtd?: SkuDailyYtd;
+  /** ISO čas posledného úspešného behu sync_shopify (shopify_sync_state.full_sync) */
+  lastSyncAt?: string | null;
 };
 
 const RANGE_OPTIONS: { value: RangeKey; label: string }[] = [
@@ -424,6 +427,11 @@ export default function DashboardClient() {
             </select>
           </div>
         </div>
+        {data?.lastSyncAt != null && data.lastSyncAt !== "" && (
+          <p className="site-header__sync-meta">
+            Posledný sync dát: {formatLastSyncDisplay(data.lastSyncAt)}
+          </p>
+        )}
       </header>
 
       <main className="main-wrap">

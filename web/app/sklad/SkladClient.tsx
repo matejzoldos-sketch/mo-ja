@@ -14,6 +14,7 @@ import {
 } from "chart.js";
 import { Line } from "react-chartjs-2";
 import { HeaderBrand, HeaderSectionSelect } from "../components/HeaderNav";
+import { formatLastSyncDisplay } from "@/lib/formatLastSync";
 import {
   buildStockHistoryChart,
   stockHistoryChartOptions,
@@ -80,6 +81,7 @@ export default function SkladClient() {
   const [stockChartYtd, setStockChartYtd] = useState<StockChartYtd | null>(
     null
   );
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -93,19 +95,27 @@ export default function SkladClient() {
         setErr(json.error || `HTTP ${res.status}`);
         setRows(null);
         setStockChartYtd(null);
+        setLastSyncAt(null);
         return;
       }
       if (Array.isArray(json)) {
         setRows(json as InvRow[]);
         setStockChartYtd(null);
+        setLastSyncAt(null);
         return;
       }
       setRows((json.levels as InvRow[]) ?? []);
       setStockChartYtd((json.stockChartYtd as StockChartYtd) ?? null);
+      setLastSyncAt(
+        typeof json.lastSyncAt === "string" && json.lastSyncAt !== ""
+          ? json.lastSyncAt
+          : null
+      );
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Fetch failed");
       setRows(null);
       setStockChartYtd(null);
+      setLastSyncAt(null);
     } finally {
       setLoading(false);
     }
@@ -128,6 +138,11 @@ export default function SkladClient() {
             <HeaderSectionSelect />
           </div>
         </div>
+        {lastSyncAt != null && (
+          <p className="site-header__sync-meta">
+            Posledný sync dát: {formatLastSyncDisplay(lastSyncAt)}
+          </p>
+        )}
       </header>
 
       <main className="main-wrap">
