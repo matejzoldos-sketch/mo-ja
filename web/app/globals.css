@@ -118,10 +118,11 @@ a:hover {
   outline-offset: 2px;
 }
 
+/* Rovnaká ľavá hrana ako .site-header__inner (bez duplicitného gutteru — ten má už .site-header) */
 .site-header__sync-meta {
   max-width: var(--layout-max);
   margin: 10px auto 0;
-  padding: 0 var(--space-gutter);
+  padding: 0;
   font-size: 0.8rem;
   font-weight: 500;
   color: var(--header-text);
