@@ -456,6 +456,7 @@ export default function DashboardClient() {
             <code>017_returning_kpi_order_email.sql</code>,{" "}
             <code>018_ytd_returning_repeat_within_year.sql</code>,{" "}
             <code>024_dashboard_top_customers_by_id.sql</code>,{" "}
+            <code>025_shopify_order_effective_customer_id_if_missing.sql</code>,{" "}
             <code>005_inventory_dashboard_rpc.sql</code> (sklad),{" "}
             <code>006_sku_units_daily_ytd.sql</code>.
           </p>
