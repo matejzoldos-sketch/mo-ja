@@ -373,6 +373,20 @@ def upsert_chunked(supabase: Any, table: str, rows: List[Dict[str, Any]], on_con
         supabase.table(table).upsert(batch, on_conflict=on_conflict).execute()
 
 
+def write_full_sync_checkpoint(supabase: Any, argv: List[str], phase: str) -> None:
+    """Update shopify_sync_state.full_sync so the dashboard reflects partial success (not only full script exit)."""
+    now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    supabase.table("shopify_sync_state").upsert(
+        {
+            "resource": "full_sync",
+            "last_success_at": now_iso,
+            "meta": {"argv": argv, "checkpoint": phase},
+        },
+        on_conflict="resource",
+    ).execute()
+    log.info("Checkpoint %s → shopify_sync_state.full_sync", phase)
+
+
 def sync_locations(supabase: Any, client: httpx.Client, store: str, token: str, ver: str) -> None:
     log.info("Fetching locations ...")
     rows = fetch_all_locations(client, store, token, ver)
@@ -685,20 +699,13 @@ def main() -> None:
         if not inv_only:
             q = build_orders_search_query(args)
             sync_orders(supabase, client, store, token, ver, q)
+            write_full_sync_checkpoint(supabase, sys.argv[1:], "orders")
         if not ord_only:
             if inv_only:
                 sync_locations(supabase, client, store, token, ver)
             sync_inventory(supabase, client, store, token, ver)
+            write_full_sync_checkpoint(supabase, sys.argv[1:], "inventory")
 
-    now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
-    supabase.table("shopify_sync_state").upsert(
-        {
-            "resource": "full_sync",
-            "last_success_at": now_iso,
-            "meta": {"argv": sys.argv[1:]},
-        },
-        on_conflict="resource",
-    ).execute()
     log.info("Done.")
 
 
