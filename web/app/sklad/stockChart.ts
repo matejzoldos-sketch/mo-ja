@@ -91,40 +91,79 @@ export function buildStockHistoryChart(
 const TEXT = "#333333";
 const GRID = "rgba(51,51,51,0.08)";
 
-export const stockHistoryChartOptions: ChartOptions<"line"> = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      position: "bottom",
-      labels: {
-        color: TEXT,
-        font: { family: "Manrope", size: 11 },
-        boxWidth: 12,
-        padding: 10,
-        usePointStyle: true,
-        pointStyle: "line",
+const Y_PADDING_RATIO = 0.08;
+
+function numericSeriesValues(data: ChartData<"line">): number[] {
+  const out: number[] = [];
+  for (const ds of data.datasets) {
+    const row = ds.data;
+    if (!Array.isArray(row)) continue;
+    for (const v of row) {
+      if (typeof v === "number" && Number.isFinite(v)) out.push(v);
+    }
+  }
+  return out;
+}
+
+/** Y range from data + padding so small day-to-day changes are visible (not locked to 0..max). */
+function yExtentFromData(data: ChartData<"line">): { min: number; max: number } {
+  const vals = numericSeriesValues(data);
+  if (vals.length === 0) return { min: 0, max: 1 };
+  let minV = Math.min(...vals);
+  let maxV = Math.max(...vals);
+  if (minV === maxV) {
+    const pad = Math.max(Math.abs(minV) * 0.02, 1);
+    return { min: minV - pad, max: maxV + pad };
+  }
+  const span = maxV - minV;
+  const pad = span * Y_PADDING_RATIO;
+  return {
+    min: Math.max(0, minV - pad),
+    max: maxV + pad,
+  };
+}
+
+export function buildStockHistoryChartOptions(
+  data: ChartData<"line">
+): ChartOptions<"line"> {
+  const { min: yMin, max: yMax } = yExtentFromData(data);
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: "bottom",
+        labels: {
+          color: TEXT,
+          font: { family: "Manrope", size: 11 },
+          boxWidth: 12,
+          padding: 10,
+          usePointStyle: true,
+          pointStyle: "line",
+        },
+      },
+      tooltip: {
+        mode: "index",
+        intersect: false,
       },
     },
-    tooltip: {
-      mode: "index",
+    scales: {
+      x: {
+        ticks: { color: TEXT, maxRotation: 45, minRotation: 0 },
+        grid: { color: GRID },
+      },
+      y: {
+        ticks: { color: TEXT },
+        grid: { color: GRID },
+        beginAtZero: false,
+        min: yMin,
+        max: yMax,
+      },
+    },
+    interaction: {
+      mode: "nearest",
+      axis: "x",
       intersect: false,
     },
-  },
-  scales: {
-    x: {
-      ticks: { color: TEXT, maxRotation: 45, minRotation: 0 },
-      grid: { color: GRID },
-    },
-    y: {
-      ticks: { color: TEXT },
-      grid: { color: GRID },
-      beginAtZero: true,
-    },
-  },
-  interaction: {
-    mode: "nearest",
-    axis: "x",
-    intersect: false,
-  },
-};
+  };
+}

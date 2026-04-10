@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -17,7 +17,7 @@ import { HeaderBrand, HeaderSectionSelect } from "../components/HeaderNav";
 import { formatLastSyncDisplay } from "@/lib/formatLastSync";
 import {
   buildStockHistoryChart,
-  stockHistoryChartOptions,
+  buildStockHistoryChartOptions,
   type StockChartYtd,
 } from "./stockChart";
 
@@ -125,9 +125,15 @@ export default function SkladClient() {
     load();
   }, [load]);
 
-  const stockLineData = stockChartYtd
-    ? buildStockHistoryChart(stockChartYtd)
-    : null;
+  const stockLineData = useMemo(
+    () => (stockChartYtd ? buildStockHistoryChart(stockChartYtd) : null),
+    [stockChartYtd]
+  );
+  const stockLineOptions = useMemo(
+    () =>
+      stockLineData ? buildStockHistoryChartOptions(stockLineData) : undefined,
+    [stockLineData]
+  );
 
   return (
     <>
@@ -165,11 +171,11 @@ export default function SkladClient() {
                 Vývoj skladu podľa SKU (od 7. 4.{" "}
                 {stockChartYtd?.year ?? new Date().getFullYear()})
               </h2>
-              {stockLineData ? (
+              {stockLineData && stockLineOptions ? (
                 <div className="sku-ytd-chart-wrap">
                   <Line
                     data={stockLineData}
-                    options={stockHistoryChartOptions}
+                    options={stockLineOptions}
                   />
                 </div>
               ) : (
