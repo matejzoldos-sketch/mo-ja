@@ -107,7 +107,7 @@ Po migráciách **`015`–`018`** spusti znova **`python sync_shopify.py --ytd`*
 
 ## Tabuľky
 
-- `shopify_orders` (`customer_display_name` po `002`, `customer_id` po `015`, `customer_email` po `017`), `shopify_order_line_items`, `shopify_locations`, `shopify_inventory_levels`, `shopify_sync_state` (`resource` = `full_sync`, `last_success_at` — hlavička Predaj / Sklad). Po **úspešnom** dokončení blokov objednávky a (ak beží) inventár sa zapíše checkpoint; pri chybe/timeoute neskôr ostane aspoň čas posledného úspešného bloku (predtým sa menilo len po úplnom konci skriptu).
+- `shopify_orders` (`customer_display_name` po `002`, `customer_id` po `015`, `customer_email` po `017`), `shopify_order_line_items`, `shopify_locations`, `shopify_inventory_levels`, `shopify_sync_state` (`resource` = `full_sync`, `last_success_at`). Po úspešnom dokončení blokov objednávky / inventár sa zapíše checkpoint. Pri upserte sa nastavuje **`fetched_at`** (čas behu synclu) na lokácie, objednávky, riadky a úrovne skladu. **Hlavička „Posledný sync“** na webe berie **najnovší** z `last_success_at` a `max(fetched_at)` z týchto tabuliek (API `resolveLastSyncAt`). Ak GitHub Actions píše do **iného** Supabase projektu než Vercel (`SUPABASE_URL` / service role), dáta na dashboarde ostanú staré — secrets musia smerovať na ten istý projekt.
 
 RLS je zapnuté bez politík pre anon — prístup len cez **service role** (skript / server).
 

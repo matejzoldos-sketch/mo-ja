@@ -376,23 +376,36 @@ def upsert_chunked(supabase: Any, table: str, rows: List[Dict[str, Any]], on_con
 def write_full_sync_checkpoint(supabase: Any, argv: List[str], phase: str) -> None:
     """Update shopify_sync_state.full_sync so the dashboard reflects partial success (not only full script exit)."""
     now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
-    supabase.table("shopify_sync_state").upsert(
-        {
-            "resource": "full_sync",
-            "last_success_at": now_iso,
-            "meta": {"argv": argv, "checkpoint": phase},
-        },
-        on_conflict="resource",
-    ).execute()
-    log.info("Checkpoint %s → shopify_sync_state.full_sync", phase)
+    try:
+        supabase.table("shopify_sync_state").upsert(
+            {
+                "resource": "full_sync",
+                "last_success_at": now_iso,
+                "meta": {"argv": argv, "checkpoint": phase},
+            },
+            on_conflict="resource",
+        ).execute()
+    except Exception:
+        log.exception("Checkpoint %s FAILED (shopify_sync_state) — skontroluj SUPABASE_* v GitHub Secrets", phase)
+        raise
+    log.info("Checkpoint %s → shopify_sync_state.full_sync OK (%s)", phase, now_iso)
 
 
-def sync_locations(supabase: Any, client: httpx.Client, store: str, token: str, ver: str) -> None:
+def sync_locations(
+    supabase: Any,
+    client: httpx.Client,
+    store: str,
+    token: str,
+    ver: str,
+    sync_run_at: str,
+) -> None:
     log.info("Fetching locations ...")
     rows = fetch_all_locations(client, store, token, ver)
     if not rows:
         log.warning("No locations returned")
         return
+    for r in rows:
+        r["fetched_at"] = sync_run_at
     upsert_chunked(supabase, "shopify_locations", rows, "id")
     log.info("Upserted %d locations", len(rows))
 
@@ -487,6 +500,7 @@ def sync_orders(
     token: str,
     ver: str,
     search_query: str,
+    sync_run_at: str,
 ) -> None:
     log.info("Fetching orders query=%r ...", search_query)
     cursor: Optional[str] = None
@@ -513,6 +527,9 @@ def sync_orders(
             except ValueError as e:
                 log.warning("Skip order: %s", e)
                 continue
+            orow["fetched_at"] = sync_run_at
+            for lr in lrows:
+                lr["fetched_at"] = sync_run_at
             order_rows.append(orow)
             order_ids.append(orow["id"])
             all_lines.extend(lrows)
@@ -543,6 +560,7 @@ def sync_inventory(
     store: str,
     token: str,
     ver: str,
+    sync_run_at: str,
 ) -> None:
     log.info("Fetching inventory items + levels ...")
     cursor: Optional[str] = None
@@ -580,6 +598,7 @@ def sync_inventory(
                         "available": qty,
                         "updated_at": lv.get("updatedAt"),
                         "raw_json": raw,
+                        "fetched_at": sync_run_at,
                     }
                 )
         page = conn.get("pageInfo") or {}
@@ -688,6 +707,7 @@ def main() -> None:
         sys.exit(1)
 
     with httpx.Client(timeout=120.0) as client:
+        sync_run_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
         if client_id and client_secret:
             token = fetch_admin_token_client_credentials(client, store, client_id, client_secret)
         else:
@@ -695,15 +715,15 @@ def main() -> None:
             _log_token_hint(token)
 
         if not inv_only:
-            sync_locations(supabase, client, store, token, ver)
+            sync_locations(supabase, client, store, token, ver, sync_run_at)
         if not inv_only:
             q = build_orders_search_query(args)
-            sync_orders(supabase, client, store, token, ver, q)
+            sync_orders(supabase, client, store, token, ver, q, sync_run_at)
             write_full_sync_checkpoint(supabase, sys.argv[1:], "orders")
         if not ord_only:
             if inv_only:
-                sync_locations(supabase, client, store, token, ver)
-            sync_inventory(supabase, client, store, token, ver)
+                sync_locations(supabase, client, store, token, ver, sync_run_at)
+            sync_inventory(supabase, client, store, token, ver, sync_run_at)
             write_full_sync_checkpoint(supabase, sys.argv[1:], "inventory")
 
     log.info("Done.")
