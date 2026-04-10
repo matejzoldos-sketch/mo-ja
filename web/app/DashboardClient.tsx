@@ -42,6 +42,13 @@ type Kpis = {
 
 type Daily = { date: string; revenue: number };
 type TopProduct = { label: string; revenue: number; units: number };
+/** Bez mena/emailu — len Shopify customer legacy id z objednávok. */
+type TopCustomer = {
+  customer_id: number;
+  orders: number;
+  revenue: number;
+  currency: string | null;
+};
 type RecentOrder = {
   id: number;
   name: string;
@@ -70,6 +77,7 @@ type Payload = {
   kpis: Kpis;
   dailyRevenue: Daily[];
   topProducts: TopProduct[];
+  topCustomers?: TopCustomer[];
   recentOrders: RecentOrder[];
   skuDailyYtd?: SkuDailyYtd;
   /** ISO čas posledného úspešného behu sync_shopify (shopify_sync_state.full_sync) */
@@ -447,6 +455,7 @@ export default function DashboardClient() {
             <code>016_returning_kpi_effective_customer_id.sql</code>,{" "}
             <code>017_returning_kpi_order_email.sql</code>,{" "}
             <code>018_ytd_returning_repeat_within_year.sql</code>,{" "}
+            <code>024_dashboard_top_customers_by_id.sql</code>,{" "}
             <code>005_inventory_dashboard_rpc.sql</code> (sklad),{" "}
             <code>006_sku_units_daily_ytd.sql</code>.
           </p>
@@ -543,6 +552,44 @@ export default function DashboardClient() {
                 ) : null}
               </div>
             </section>
+
+            {(data.topCustomers?.length ?? 0) > 0 ? (
+              <section className="table-card">
+                <h2>
+                  Top zákazníci podľa Shopify customer ID
+                  {periodLabel ? ` (${periodLabel})` : ""}
+                </h2>
+                <p className="chart-card__subtitle">
+                  Len objednávky so známym customer ID (bez mena a emailu v tejto tabuľke).
+                  Hosťovské / len-email objednávky tu nie sú.
+                </p>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Customer ID</th>
+                      <th>Objednávky</th>
+                      <th>Tržby</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(data.topCustomers ?? []).map((c) => (
+                      <tr key={c.customer_id}>
+                        <td>
+                          <code>{c.customer_id}</code>
+                        </td>
+                        <td>{c.orders}</td>
+                        <td>
+                          {formatMoney(
+                            Number(c.revenue),
+                            c.currency || data.kpis.currency
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </section>
+            ) : null}
 
             {data.skuDailyYtd && skuYtdLineData ? (
               <section className="chart-card chart-card--sku-ytd">
