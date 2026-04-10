@@ -39,11 +39,11 @@ function skuLineColor(i: number, total: number): string {
   return `hsl(${h} 42% 38%)`;
 }
 
-/** Carry last reading forward; days before first snapshot = 0. */
+/** Carry last reading forward; days before first snapshot = null (not 0 — so Y-scale is not pinned to zero). */
 function forwardFillStock(
   days: string[],
   byDay: Map<string, number>
-): number[] {
+): (number | null)[] {
   let last = 0;
   let seen = false;
   return days.map((d) => {
@@ -52,7 +52,7 @@ function forwardFillStock(
       seen = true;
       return last;
     }
-    return seen ? last : 0;
+    return seen ? last : null;
   });
 }
 
@@ -80,6 +80,7 @@ export function buildStockHistoryChart(
       backgroundColor: "transparent",
       fill: false,
       tension: 0.2,
+      spanGaps: true,
       pointRadius: 0,
       pointHoverRadius: 4,
       borderWidth: 2,
@@ -113,7 +114,10 @@ function yExtentFromData(data: ChartData<"line">): { min: number; max: number } 
   let maxV = Math.max(...vals);
   if (minV === maxV) {
     const pad = Math.max(Math.abs(minV) * 0.02, 1);
-    return { min: minV - pad, max: maxV + pad };
+    return {
+      min: Math.max(0, minV - pad),
+      max: maxV + pad,
+    };
   }
   const span = maxV - minV;
   const pad = span * Y_PADDING_RATIO;
