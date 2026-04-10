@@ -227,6 +227,24 @@ a:hover {
   height: 380px;
 }
 
+.sku-ytd-panels {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.sku-ytd-panel__title {
+  margin: 0 0 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.sku-ytd-panel__chart {
+  position: relative;
+  height: 240px;
+}
+
 .line-chart-block {
   display: flex;
   flex-direction: column;

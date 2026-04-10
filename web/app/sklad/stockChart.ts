@@ -93,6 +93,8 @@ const TEXT = "#333333";
 const GRID = "rgba(51,51,51,0.08)";
 
 const Y_PADDING_RATIO = 0.08;
+/** Tighter padding when each SKU has its own chart — movement reads larger. */
+const Y_PADDING_RATIO_PER_SKU = 0.04;
 
 function numericSeriesValues(data: ChartData<"line">): number[] {
   const out: number[] = [];
@@ -107,7 +109,10 @@ function numericSeriesValues(data: ChartData<"line">): number[] {
 }
 
 /** Y range from data + padding so small day-to-day changes are visible (not locked to 0..max). */
-function yExtentFromData(data: ChartData<"line">): { min: number; max: number } {
+function yExtentFromData(
+  data: ChartData<"line">,
+  paddingRatio: number = Y_PADDING_RATIO
+): { min: number; max: number } {
   const vals = numericSeriesValues(data);
   if (vals.length === 0) return { min: 0, max: 1 };
   let minV = Math.min(...vals);
@@ -120,22 +125,24 @@ function yExtentFromData(data: ChartData<"line">): { min: number; max: number } 
     };
   }
   const span = maxV - minV;
-  const pad = span * Y_PADDING_RATIO;
+  const pad = Math.max(span * paddingRatio, 1);
   return {
     min: Math.max(0, minV - pad),
     max: maxV + pad,
   };
 }
 
-export function buildStockHistoryChartOptions(
-  data: ChartData<"line">
+function createStockLineChartOptions(
+  yMin: number,
+  yMax: number,
+  showLegend: boolean
 ): ChartOptions<"line"> {
-  const { min: yMin, max: yMax } = yExtentFromData(data);
   return {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
       legend: {
+        display: showLegend,
         position: "bottom",
         labels: {
           color: TEXT,
@@ -170,4 +177,65 @@ export function buildStockHistoryChartOptions(
       intersect: false,
     },
   };
+}
+
+export function buildStockHistoryChartOptions(
+  data: ChartData<"line">
+): ChartOptions<"line"> {
+  const { min: yMin, max: yMax } = yExtentFromData(data);
+  return createStockLineChartOptions(yMin, yMax, true);
+}
+
+export type StockSkuPanel = {
+  skuLabel: string;
+  data: ChartData<"line">;
+  options: ChartOptions<"line">;
+};
+
+/** One chart per SKU, each with its own Y scale (small moves stay visible vs one shared axis). */
+export function buildStockSkuPanels(
+  s: StockChartYtd | undefined
+): StockSkuPanel[] | null {
+  if (!s?.skuOrder?.length) return null;
+  const fromIso = effectiveChartFromIso(s);
+  const days = enumerateInclusiveDays(fromIso, s.to);
+  if (days.length === 0) return null;
+  const n = s.skuOrder.length;
+  const panels: StockSkuPanel[] = [];
+  for (let i = 0; i < n; i++) {
+    const sku = s.skuOrder[i];
+    const label = sku.length > 40 ? `${sku.slice(0, 38)}…` : sku;
+    const byDay = new Map<string, number>();
+    for (const p of s.points) {
+      if (p.sku === sku) byDay.set(p.date, Number(p.stock));
+    }
+    const color = skuLineColor(i, n);
+    const data: ChartData<"line"> = {
+      labels: days,
+      datasets: [
+        {
+          label: "Ks na sklade",
+          data: forwardFillStock(days, byDay),
+          borderColor: color,
+          backgroundColor: "transparent",
+          fill: false,
+          tension: 0.2,
+          spanGaps: true,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          borderWidth: 2,
+        },
+      ],
+    };
+    const { min: yMin, max: yMax } = yExtentFromData(
+      data,
+      Y_PADDING_RATIO_PER_SKU
+    );
+    panels.push({
+      skuLabel: label,
+      data,
+      options: createStockLineChartOptions(yMin, yMax, false),
+    });
+  }
+  return panels;
 }

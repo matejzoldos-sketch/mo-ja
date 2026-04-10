@@ -16,8 +16,7 @@ import { Line } from "react-chartjs-2";
 import { HeaderBrand, HeaderSectionSelect } from "../components/HeaderNav";
 import { formatLastSyncDisplay } from "@/lib/formatLastSync";
 import {
-  buildStockHistoryChart,
-  buildStockHistoryChartOptions,
+  buildStockSkuPanels,
   type StockChartYtd,
 } from "./stockChart";
 
@@ -125,14 +124,9 @@ export default function SkladClient() {
     load();
   }, [load]);
 
-  const stockLineData = useMemo(
-    () => (stockChartYtd ? buildStockHistoryChart(stockChartYtd) : null),
+  const stockSkuPanels = useMemo(
+    () => (stockChartYtd ? buildStockSkuPanels(stockChartYtd) : null),
     [stockChartYtd]
-  );
-  const stockLineOptions = useMemo(
-    () =>
-      stockLineData ? buildStockHistoryChartOptions(stockLineData) : undefined,
-    [stockLineData]
   );
 
   return (
@@ -171,12 +165,23 @@ export default function SkladClient() {
                 Vývoj skladu podľa SKU (od 7. 4.{" "}
                 {stockChartYtd?.year ?? new Date().getFullYear()})
               </h2>
-              {stockLineData && stockLineOptions ? (
-                <div className="sku-ytd-chart-wrap">
-                  <Line
-                    data={stockLineData}
-                    options={stockLineOptions}
-                  />
+              <p className="chart-card__subtitle">
+                Každé SKU má vlastnú os Y — menšie zmeny sú čitateľnejšie ako pri jednom
+                spoločnom grafe.
+              </p>
+              {stockSkuPanels?.length ? (
+                <div className="sku-ytd-panels">
+                  {stockSkuPanels.map((panel, idx) => (
+                    <div
+                      key={`${panel.skuLabel}-${idx}`}
+                      className="sku-ytd-panel"
+                    >
+                      <h3 className="sku-ytd-panel__title">{panel.skuLabel}</h3>
+                      <div className="sku-ytd-panel__chart">
+                        <Line data={panel.data} options={panel.options} />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <p className="msg">
