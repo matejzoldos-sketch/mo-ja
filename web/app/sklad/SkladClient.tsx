@@ -40,7 +40,7 @@ type InvRow = {
   updated_at: string | null;
   fetched_at: string | null;
   avg_daily_units_sold_ytd: number | null;
-  estimated_days_of_stock: number | null;
+  estimated_stockout_date?: string | null;
 };
 
 function formatWhen(iso: string | null) {
@@ -65,14 +65,23 @@ function formatAvgDaily(n: number | null | undefined) {
   }).format(Number(n));
 }
 
-function formatDaysStock(n: number | null | undefined) {
-  if (n == null || Number.isNaN(Number(n))) return "—";
-  const x = Number(n);
-  if (x === 0) return "0";
-  return new Intl.NumberFormat("sk-SK", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 1,
-  }).format(x);
+/** ISO dátum z RPC (YYYY-MM-DD); zobrazíme v lokálnom kalendári. */
+function formatStockoutDate(iso: string | null | undefined) {
+  if (iso == null || String(iso).trim() === "") return "—";
+  const s = String(iso).trim().slice(0, 10);
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (!m) return "—";
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  if (!y || !mo || !d) return "—";
+  try {
+    return new Intl.DateTimeFormat("sk-SK", { dateStyle: "medium" }).format(
+      new Date(y, mo - 1, d)
+    );
+  } catch {
+    return "—";
+  }
 }
 
 export default function SkladClient() {
@@ -155,7 +164,8 @@ export default function SkladClient() {
             <code>008_inventory_dashboard_consumption.sql</code>,{" "}
             <code>019_inventory_dashboard_skip_empty_sku.sql</code>,{" "}
             <code>020_inventory_stock_chart_skip_empty_sku.sql</code>,{" "}
-            <code>021_inventory_skip_empty_sku_robust.sql</code>.
+            <code>021_inventory_skip_empty_sku_robust.sql</code>,{" "}
+            <code>022_inventory_estimated_stockout_date.sql</code>.
           </p>
         )}
         {!loading && !err && rows && (
@@ -207,7 +217,7 @@ export default function SkladClient() {
                         <th>SKU</th>
                         <th>Dostupné</th>
                         <th>Priem. denná spotreba YTD</th>
-                        <th>Odhad dní zásoby</th>
+                        <th>Odhad dátumu vyčerpania zásob</th>
                         <th>Shopify updated</th>
                         <th>Sync</th>
                       </tr>
@@ -226,8 +236,8 @@ export default function SkladClient() {
                             )}
                           </td>
                           <td>
-                            {formatDaysStock(
-                              r.estimated_days_of_stock ?? null
+                            {formatStockoutDate(
+                              r.estimated_stockout_date ?? null
                             )}
                           </td>
                           <td>{formatWhen(r.updated_at)}</td>
