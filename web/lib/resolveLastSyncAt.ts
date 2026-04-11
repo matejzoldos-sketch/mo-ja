@@ -1,5 +1,22 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+/**
+ * PostgREST často vráti TIMESTAMPTZ ako "2026-04-11 11:44:26+00" (medzera namiesto T,
+ * offset bez minút). Date.parse na to vráti NaN → resolveLastSyncAt by omylom nechal
+ * starší fetched_at namiesto last_success_at.
+ */
+function parseTimestampToMs(raw: string): number {
+  let s = raw.trim();
+  if (/^\d{4}-\d{2}-\d{2} \d/.test(s)) {
+    s = s.replace(" ", "T");
+  }
+  if (/[+-]\d{2}$/.test(s) && !/[+-]\d{2}:\d{2}$/.test(s)) {
+    s = s.replace(/([+-]\d{2})$/, "$1:00");
+  }
+  const ms = Date.parse(s);
+  return Number.isNaN(ms) ? Number.NaN : ms;
+}
+
 /** Najnovší čas z sync_state alebo z riadkov dotknutých syncom (fetched_at). */
 export async function resolveLastSyncAt(
   supabase: SupabaseClient
@@ -42,15 +59,14 @@ export async function resolveLastSyncAt(
 
   if (candidates.length === 0) return null;
 
-  let best = candidates[0];
-  let bestMs = Date.parse(best);
-  if (Number.isNaN(bestMs)) bestMs = 0;
-  for (let i = 1; i < candidates.length; i++) {
-    const ms = Date.parse(candidates[i]);
+  let best: string | null = null;
+  let bestMs = -Infinity;
+  for (const c of candidates) {
+    const ms = parseTimestampToMs(c);
     if (!Number.isNaN(ms) && ms > bestMs) {
-      best = candidates[i];
+      best = c;
       bestMs = ms;
     }
   }
-  return best;
+  return best ?? candidates[0];
 }
