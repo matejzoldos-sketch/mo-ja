@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { isAuthorizedRequest } from "@/lib/dashboardAuth";
 import { jsonNoStoreHeaders } from "@/lib/apiJsonNoStore";
 import { resolveLastSyncAt } from "@/lib/resolveLastSyncAt";
+import { supabasePostgrestRpc } from "@/lib/supabasePostgrestRpc";
 
 export const dynamic = "force-dynamic";
 
@@ -142,29 +143,30 @@ export async function GET(request: Request) {
 
   const supabase = createClient(supabaseUrl, serviceKey);
   const [dashRes, skuRes, lastSyncAt] = await Promise.all([
-    supabase.rpc("get_shopify_dashboard_mvp", { p_range: rangeEarly }),
-    supabase.rpc("get_shopify_sku_units_daily_ytd"),
+    supabasePostgrestRpc<Record<string, unknown>>(supabaseUrl, serviceKey, "get_shopify_dashboard_mvp", {
+      p_range: rangeEarly,
+    }),
+    supabasePostgrestRpc<unknown>(supabaseUrl, serviceKey, "get_shopify_sku_units_daily_ytd", {}),
     resolveLastSyncAt(supabase),
   ]);
 
   if (dashRes.error) {
     return NextResponse.json(
-      { error: dashRes.error.message },
+      { error: dashRes.error },
       { status: 500, headers: dashboardHeaders(supabaseUrl, null) }
     );
   }
   if (skuRes.error) {
     return NextResponse.json(
-      { error: skuRes.error.message },
+      { error: skuRes.error },
       { status: 500, headers: dashboardHeaders(supabaseUrl, null) }
     );
   }
 
+  const rawDash = dashRes.data;
   const base =
-    dashRes.data !== null &&
-    typeof dashRes.data === "object" &&
-    !Array.isArray(dashRes.data)
-      ? (dashRes.data as Record<string, unknown>)
+    rawDash != null && typeof rawDash === "object" && !Array.isArray(rawDash)
+      ? rawDash
       : {};
 
   const meta = base.meta;
