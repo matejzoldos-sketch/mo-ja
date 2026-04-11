@@ -145,7 +145,10 @@ export default function SkladClient() {
     setLoading(true);
     setErr(null);
     try {
-      const res = await fetch("/api/inventory", { cache: "no-store" });
+      const res = await fetch(`/api/inventory?_=${Date.now()}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
       const json = await res.json();
       if (!res.ok) {
         setErr(json.error || `HTTP ${res.status}`);
@@ -179,6 +182,14 @@ export default function SkladClient() {
 
   useEffect(() => {
     load();
+  }, [load]);
+
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
   }, [load]);
 
   const stockSkuPanels = useMemo(

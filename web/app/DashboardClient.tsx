@@ -253,8 +253,14 @@ export default function DashboardClient() {
     setLoading(true);
     setErr(null);
     try {
-      const q = r === "ytd" ? "" : `?range=${encodeURIComponent(r)}`;
-      const res = await fetch(`/api/dashboard${q}`, { cache: "no-store" });
+      const q =
+        r === "ytd"
+          ? `?_=${Date.now()}`
+          : `?range=${encodeURIComponent(r)}&_=${Date.now()}`;
+      const res = await fetch(`/api/dashboard${q}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
       const json = await res.json();
       if (!res.ok) {
         setErr(json.error || `HTTP ${res.status}`);
@@ -272,6 +278,14 @@ export default function DashboardClient() {
 
   useEffect(() => {
     load(range);
+  }, [load, range]);
+
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === "visible") void load(range);
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
   }, [load, range]);
 
   function onRangeChange(next: RangeKey) {
