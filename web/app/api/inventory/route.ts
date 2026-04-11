@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { jsonNoStoreHeaders } from "@/lib/apiJsonNoStore";
 import { isAuthorizedRequest } from "@/lib/dashboardAuth";
 import { resolveLastSyncAt } from "@/lib/resolveLastSyncAt";
+import { supabasePostgrestRpc } from "@/lib/supabasePostgrestRpc";
 
 export const dynamic = "force-dynamic";
 
@@ -72,20 +73,20 @@ export async function GET(request: Request) {
 
   const supabase = createClient(supabaseUrl, serviceKey);
   const [levelsRes, chartRes, lastSyncAt] = await Promise.all([
-    supabase.rpc("get_shopify_inventory_dashboard"),
-    supabase.rpc("get_shopify_inventory_stock_chart_ytd"),
+    supabasePostgrestRpc<unknown>(supabaseUrl, serviceKey, "get_shopify_inventory_dashboard", {}),
+    supabasePostgrestRpc<unknown>(supabaseUrl, serviceKey, "get_shopify_inventory_stock_chart_ytd", {}),
     resolveLastSyncAt(supabase),
   ]);
 
   if (levelsRes.error) {
     return NextResponse.json(
-      { error: levelsRes.error.message },
+      { error: levelsRes.error },
       { status: 500, headers: jsonNoStoreHeaders }
     );
   }
   if (chartRes.error) {
     return NextResponse.json(
-      { error: chartRes.error.message },
+      { error: chartRes.error },
       { status: 500, headers: jsonNoStoreHeaders }
     );
   }
