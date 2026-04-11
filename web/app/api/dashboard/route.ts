@@ -8,6 +8,29 @@ export const dynamic = "force-dynamic";
 
 const ALLOWED_RANGE = new Set(["ytd", "30d", "90d"]);
 
+/** Prvý segment hostu *.supabase.co — na overenie, že Production volá očakávaný projekt. */
+function supabaseProjectRef(url: string): string | null {
+  try {
+    const h = new URL(url.trim()).hostname.toLowerCase();
+    const m = /^([a-z0-9]+)\.supabase\.co$/i.exec(h);
+    return m?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function dashboardHeaders(
+  supabaseUrl: string,
+  metaTo?: string | null
+): Record<string, string> {
+  const ref = supabaseProjectRef(supabaseUrl);
+  return {
+    ...jsonNoStoreHeaders,
+    ...(ref ? { "x-supabase-project-ref": ref } : {}),
+    ...(metaTo ? { "x-dashboard-meta-to": metaTo } : {}),
+  };
+}
+
 const MOCK_PAYLOAD = {
   meta: {
     range: "ytd",
@@ -127,13 +150,13 @@ export async function GET(request: Request) {
   if (dashRes.error) {
     return NextResponse.json(
       { error: dashRes.error.message },
-      { status: 500, headers: jsonNoStoreHeaders }
+      { status: 500, headers: dashboardHeaders(supabaseUrl, null) }
     );
   }
   if (skuRes.error) {
     return NextResponse.json(
       { error: skuRes.error.message },
-      { status: 500, headers: jsonNoStoreHeaders }
+      { status: 500, headers: dashboardHeaders(supabaseUrl, null) }
     );
   }
 
@@ -144,12 +167,21 @@ export async function GET(request: Request) {
       ? (dashRes.data as Record<string, unknown>)
       : {};
 
+  const meta = base.meta;
+  const metaTo =
+    meta != null &&
+    typeof meta === "object" &&
+    !Array.isArray(meta) &&
+    "to" in meta
+      ? String((meta as { to: unknown }).to)
+      : null;
+
   return NextResponse.json(
     {
       ...base,
       skuDailyYtd: skuRes.data,
       lastSyncAt,
     },
-    { headers: jsonNoStoreHeaders }
+    { headers: dashboardHeaders(supabaseUrl, metaTo) }
   );
 }
