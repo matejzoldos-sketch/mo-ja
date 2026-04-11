@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { jsonNoStoreHeaders } from "@/lib/apiJsonNoStore";
 import { isAuthorizedRequest } from "@/lib/dashboardAuth";
 import { resolveLastSyncAt } from "@/lib/resolveLastSyncAt";
 
@@ -48,7 +49,10 @@ function sanitizeStockChartYtd(raw: unknown): unknown {
 
 export async function GET(request: Request) {
   if (!(await isAuthorizedRequest(request))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401, headers: jsonNoStoreHeaders }
+    );
   }
 
   const supabaseUrl = (process.env.SUPABASE_URL || "").trim();
@@ -62,7 +66,7 @@ export async function GET(request: Request) {
       {
         error: `Chýba: ${missing.join(", ")}. Vercel → Environment Variables + Redeploy.`,
       },
-      { status: 500 }
+      { status: 500, headers: jsonNoStoreHeaders }
     );
   }
 
@@ -74,18 +78,27 @@ export async function GET(request: Request) {
   ]);
 
   if (levelsRes.error) {
-    return NextResponse.json({ error: levelsRes.error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: levelsRes.error.message },
+      { status: 500, headers: jsonNoStoreHeaders }
+    );
   }
   if (chartRes.error) {
-    return NextResponse.json({ error: chartRes.error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: chartRes.error.message },
+      { status: 500, headers: jsonNoStoreHeaders }
+    );
   }
 
   const levelsRaw = Array.isArray(levelsRes.data) ? levelsRes.data : [];
   const levels = sanitizeLevels(levelsRaw);
   const stockChartYtd = sanitizeStockChartYtd(chartRes.data);
-  return NextResponse.json({
-    levels,
-    stockChartYtd,
-    lastSyncAt,
-  });
+  return NextResponse.json(
+    {
+      levels,
+      stockChartYtd,
+      lastSyncAt,
+    },
+    { headers: jsonNoStoreHeaders }
+  );
 }

@@ -254,7 +254,7 @@ export default function DashboardClient() {
     setErr(null);
     try {
       const q = r === "ytd" ? "" : `?range=${encodeURIComponent(r)}`;
-      const res = await fetch(`/api/dashboard${q}`);
+      const res = await fetch(`/api/dashboard${q}`, { cache: "no-store" });
       const json = await res.json();
       if (!res.ok) {
         setErr(json.error || `HTTP ${res.status}`);

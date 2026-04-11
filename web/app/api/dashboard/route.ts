@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { isAuthorizedRequest } from "@/lib/dashboardAuth";
+import { jsonNoStoreHeaders } from "@/lib/apiJsonNoStore";
 import { resolveLastSyncAt } from "@/lib/resolveLastSyncAt";
 
 export const dynamic = "force-dynamic";
@@ -79,20 +80,26 @@ const MOCK_PAYLOAD = {
 
 export async function GET(request: Request) {
   if (!(await isAuthorizedRequest(request))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401, headers: jsonNoStoreHeaders }
+    );
   }
 
   const url = new URL(request.url);
   const rawRangeEarly = url.searchParams.get("range")?.toLowerCase().trim() ?? "";
   const rangeEarly = ALLOWED_RANGE.has(rawRangeEarly) ? rawRangeEarly : "ytd";
   if (url.searchParams.get("mock") === "1") {
-    return NextResponse.json({
-      ...MOCK_PAYLOAD,
-      meta: {
-        ...MOCK_PAYLOAD.meta,
-        range: rangeEarly,
+    return NextResponse.json(
+      {
+        ...MOCK_PAYLOAD,
+        meta: {
+          ...MOCK_PAYLOAD.meta,
+          range: rangeEarly,
+        },
       },
-    });
+      { headers: jsonNoStoreHeaders }
+    );
   }
 
   const supabaseUrl = (process.env.SUPABASE_URL || "").trim();
@@ -106,7 +113,7 @@ export async function GET(request: Request) {
       {
         error: `Chýba: ${missing.join(", ")}. Vercel → Project → Settings → Environment Variables: pridaj obe pre Production, potom Redeploy. (Názvy presne takto; service_role secret, nie anon.)`,
       },
-      { status: 500 }
+      { status: 500, headers: jsonNoStoreHeaders }
     );
   }
 
@@ -118,10 +125,16 @@ export async function GET(request: Request) {
   ]);
 
   if (dashRes.error) {
-    return NextResponse.json({ error: dashRes.error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: dashRes.error.message },
+      { status: 500, headers: jsonNoStoreHeaders }
+    );
   }
   if (skuRes.error) {
-    return NextResponse.json({ error: skuRes.error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: skuRes.error.message },
+      { status: 500, headers: jsonNoStoreHeaders }
+    );
   }
 
   const base =
@@ -131,9 +144,12 @@ export async function GET(request: Request) {
       ? (dashRes.data as Record<string, unknown>)
       : {};
 
-  return NextResponse.json({
-    ...base,
-    skuDailyYtd: skuRes.data,
-    lastSyncAt,
-  });
+  return NextResponse.json(
+    {
+      ...base,
+      skuDailyYtd: skuRes.data,
+      lastSyncAt,
+    },
+    { headers: jsonNoStoreHeaders }
+  );
 }

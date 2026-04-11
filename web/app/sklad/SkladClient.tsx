@@ -145,7 +145,7 @@ export default function SkladClient() {
     setLoading(true);
     setErr(null);
     try {
-      const res = await fetch("/api/inventory");
+      const res = await fetch("/api/inventory", { cache: "no-store" });
       const json = await res.json();
       if (!res.ok) {
         setErr(json.error || `HTTP ${res.status}`);
