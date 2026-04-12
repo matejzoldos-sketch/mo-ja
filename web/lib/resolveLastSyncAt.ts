@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { supabasePostgrestGet, supabasePostgrestRpc } from "./supabasePostgrestRpc";
 
 function unknownToIsoString(v: unknown): string | null {
   if (v == null) return null;
@@ -32,55 +32,46 @@ function parseTimestampToMs(raw: string): number {
   return Number.isNaN(ms) ? Number.NaN : ms;
 }
 
-/** Najnovší čas z sync_state alebo z riadkov dotknutých syncom (fetched_at). */
-export async function resolveLastSyncAt(
-  supabase: SupabaseClient
+async function lastSyncFromTableFallback(
+  supabaseUrl: string,
+  serviceKey: string
 ): Promise<string | null> {
-  const rpcRes = await supabase.rpc("get_dashboard_last_sync_at");
-  if (!rpcRes.error && rpcRes.data != null) {
-    const iso = unknownToIsoString(rpcRes.data);
-    if (iso != null) return iso;
-  }
-
   const [syncRes, ordRes, invRes, locRes] = await Promise.all([
-    supabase
-      .from("shopify_sync_state")
-      .select("last_success_at")
-      .eq("resource", "full_sync")
-      .maybeSingle(),
-    supabase
-      .from("shopify_orders")
-      .select("fetched_at")
-      .order("fetched_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from("shopify_inventory_levels")
-      .select("fetched_at")
-      .order("fetched_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from("shopify_locations")
-      .select("fetched_at")
-      .order("fetched_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+    supabasePostgrestGet<Array<{ last_success_at?: unknown }>>(
+      supabaseUrl,
+      serviceKey,
+      "shopify_sync_state?select=last_success_at&resource=eq.full_sync&limit=1"
+    ),
+    supabasePostgrestGet<Array<{ fetched_at?: unknown }>>(
+      supabaseUrl,
+      serviceKey,
+      "shopify_orders?select=fetched_at&order=fetched_at.desc&limit=1"
+    ),
+    supabasePostgrestGet<Array<{ fetched_at?: unknown }>>(
+      supabaseUrl,
+      serviceKey,
+      "shopify_inventory_levels?select=fetched_at&order=fetched_at.desc&limit=1"
+    ),
+    supabasePostgrestGet<Array<{ fetched_at?: unknown }>>(
+      supabaseUrl,
+      serviceKey,
+      "shopify_locations?select=fetched_at&order=fetched_at.desc&limit=1"
+    ),
   ]);
 
   const candidates: string[] = [];
-  if (!syncRes.error && syncRes.data?.last_success_at != null) {
-    const s = unknownToIsoString(syncRes.data.last_success_at);
+  const syncRow = syncRes.data?.[0];
+  if (!syncRes.error && syncRow?.last_success_at != null) {
+    const s = unknownToIsoString(syncRow.last_success_at);
     if (s != null) candidates.push(s);
-    else candidates.push(String(syncRes.data.last_success_at));
+    else candidates.push(String(syncRow.last_success_at));
   }
-  for (const r of [ordRes, invRes, locRes]) {
-    if (!r.error && r.data && "fetched_at" in r.data && r.data.fetched_at != null) {
-      const s = unknownToIsoString(
-        (r.data as { fetched_at: unknown }).fetched_at
-      );
+  for (const res of [ordRes, invRes, locRes]) {
+    const row = res.data?.[0];
+    if (!res.error && row && "fetched_at" in row && row.fetched_at != null) {
+      const s = unknownToIsoString(row.fetched_at);
       if (s != null) candidates.push(s);
-      else candidates.push(String((r.data as { fetched_at: unknown }).fetched_at));
+      else candidates.push(String(row.fetched_at));
     }
   }
 
@@ -96,4 +87,23 @@ export async function resolveLastSyncAt(
     }
   }
   return best ?? candidates[0];
+}
+
+/** Najnovší čas z sync_state alebo z riadkov dotknutých syncom (fetched_at). Len PostgREST fetch. */
+export async function resolveLastSyncAt(
+  supabaseUrl: string,
+  serviceRoleKey: string
+): Promise<string | null> {
+  const rpcRes = await supabasePostgrestRpc<unknown>(
+    supabaseUrl,
+    serviceRoleKey,
+    "get_dashboard_last_sync_at",
+    {}
+  );
+  if (!rpcRes.error && rpcRes.data != null) {
+    const iso = unknownToIsoString(rpcRes.data);
+    if (iso != null) return iso;
+  }
+
+  return lastSyncFromTableFallback(supabaseUrl, serviceRoleKey);
 }

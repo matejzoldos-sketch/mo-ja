@@ -1,4 +1,3 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { isAuthorizedRequest } from "@/lib/dashboardAuth";
 import { jsonNoStoreHeaders } from "@/lib/apiJsonNoStore";
@@ -141,24 +140,16 @@ export async function GET(request: Request) {
     );
   }
 
-  const supabase = createClient(supabaseUrl, serviceKey);
-  const [dashRes, skuRes, lastSyncAt] = await Promise.all([
+  const [dashRes, lastSyncAt] = await Promise.all([
     supabasePostgrestRpc<Record<string, unknown>>(supabaseUrl, serviceKey, "get_shopify_dashboard_mvp", {
       p_range: rangeEarly,
     }),
-    supabasePostgrestRpc<unknown>(supabaseUrl, serviceKey, "get_shopify_sku_units_daily_ytd", {}),
-    resolveLastSyncAt(supabase),
+    resolveLastSyncAt(supabaseUrl, serviceKey),
   ]);
 
   if (dashRes.error) {
     return NextResponse.json(
       { error: dashRes.error },
-      { status: 500, headers: dashboardHeaders(supabaseUrl, null) }
-    );
-  }
-  if (skuRes.error) {
-    return NextResponse.json(
-      { error: skuRes.error },
       { status: 500, headers: dashboardHeaders(supabaseUrl, null) }
     );
   }
@@ -181,7 +172,6 @@ export async function GET(request: Request) {
   return NextResponse.json(
     {
       ...base,
-      skuDailyYtd: skuRes.data,
       lastSyncAt,
     },
     { headers: dashboardHeaders(supabaseUrl, metaTo) }

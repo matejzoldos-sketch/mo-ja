@@ -257,17 +257,31 @@ export default function DashboardClient() {
         r === "ytd"
           ? `?_=${Date.now()}`
           : `?range=${encodeURIComponent(r)}&_=${Date.now()}`;
-      const res = await fetch(`/api/dashboard${q}`, {
+      const fetchOpts: RequestInit = {
         cache: "no-store",
         headers: { "Cache-Control": "no-cache" },
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        setErr(json.error || `HTTP ${res.status}`);
+      };
+      const [mainRes, skuRes] = await Promise.all([
+        fetch(`/api/dashboard${q}`, fetchOpts),
+        fetch(`/api/dashboard/sku-ytd?_=${Date.now()}`, fetchOpts),
+      ]);
+      const mainJson = (await mainRes.json()) as Payload & { error?: string };
+      if (!mainRes.ok) {
+        setErr(mainJson.error || `HTTP ${mainRes.status}`);
         setData(null);
         return;
       }
-      setData(json as Payload);
+      let skuDailyYtd = mainJson.skuDailyYtd;
+      if (skuRes.ok) {
+        const sj = (await skuRes.json()) as {
+          error?: string;
+          skuDailyYtd?: SkuDailyYtd;
+        };
+        if (!sj.error && sj.skuDailyYtd !== undefined) {
+          skuDailyYtd = sj.skuDailyYtd;
+        }
+      }
+      setData({ ...mainJson, skuDailyYtd } as Payload);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Fetch failed");
       setData(null);

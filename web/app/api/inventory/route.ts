@@ -1,4 +1,3 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { jsonNoStoreHeaders } from "@/lib/apiJsonNoStore";
 import { isAuthorizedRequest } from "@/lib/dashboardAuth";
@@ -71,11 +70,10 @@ export async function GET(request: Request) {
     );
   }
 
-  const supabase = createClient(supabaseUrl, serviceKey);
   const [levelsRes, chartRes, lastSyncAt] = await Promise.all([
     supabasePostgrestRpc<unknown>(supabaseUrl, serviceKey, "get_shopify_inventory_dashboard", {}),
     supabasePostgrestRpc<unknown>(supabaseUrl, serviceKey, "get_shopify_inventory_stock_chart_ytd", {}),
-    resolveLastSyncAt(supabase),
+    resolveLastSyncAt(supabaseUrl, serviceKey),
   ]);
 
   if (levelsRes.error) {
