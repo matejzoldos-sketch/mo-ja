@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Chart as ChartJS,
@@ -84,11 +84,14 @@ type Payload = {
   lastSyncAt?: string | null;
 };
 
-const RANGE_OPTIONS: { value: RangeKey; label: string }[] = [
-  { value: "30d", label: "Posledných 30 dní" },
-  { value: "90d", label: "Posledných 90 dní" },
-  { value: "ytd", label: "Od začiatku roka" },
-];
+const RANGE_LABELS: Record<RangeKey, string> = {
+  "30d": "Posledných 30 dní",
+  "90d": "Posledných 90 dní",
+  ytd: "Od začiatku roka",
+};
+
+/** Poradie v menu: najprv rolling okná, nakoniec kalendárny rok (vlastné menu = vždy toto poradie v DOM). */
+const RANGE_ORDER: readonly RangeKey[] = ["30d", "90d", "ytd"];
 
 function parseRangeParam(raw: string | null): RangeKey {
   const s = (raw || "").toLowerCase().trim();
@@ -248,6 +251,26 @@ export default function DashboardClient() {
   const [data, setData] = useState<Payload | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [rangeMenuOpen, setRangeMenuOpen] = useState(false);
+  const rangeMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!rangeMenuOpen) return;
+    const close = () => setRangeMenuOpen(false);
+    const onDown = (e: MouseEvent) => {
+      if (rangeMenuRef.current?.contains(e.target as Node)) return;
+      close();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [rangeMenuOpen]);
 
   const load = useCallback(async (r: RangeKey) => {
     setLoading(true);
@@ -300,6 +323,7 @@ export default function DashboardClient() {
   }, [load, range]);
 
   function onRangeChange(next: RangeKey) {
+    setRangeMenuOpen(false);
     setRange(next);
     const params = new URLSearchParams(searchParams.toString());
     params.set("range", next);
@@ -443,18 +467,50 @@ export default function DashboardClient() {
           <HeaderBrand />
           <div className="site-header__dropdowns">
             <HeaderSectionSelect />
-            <select
-              className="period-filter__select"
-              value={range}
-              onChange={(e) => onRangeChange(e.target.value as RangeKey)}
-              aria-label="Obdobie"
+            <div
+              className="period-filter period-filter--range"
+              ref={rangeMenuRef}
             >
-              {RANGE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+              <button
+                type="button"
+                className="period-filter__select period-filter__select--range-trigger"
+                aria-expanded={rangeMenuOpen}
+                aria-haspopup="listbox"
+                aria-label="Obdobie"
+                onClick={() => setRangeMenuOpen((o) => !o)}
+              >
+                <span>{RANGE_LABELS[range]}</span>
+                <span className="period-filter__chevron" aria-hidden>
+                  ▼
+                </span>
+              </button>
+              {rangeMenuOpen ? (
+                <ul
+                  className="period-filter__range-list"
+                  role="listbox"
+                  aria-label="Obdobie"
+                >
+                  {RANGE_ORDER.map((v) => (
+                    <li key={v} role="presentation">
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={v === range}
+                        className={
+                          v === range
+                            ? "period-filter__range-option is-selected"
+                            : "period-filter__range-option"
+                        }
+                        onClick={() => onRangeChange(v)}
+                      >
+                        {v === range ? "✓ " : ""}
+                        {RANGE_LABELS[v]}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
           </div>
         </div>
         {data?.lastSyncAt != null && data.lastSyncAt !== "" && (

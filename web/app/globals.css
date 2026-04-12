@@ -118,6 +118,69 @@ a:hover {
   outline-offset: 2px;
 }
 
+.site-header__dropdowns .period-filter--range {
+  min-width: min(200px, 46vw);
+}
+
+.period-filter--range {
+  position: relative;
+}
+
+.period-filter__select--range-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+}
+
+.period-filter__chevron {
+  flex-shrink: 0;
+  font-size: 0.6rem;
+  opacity: 0.85;
+  line-height: 1;
+}
+
+.period-filter__range-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  min-width: 100%;
+  z-index: 100;
+  background: var(--header-bg);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+}
+
+.period-filter__range-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  border: none;
+  background: transparent;
+  color: var(--header-text);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.period-filter__range-option:hover,
+.period-filter__range-option:focus-visible {
+  background: rgba(255, 255, 255, 0.12);
+  outline: none;
+}
+
+.period-filter__range-option.is-selected {
+  background: rgba(255, 255, 255, 0.2);
+}
+
 /* Rovnaká ľavá hrana ako .site-header__inner (bez duplicitného gutteru — ten má už .site-header) */
 .site-header__sync-meta {
   max-width: var(--layout-max);
