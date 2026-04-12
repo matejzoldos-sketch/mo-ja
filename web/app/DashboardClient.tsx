@@ -253,10 +253,7 @@ export default function DashboardClient() {
     setLoading(true);
     setErr(null);
     try {
-      const q =
-        r === "ytd"
-          ? `?_=${Date.now()}`
-          : `?range=${encodeURIComponent(r)}&_=${Date.now()}`;
+      const q = `?range=${encodeURIComponent(r)}&_=${Date.now()}`;
       const fetchOpts: RequestInit = {
         cache: "no-store",
         headers: { "Cache-Control": "no-cache" },
@@ -305,16 +302,13 @@ export default function DashboardClient() {
   function onRangeChange(next: RangeKey) {
     setRange(next);
     const params = new URLSearchParams(searchParams.toString());
-    if (next === "ytd") params.delete("range");
-    else params.set("range", next);
+    params.set("range", next);
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }
 
   const periodLabel = data?.meta
-    ? data.meta.range === "ytd"
-      ? `YTD ${data.meta.from.slice(0, 4)}`
-      : `${formatSkDate(data.meta.from)} – ${formatSkDate(data.meta.to)}`
+    ? `${formatSkDate(data.meta.from)} – ${formatSkDate(data.meta.to)}`
     : "";
 
   const lineData = data
