@@ -86,8 +86,8 @@ type Payload = {
 
 const RANGE_OPTIONS: { value: RangeKey; label: string }[] = [
   { value: "30d", label: "Posledných 30 dní" },
-  { value: "ytd", label: "Od začiatku roka" },
   { value: "90d", label: "Posledných 90 dní" },
+  { value: "ytd", label: "Od začiatku roka" },
 ];
 
 function parseRangeParam(raw: string | null): RangeKey {
