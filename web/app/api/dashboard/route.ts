@@ -112,7 +112,7 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const rawRangeEarly = url.searchParams.get("range")?.toLowerCase().trim() ?? "";
-  const rangeEarly = ALLOWED_RANGE.has(rawRangeEarly) ? rawRangeEarly : "ytd";
+  const rangeEarly = ALLOWED_RANGE.has(rawRangeEarly) ? rawRangeEarly : "30d";
   if (url.searchParams.get("mock") === "1") {
     return NextResponse.json(
       {

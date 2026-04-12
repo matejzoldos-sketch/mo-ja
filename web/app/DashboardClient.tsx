@@ -85,15 +85,15 @@ type Payload = {
 };
 
 const RANGE_OPTIONS: { value: RangeKey; label: string }[] = [
-  { value: "ytd", label: "Od začiatku roka" },
   { value: "30d", label: "Posledných 30 dní" },
+  { value: "ytd", label: "Od začiatku roka" },
   { value: "90d", label: "Posledných 90 dní" },
 ];
 
 function parseRangeParam(raw: string | null): RangeKey {
   const s = (raw || "").toLowerCase().trim();
   if (s === "30d" || s === "90d" || s === "ytd") return s;
-  return "ytd";
+  return "30d";
 }
 
 const PRIMARY = "#f7f775";
