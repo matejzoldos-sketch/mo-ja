@@ -60,7 +60,7 @@ type RecentOrder = {
   currency: string | null;
 };
 
-type RangeKey = "ytd" | "30d" | "90d";
+type RangeKey = "365d" | "30d" | "90d";
 
 type PayloadMeta = { range: string; from: string; to: string };
 
@@ -87,15 +87,16 @@ type Payload = {
 const RANGE_LABELS: Record<RangeKey, string> = {
   "30d": "Posledných 30 dní",
   "90d": "Posledných 90 dní",
-  ytd: "Od začiatku roka",
+  "365d": "Posledných 12 mesiacov",
 };
 
-/** Poradie v menu: najprv rolling okná, nakoniec kalendárny rok (vlastné menu = vždy toto poradie v DOM). */
-const RANGE_ORDER: readonly RangeKey[] = ["30d", "90d", "ytd"];
+/** Poradie v menu: najprv kratšie rolling okná, nakoniec ~12 mesiacov (365 dní). */
+const RANGE_ORDER: readonly RangeKey[] = ["30d", "90d", "365d"];
 
 function parseRangeParam(raw: string | null): RangeKey {
   const s = (raw || "").toLowerCase().trim();
-  if (s === "30d" || s === "90d" || s === "ytd") return s;
+  if (s === "ytd") return "365d";
+  if (s === "30d" || s === "90d" || s === "365d") return s;
   return "30d";
 }
 
@@ -241,7 +242,14 @@ export default function DashboardClient() {
     const raw = searchParams.get("range");
     if (!raw) return;
     const s = raw.toLowerCase().trim();
-    if (s === "30d" || s === "90d" || s === "ytd") return;
+    if (s === "ytd") {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("range", "365d");
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      return;
+    }
+    if (s === "30d" || s === "90d" || s === "365d") return;
     const params = new URLSearchParams(searchParams.toString());
     params.delete("range");
     const qs = params.toString();
@@ -560,10 +568,10 @@ export default function DashboardClient() {
                   {formatMoney(Number(data.kpis.aov), data.kpis.currency)}
                 </div>
               </div>
-              {range === "ytd" && (
+              {range === "365d" && (
                 <div
                   className="kpi-card"
-                  title="YTD (kalendárny rok): zákazníci identifikovaní cez customer ID alebo email objednávky (paid / čiastočne zaplatené / čiastočne refundované). Ukazuje % tých, ktorí majú v tomto roku aspoň dve také objednávky, zo všetkých, čo v roku aspoň jednu mali."
+                  title="Posledných 365 dní: zákazníci cez customer ID alebo email objednávky (paid / čiastočne zaplatené / čiastočne refundované). % tých, čo mali aspoň jednu takú objednávku pred začiatkom okna, zo všetkých s aspoň jednou v okne."
                 >
                   <div className="kpi-card__label">
                     Vracajúci sa zákazníci
