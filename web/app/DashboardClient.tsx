@@ -608,9 +608,7 @@ export default function DashboardClient() {
           <>
             <section className="kpi-grid">
               <div className="kpi-card">
-                <div className="kpi-card__label">
-                  Obrat{periodLabel ? ` (${periodLabel})` : ""}
-                </div>
+                <div className="kpi-card__label">Obrat</div>
                 <div className="kpi-card__value">
                   {formatMoney(Number(data.kpis.revenue), data.kpis.currency)}
                 </div>
@@ -629,10 +627,7 @@ export default function DashboardClient() {
                 className="kpi-card"
                 title={`${RANGE_LABELS[range]}: súčet množstva z položiek objednávok (paid / čiastočne zaplatené / čiastočne refundované) delený počtom takých objednávok v období.`}
               >
-                <div className="kpi-card__label">
-                  Priem. kusov / objednávku
-                  {periodLabel ? ` (${periodLabel})` : ""}
-                </div>
+                <div className="kpi-card__label">Priem. kusov / objednávku</div>
                 <div className="kpi-card__value">
                   {formatAvgUnitsPerOrder(data.kpis.avg_units_per_order)}
                 </div>
@@ -641,10 +636,7 @@ export default function DashboardClient() {
                 className="kpi-card"
                 title={`${RANGE_LABELS[range]}: z platných objednávok v období podiel tých, kde sú aspoň dva rôzne SKU (identifikátor z položky: SKU alebo názov, rovnako ako v top produktoch).`}
               >
-                <div className="kpi-card__label">
-                  Obj. s viac ako 1 SKU
-                  {periodLabel ? ` (${periodLabel})` : ""}
-                </div>
+                <div className="kpi-card__label">Obj. s viac ako 1 SKU</div>
                 <div className="kpi-card__value">
                   {formatReturningPct(data.kpis.pct_orders_multi_sku)}
                 </div>
@@ -656,7 +648,6 @@ export default function DashboardClient() {
                 >
                   <div className="kpi-card__label">
                     Opakovaní zákazníci (2+ obj.)
-                    {periodLabel ? ` (${periodLabel})` : ""}
                   </div>
                   <div className="kpi-card__value">
                     {formatReturningPct(data.kpis.returning_customers_pct)}
@@ -667,10 +658,7 @@ export default function DashboardClient() {
                 className="kpi-card"
                 title={`${RANGE_LABELS[range]}: medzi zákazníkmi, ktorí v období mali aspoň jednu paid-ish objednávku s identifikátorom (rovnako ako „opakovaní“), priemer ich celkového obratu zo všetkých paid-ish objednávok v databáze (lifetime v rámci syncu).`}
               >
-                <div className="kpi-card__label">
-                  Priem. LTV / zákazníka
-                  {periodLabel ? ` (${periodLabel})` : ""}
-                </div>
+                <div className="kpi-card__label">Priem. LTV / zákazníka</div>
                 <div className="kpi-card__value">
                   {data.kpis.avg_customer_ltv === null ||
                   data.kpis.avg_customer_ltv === undefined ||
