@@ -571,10 +571,10 @@ export default function DashboardClient() {
               {range === "365d" && (
                 <div
                   className="kpi-card"
-                  title="Posledných 365 dní: zákazníci cez customer ID alebo email objednávky (paid / čiastočne zaplatené / čiastočne refundované). % tých, čo mali aspoň jednu takú objednávku pred začiatkom okna, zo všetkých s aspoň jednou v okne."
+                  title="Posledných 365 dní: zákazníci cez customer ID alebo email (paid / čiastočne zaplatené / čiastočne refundované). % tých, čo mali v tomto období aspoň dve také objednávky, zo všetkých, čo v období aspoň jednu mali."
                 >
                   <div className="kpi-card__label">
-                    Vracajúci sa zákazníci
+                    Opakovaní zákazníci (2+ obj.)
                     {periodLabel ? ` (${periodLabel})` : ""}
                   </div>
                   <div className="kpi-card__value">
