@@ -340,6 +340,10 @@ a:hover {
   margin-bottom: var(--space-gutter);
 }
 
+.chart-card--monthly-new-returning {
+  margin-bottom: var(--space-gutter);
+}
+
 .sklad-chart-section {
   margin-bottom: var(--space-gutter);
 }

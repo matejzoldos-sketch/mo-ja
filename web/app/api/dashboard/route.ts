@@ -69,6 +69,11 @@ const MOCK_PAYLOAD = {
     { customer_id: 70999887766, orders: 8, revenue: 612.0, currency: "EUR" },
     { customer_id: 70555444333, orders: 5, revenue: 340.25, currency: "EUR" },
   ],
+  monthlyNewVsReturning: {
+    months: ["2026-01-01", "2026-02-01", "2026-03-01", "2026-04-01"],
+    newRevenue: [420, 380, 510, 290],
+    returningRevenue: [2100, 2400, 2280, 1950],
+  },
   recentOrders: [1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010].map(
     (id, i) => {
       const day = 20 - Math.floor(i / 2);

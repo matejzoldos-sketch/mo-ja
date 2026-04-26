@@ -101,6 +101,13 @@ type SkuDailyYtd = {
   points: { date: string; sku: string; units: number }[];
 };
 
+/** Mesačné tržby: noví (prvá produktová objednávka) vs. vracajúci sa (048+). */
+type MonthlyNewVsReturning = {
+  months: string[];
+  newRevenue: number[];
+  returningRevenue: number[];
+};
+
 type Payload = {
   meta: PayloadMeta;
   kpis: Kpis;
@@ -108,6 +115,7 @@ type Payload = {
   topProducts: TopProduct[];
   topCustomers?: TopCustomer[];
   recentOrders: RecentOrder[];
+  monthlyNewVsReturning?: MonthlyNewVsReturning;
   skuDailyYtd?: SkuDailyYtd;
   /** ISO čas posledného úspešného behu sync_shopify (shopify_sync_state.full_sync) */
   lastSyncAt?: string | null;
@@ -160,6 +168,17 @@ function formatSkDate(iso: string) {
   const [y, m, d] = iso.split("-").map(Number);
   if (!y || !m || !d) return iso;
   return `${d}. ${m}. ${y}`;
+}
+
+/** Prvý deň mesiaca YYYY-MM-DD → napr. „apr 2026“ (locale sk). */
+function formatMonthSk(isoMonth: string) {
+  const [y, mo] = isoMonth.split("-").map(Number);
+  if (!y || !mo) return isoMonth;
+  const d = new Date(Date.UTC(y, mo - 1, 1));
+  return d.toLocaleDateString("sk-SK", {
+    month: "short",
+    year: "numeric",
+  });
 }
 
 function formatMoney(amount: number, currency: string | null) {
@@ -595,6 +614,95 @@ export default function DashboardClient() {
     },
   };
 
+  const monthlyStackedBarData =
+    data?.monthlyNewVsReturning?.months?.length &&
+    data.monthlyNewVsReturning.months.length ===
+      data.monthlyNewVsReturning.newRevenue.length &&
+    data.monthlyNewVsReturning.months.length ===
+      data.monthlyNewVsReturning.returningRevenue.length
+      ? {
+          labels: data.monthlyNewVsReturning.months.map((iso) =>
+            formatMonthSk(iso)
+          ),
+          datasets: [
+            {
+              label: "Noví zákazníci",
+              data: data.monthlyNewVsReturning.newRevenue.map((v) =>
+                Number(v)
+              ),
+              backgroundColor: PRIMARY,
+              borderColor: TEXT,
+              borderWidth: 1,
+              stack: "rev",
+            },
+            {
+              label: "Vracajúci sa",
+              data: data.monthlyNewVsReturning.returningRevenue.map((v) =>
+                Number(v)
+              ),
+              backgroundColor: SECONDARY,
+              borderColor: TEXT,
+              borderWidth: 1,
+              stack: "rev",
+            },
+          ],
+        }
+      : null;
+
+  const monthlyStackedBarOptions: ChartOptions<"bar"> = {
+    ...chartOptions,
+    plugins: {
+      ...chartOptions.plugins,
+      legend: {
+        display: true,
+        position: "top",
+        labels: {
+          color: TEXT,
+          font: { family: "Manrope", size: 12 },
+          boxWidth: 14,
+          padding: 12,
+        },
+      },
+      tooltip: {
+        enabled: true,
+        mode: "index",
+        intersect: false,
+        callbacks: {
+          label(ctx) {
+            const raw = ctx.parsed.y;
+            const n =
+              raw === null || raw === undefined || Number.isNaN(Number(raw))
+                ? 0
+                : Number(raw);
+            const cur =
+              data?.kpis.currency && data.kpis.currency.length === 3
+                ? data.kpis.currency
+                : "EUR";
+            try {
+              return `${ctx.dataset.label ?? ""}: ${new Intl.NumberFormat("sk-SK", {
+                style: "currency",
+                currency: cur,
+                maximumFractionDigits: 2,
+              }).format(n)}`;
+            } catch {
+              return `${ctx.dataset.label ?? ""}: ${n.toFixed(2)} ${cur}`;
+            }
+          },
+        },
+      },
+    },
+    scales: {
+      x: {
+        ...chartOptions.scales.x,
+        stacked: true,
+      },
+      y: {
+        ...chartOptions.scales.y,
+        stacked: true,
+      },
+    },
+  };
+
   const lineChartOptions = {
     ...chartOptions,
     plugins: {
@@ -848,7 +956,8 @@ export default function DashboardClient() {
             <code>044_dashboard_avg_days_first_to_second_purchase.sql</code>,{" "}
             <code>045_dashboard_kpi_product_filter.sql</code>,{" "}
             <code>046_sku_units_daily_ytd_kpi_product_filter.sql</code>,{" "}
-            <code>047_dashboard_recent_orders_top_value_30d.sql</code>.
+            <code>047_dashboard_recent_orders_top_value_30d.sql</code>,{" "}
+            <code>048_dashboard_monthly_new_vs_returning_revenue.sql</code>.
           </p>
         )}
         {data && !loading && (
@@ -976,6 +1085,26 @@ export default function DashboardClient() {
                 ) : null}
               </div>
             </section>
+
+            {monthlyStackedBarData ? (
+              <section className="chart-card chart-card--monthly-new-returning">
+                <h2>
+                  Mesačné tržby: Noví vs. Vracajúci sa
+                  {chartPeriodInParens ? ` (${chartPeriodInParens})` : ""}
+                </h2>
+                <p className="chart-card__subtitle">
+                  Skladaný stĺpcový graf. Noví: prvá objednávka s meranými produktovými položkami v
+                  histórii; vracajúci: už predtým mali takú objednávku. Riadky bez priraditeľnej identity
+                  zákazníka sa do súčtov nepočítajú.
+                </p>
+                <div style={{ height: 300 }}>
+                  <Bar
+                    data={monthlyStackedBarData}
+                    options={monthlyStackedBarOptions}
+                  />
+                </div>
+              </section>
+            ) : null}
 
             {(data.topCustomers?.length ?? 0) > 0 ? (
               <section className="table-card">
