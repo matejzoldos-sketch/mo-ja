@@ -43,7 +43,6 @@ const MOCK_PAYLOAD = {
     aov: 82.31,
     currency: "EUR",
     avg_units_per_order: 2.15,
-    pct_orders_multi_sku: 38.5,
     returning_customers_pct: 42.5,
     avg_customer_ltv: 312.45,
     avg_units_per_unique_customer: 4.62,

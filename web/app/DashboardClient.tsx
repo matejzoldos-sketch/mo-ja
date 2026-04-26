@@ -38,8 +38,6 @@ type Kpis = {
   currency: string | null;
   /** SUM(line quantities) / orders (paid-ish window); null if no orders */
   avg_units_per_order?: number | null;
-  /** % paid-ish orders with more than one distinct SKU/title label; null if no orders */
-  pct_orders_multi_sku?: number | null;
   /**
    * SUM(množstvo nevyložených produktových riadkov) / počet DISTINCT shopify_order_returning_group_key
    * v okne; null ak žiadny identifikovaný zákazník (rovnaká identita ako opakovaní / LTV).
@@ -736,12 +734,6 @@ export default function DashboardClient() {
                   {formatAvgUnitsPerOrder(
                     data.kpis.avg_units_per_unique_customer
                   )}
-                </div>
-              </div>
-              <div className="kpi-card">
-                <div className="kpi-card__label">Obj. s viac ako 1 SKU</div>
-                <div className="kpi-card__value">
-                  {formatReturningPct(data.kpis.pct_orders_multi_sku)}
                 </div>
               </div>
               {(range === "30d" || range === "90d" || range === "365d") && (
