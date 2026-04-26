@@ -125,7 +125,7 @@ const TEXT = "#333333";
 const GRID = "rgba(51,51,51,0.08)";
 const TREND_LINE = "rgba(51, 51, 51, 0.5)";
 
-/** Suffix on trend dataset labels; filtered out of legend (still in tooltip). */
+/** Suffix on trend dataset labels; filtered out of legend. */
 const SKU_CHART_TREND_SUFFIX = " (trend)";
 
 function formatSkDate(iso: string) {
@@ -474,6 +474,7 @@ export default function DashboardClient() {
       legend: {
         labels: { color: TEXT, font: { family: "Manrope" } },
       },
+      tooltip: { enabled: false },
     },
     scales: {
       x: {
@@ -520,10 +521,7 @@ export default function DashboardClient() {
             !item.text.endsWith(SKU_CHART_TREND_SUFFIX),
         },
       },
-      tooltip: {
-        mode: "index",
-        intersect: false,
-      },
+      tooltip: { enabled: false },
     },
     scales: {
       x: {
@@ -723,10 +721,7 @@ export default function DashboardClient() {
                   {formatAvgUnitsPerOrder(data.kpis.avg_units_per_order)}
                 </div>
               </div>
-              <div
-                className="kpi-card"
-                title="V zvolenom období (30 / 90 / 365 dní alebo YTD): súčet kusov z produktových riadkov delený počtom unikátnych zákazníkov (rovnaká identita ako pri opakovaných zákazníkoch)."
-              >
+              <div className="kpi-card">
                 <div className="kpi-card__label">
                   Priem. kusov na unikátneho zákazníka
                 </div>
@@ -746,10 +741,7 @@ export default function DashboardClient() {
                   </div>
                 </div>
               )}
-              <div
-                className="kpi-card"
-                title="Len produktové paid-ish objednávky. Pre každého zákazníka (rovnaká identita ako pri opakovaných) sa v zvolenom období vezme dátum prvej a druhej objednávky; zobrazí sa priemer rozdielov v kalendárnych dňoch (Bratislava). Zákazníci s jednou objednávkou v okne sa nepočítajú."
-              >
+              <div className="kpi-card">
                 <div className="kpi-card__label">
                   Priem. dní medzi 1. a 2. nákupom
                 </div>

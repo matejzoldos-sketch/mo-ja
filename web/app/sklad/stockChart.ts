@@ -169,10 +169,7 @@ function createStockLineChartOptions(
           pointStyle: "line",
         },
       },
-      tooltip: {
-        mode: "index",
-        intersect: false,
-      },
+      tooltip: { enabled: false },
     },
     scales: {
       x: {
