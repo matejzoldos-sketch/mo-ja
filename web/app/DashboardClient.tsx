@@ -162,6 +162,19 @@ function linearTrendSeries(y: number[]): number[] {
   return y.map((_, i) => m * i + b);
 }
 
+/** Oreže vedúce a koncové dni, kde `isNonZero` je false (pre graf — dáta v DB/KPI ostanú). */
+function trimLeadingTrailingFlat<T>(
+  rows: T[],
+  isNonZero: (row: T) => boolean
+): T[] {
+  if (rows.length === 0) return rows;
+  let a = 0;
+  while (a < rows.length && !isNonZero(rows[a])) a++;
+  let b = rows.length - 1;
+  while (b > a && !isNonZero(rows[b])) b--;
+  return rows.slice(a, b + 1);
+}
+
 function enumerateInclusiveDays(fromIso: string, toIso: string): string[] {
   const out: string[] = [];
   const [fy, fm, fd] = fromIso.split("-").map(Number);
@@ -185,15 +198,30 @@ function skuLineColor(i: number, total: number): string {
 }
 
 function buildSkuUnitsLineChart(
-  s: SkuDailyYtd | undefined
+  s: SkuDailyYtd | undefined,
+  options?: { trimFlatEdges365?: boolean }
 ): ChartData<"line"> | null {
   if (!s?.skuOrder?.length) return null;
-  const days = enumerateInclusiveDays(s.from, s.to);
+  let days = enumerateInclusiveDays(s.from, s.to);
   if (days.length === 0) return null;
   const key = (d: string, sku: string) => `${d}|${sku}`;
   const m = new Map<string, number>();
   for (const p of s.points) {
     m.set(key(p.date, p.sku), Number(p.units));
+  }
+  if (options?.trimFlatEdges365 && days.length > 0) {
+    const dayTotals = days.map((d) =>
+      s.skuOrder!.reduce((sum, sku) => sum + (m.get(key(d, sku)) ?? 0), 0)
+    );
+    const trimmedIdx = trimLeadingTrailingFlat(
+      dayTotals.map((t, i) => ({ i, t })),
+      (row) => row.t !== 0
+    );
+    if (trimmedIdx.length > 0 && trimmedIdx.length < dayTotals.length) {
+      const from = trimmedIdx[0].i;
+      const to = trimmedIdx[trimmedIdx.length - 1].i;
+      days = days.slice(from, to + 1);
+    }
   }
   const n = s.skuOrder.length;
   const datasets: ChartData<"line">["datasets"] = [];
@@ -355,10 +383,17 @@ export default function DashboardClient() {
 
   const lineData = data
     ? (() => {
-        const revenues = data.dailyRevenue.map((d) => Number(d.revenue));
+        const daily =
+          range === "365d"
+            ? trimLeadingTrailingFlat(
+                data.dailyRevenue,
+                (d) => Number(d.revenue) !== 0
+              )
+            : data.dailyRevenue;
+        const revenues = daily.map((d) => Number(d.revenue));
         const trend = linearTrendSeries(revenues);
         return {
-          labels: data.dailyRevenue.map((d) => d.date),
+          labels: daily.map((d) => d.date),
           datasets: [
             {
               label: "Tržby (deň)",
@@ -434,7 +469,9 @@ export default function DashboardClient() {
   };
 
   const skuYtdLineData = data?.skuDailyYtd
-    ? buildSkuUnitsLineChart(data.skuDailyYtd)
+    ? buildSkuUnitsLineChart(data.skuDailyYtd, {
+        trimFlatEdges365: range === "365d",
+      })
     : null;
 
   const skuYtdLineOptions: ChartOptions<"line"> = {
