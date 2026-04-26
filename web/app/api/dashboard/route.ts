@@ -74,6 +74,13 @@ const MOCK_PAYLOAD = {
     newRevenue: [420, 380, 510, 290],
     returningRevenue: [2100, 2400, 2280, 1950],
   },
+  purchaseCountDistribution: [
+    { bucket: 1, label: "1 nákup", customers: 62, pct: 48.1 },
+    { bucket: 2, label: "2 nákupy", customers: 31, pct: 24.0 },
+    { bucket: 3, label: "3 nákupy", customers: 18, pct: 14.0 },
+    { bucket: 4, label: "4 nákupy", customers: 11, pct: 8.5 },
+    { bucket: 5, label: "5+ nákupov", customers: 7, pct: 5.4 },
+  ],
   recentOrders: [1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010].map(
     (id, i) => {
       const day = 20 - Math.floor(i / 2);

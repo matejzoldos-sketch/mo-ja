@@ -340,8 +340,29 @@ a:hover {
   margin-bottom: var(--space-gutter);
 }
 
-.chart-card--monthly-new-returning {
+.charts-row--monthly-and-pie {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-gutter);
   margin-bottom: var(--space-gutter);
+}
+
+@media (min-width: 960px) {
+  .charts-row--monthly-and-pie {
+    grid-template-columns: minmax(0, 1.35fr) minmax(260px, 320px);
+    align-items: start;
+  }
+}
+
+.chart-card--monthly-new-returning {
+  margin-bottom: 0;
+}
+
+.purchase-count-pie-wrap {
+  position: relative;
+  max-width: 300px;
+  margin: 0 auto;
+  min-height: 260px;
 }
 
 .sklad-chart-section {

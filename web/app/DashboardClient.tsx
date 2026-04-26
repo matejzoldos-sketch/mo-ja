@@ -9,13 +9,14 @@ import {
   PointElement,
   LineElement,
   BarElement,
+  ArcElement,
   Title,
   Tooltip,
   Legend,
   Filler,
 } from "chart.js";
 import type { ChartData, ChartOptions } from "chart.js";
-import { Line, Bar } from "react-chartjs-2";
+import { Line, Bar, Pie } from "react-chartjs-2";
 import { HeaderBrand, HeaderSectionSelect } from "./components/HeaderNav";
 import { formatLastSyncDisplay } from "@/lib/formatLastSync";
 
@@ -25,6 +26,7 @@ ChartJS.register(
   PointElement,
   LineElement,
   BarElement,
+  ArcElement,
   Title,
   Tooltip,
   Legend,
@@ -108,6 +110,14 @@ type MonthlyNewVsReturning = {
   returningRevenue: number[];
 };
 
+/** % zákazníkov (identita opakovaných nákupov) podľa počtu objednávok v okne (049+). */
+type PurchaseCountBucket = {
+  bucket: number;
+  label: string;
+  customers: number;
+  pct: number;
+};
+
 type Payload = {
   meta: PayloadMeta;
   kpis: Kpis;
@@ -116,6 +126,7 @@ type Payload = {
   topCustomers?: TopCustomer[];
   recentOrders: RecentOrder[];
   monthlyNewVsReturning?: MonthlyNewVsReturning;
+  purchaseCountDistribution?: PurchaseCountBucket[];
   skuDailyYtd?: SkuDailyYtd;
   /** ISO čas posledného úspešného behu sync_shopify (shopify_sync_state.full_sync) */
   lastSyncAt?: string | null;
@@ -158,6 +169,15 @@ function parseRangeParam(raw: string | null): RangeKey {
 const PRIMARY = "#f7f775";
 const SECONDARY = "#9d9a89";
 const TEXT = "#333333";
+
+/** Farby výsekov pie „počet nákupov“ (max. 5 segmentov). */
+const PURCHASE_COUNT_PIE_COLORS = [
+  PRIMARY,
+  SECONDARY,
+  "rgba(247, 247, 117, 0.72)",
+  "rgba(157, 154, 137, 0.55)",
+  "#5c5a52",
+];
 const GRID = "rgba(51,51,51,0.08)";
 const TREND_LINE = "rgba(51, 51, 51, 0.5)";
 
@@ -718,6 +738,64 @@ export default function DashboardClient() {
     },
   };
 
+  const purchaseCountRows = data?.purchaseCountDistribution;
+  const purchaseCountPieData =
+    purchaseCountRows &&
+    Array.isArray(purchaseCountRows) &&
+    purchaseCountRows.length > 0
+      ? {
+          labels: purchaseCountRows.map((b) => b.label),
+          datasets: [
+            {
+              data: purchaseCountRows.map((b) => Number(b.customers)),
+              backgroundColor: purchaseCountRows.map(
+                (_, i) =>
+                  PURCHASE_COUNT_PIE_COLORS[
+                    i % PURCHASE_COUNT_PIE_COLORS.length
+                  ]
+              ),
+              borderColor: TEXT,
+              borderWidth: 1,
+            },
+          ],
+        }
+      : null;
+
+  const purchaseCountPieOptions: ChartOptions<"pie"> = {
+    responsive: true,
+    maintainAspectRatio: true,
+    aspectRatio: 1,
+    plugins: {
+      legend: {
+        position: "bottom",
+        labels: {
+          color: TEXT,
+          font: { family: "Manrope", size: 11 },
+          padding: 12,
+          boxWidth: 12,
+        },
+      },
+      tooltip: {
+        enabled: true,
+        callbacks: {
+          label(ctx) {
+            const rows = data?.purchaseCountDistribution;
+            if (!rows?.length || ctx.dataIndex == null) return "";
+            const r = rows[ctx.dataIndex];
+            if (!r) return "";
+            const pct = Number(r.pct);
+            const cust = Number(r.customers);
+            const pctStr = pct.toLocaleString("sk-SK", {
+              minimumFractionDigits: 1,
+              maximumFractionDigits: 1,
+            });
+            return `${r.label}: ${pctStr} % (${cust} zákazníkov)`;
+          },
+        },
+      },
+    },
+  };
+
   const lineChartOptions = {
     ...chartOptions,
     plugins: {
@@ -972,7 +1050,8 @@ export default function DashboardClient() {
             <code>045_dashboard_kpi_product_filter.sql</code>,{" "}
             <code>046_sku_units_daily_ytd_kpi_product_filter.sql</code>,{" "}
             <code>047_dashboard_recent_orders_top_value_30d.sql</code>,{" "}
-            <code>048_dashboard_monthly_new_vs_returning_revenue.sql</code>.
+            <code>048_dashboard_monthly_new_vs_returning_revenue.sql</code>,{" "}
+            <code>049_dashboard_purchase_count_distribution.sql</code>.
           </p>
         )}
         {data && !loading && (
@@ -1101,19 +1180,37 @@ export default function DashboardClient() {
               </div>
             </section>
 
-            {monthlyStackedBarData ? (
-              <section className="chart-card chart-card--monthly-new-returning">
-                <h2>
-                  Mesačné tržby: Noví vs. Vracajúci sa
-                  {chartPeriodInParens ? ` (${chartPeriodInParens})` : ""}
-                </h2>
-                <div style={{ height: 300 }}>
-                  <Bar
-                    data={monthlyStackedBarData}
-                    options={monthlyStackedBarOptions}
-                  />
-                </div>
-              </section>
+            {monthlyStackedBarData || purchaseCountPieData ? (
+              <div className="charts-row charts-row--monthly-and-pie">
+                {monthlyStackedBarData ? (
+                  <section className="chart-card chart-card--monthly-new-returning">
+                    <h2>
+                      Mesačné tržby: Noví vs. Vracajúci sa
+                      {chartPeriodInParens ? ` (${chartPeriodInParens})` : ""}
+                    </h2>
+                    <div style={{ height: 300 }}>
+                      <Bar
+                        data={monthlyStackedBarData}
+                        options={monthlyStackedBarOptions}
+                      />
+                    </div>
+                  </section>
+                ) : null}
+                {purchaseCountPieData ? (
+                  <section className="chart-card chart-card--purchase-count-pie">
+                    <h2>
+                      Zákazníci podľa počtu nákupov
+                      {chartPeriodInParens ? ` (${chartPeriodInParens})` : ""}
+                    </h2>
+                    <div className="purchase-count-pie-wrap">
+                      <Pie
+                        data={purchaseCountPieData}
+                        options={purchaseCountPieOptions}
+                      />
+                    </div>
+                  </section>
+                ) : null}
+              </div>
             ) : null}
 
             {(data.topCustomers?.length ?? 0) > 0 ? (
