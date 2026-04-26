@@ -7,13 +7,18 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "Sync mode (ytd = full year orders for dashboards; daily = last 14d updated_at only)"
+        description: "Sync mode (ignored if created_from is set). ytd = orders created this calendar year; daily = last 14d updated_at"
         required: true
         default: "ytd"
         type: choice
         options:
           - ytd
           - daily
+      created_from:
+        description: "Optional YYYY-MM-DD. If set, one full sync: orders with created_at ≥ date + locations + inventory (e-shop launch backfill). Example: 2025-11-20"
+        required: false
+        default: ""
+        type: string
 
 env:
   SHOPIFY_STORE: ${{ secrets.SHOPIFY_STORE }}
@@ -52,10 +57,28 @@ jobs:
             echo "mode=ytd" >> "$GITHUB_OUTPUT"
           fi
 
+      # Avoid `inputs.*` in step `if` for schedule (inputs context is dispatch-only).
+      - name: Backfill vs regular sync
+        id: kind
+        shell: bash
+        run: |
+          CF="$(echo '${{ inputs.created_from }}' | xargs)"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "$CF" ]; then
+            echo "backfill=1" >> "$GITHUB_OUTPUT"
+            echo "created_from=$CF" >> "$GITHUB_OUTPUT"
+          else
+            echo "backfill=0" >> "$GITHUB_OUTPUT"
+            echo "created_from=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Backfill orders by created_at + inventory
+        if: steps.kind.outputs.backfill == '1'
+        run: python sync_shopify.py --created-from "${{ steps.kind.outputs.created_from }}"
+
       - name: Quick sync (updated last 14 days + inventory)
-        if: steps.mode.outputs.mode == 'daily'
+        if: steps.kind.outputs.backfill != '1' && steps.mode.outputs.mode == 'daily'
         run: python sync_shopify.py --days 14
 
       - name: YTD orders + inventory (matches dashboard / sklad YTD)
-        if: steps.mode.outputs.mode == 'ytd'
+        if: steps.kind.outputs.backfill != '1' && steps.mode.outputs.mode == 'ytd'
         run: python sync_shopify.py --ytd

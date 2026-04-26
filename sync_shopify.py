@@ -20,6 +20,7 @@ Usage:
   python sync_shopify.py --days 7           # narrower: updated_at ≥ today−days
   python sync_shopify.py --ytd              # orders with created_at >= Jan 1 (current year)
   python sync_shopify.py --from 2026-01-01   # updated_at >= date (YYYY-MM-DD)
+  python sync_shopify.py --created-from 2025-11-20  # orders created_at >= date (one-shot backfill; wins over --ytd/--from/--days)
   python sync_shopify.py --orders-only
   python sync_shopify.py --inventory-only
 """
@@ -642,6 +643,8 @@ def sync_inventory(
 
 
 def build_orders_search_query(args: argparse.Namespace) -> str:
+    if args.created_from is not None:
+        return f"created_at:>={args.created_from.isoformat()}"
     if args.ytd:
         y = args.ytd_year or date.today().year
         return f"created_at:>={y}-01-01"
@@ -674,6 +677,14 @@ def main() -> None:
         type=int,
         default=None,
         help="year for --ytd (default: current calendar year)",
+    )
+    parser.add_argument(
+        "--created-from",
+        dest="created_from",
+        type=lambda s: datetime.strptime(s, "%Y-%m-%d").date(),
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="orders created_at >= date (Shopify search); overrides --ytd / --from / --days for the order query",
     )
     parser.add_argument("--orders-only", action="store_true")
     parser.add_argument("--inventory-only", action="store_true")
