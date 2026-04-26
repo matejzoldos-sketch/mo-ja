@@ -43,8 +43,8 @@ type Kpis = {
   /** % distinct customers with 2+ paid-ish orders in window; null if denominator 0 */
   returning_customers_pct?: number | null;
   /**
-   * Priemerný celkový obrat (paid-ish, všetky časy v DB) na zákazníka medzi tými,
-   * čo mali v období aspoň jednu identifikovanú objednávku (rovnaký kľúč ako opakovaní); null ak nikto.
+   * Priemerný „lifetime“ obrat na zákazníka (súčet množstvo × unit_price z nevyločených položiek paid-ish
+   * objednávok v DB) medzi tými, čo mali v období aspoň jednu identifikovanú objednávku; bez lístkov a MOJA fáza bez chaosu; null ak nikto.
    */
   avg_customer_ltv?: number | null;
 };
@@ -669,7 +669,8 @@ export default function DashboardClient() {
             <code>034_dashboard_pct_orders_multi_sku.sql</code>,{" "}
             <code>035_dashboard_avg_customer_ltv.sql</code>,{" "}
             <code>036_dashboard_exclude_listky_moja_faza.sql</code>,{" "}
-            <code>037_dashboard_recent_orders_top_value_90_365.sql</code>.
+            <code>037_dashboard_recent_orders_top_value_90_365.sql</code>,{" "}
+            <code>038_dashboard_ltv_exclude_line_items.sql</code>.
           </p>
         )}
         {data && !loading && (
@@ -724,7 +725,7 @@ export default function DashboardClient() {
               )}
               <div
                 className="kpi-card"
-                title={`${RANGE_LABELS[range]}: medzi zákazníkmi, ktorí v období mali aspoň jednu paid-ish objednávku s identifikátorom (rovnako ako „opakovaní“), priemer ich celkového obratu zo všetkých paid-ish objednávok v databáze (lifetime v rámci syncu).`}
+                title={`${RANGE_LABELS[range]}: medzi zákazníkmi, ktorí v období mali aspoň jednu paid-ish objednávku s identifikátorom (rovnako ako „opakovaní“), priemer súčtu (množstvo × cena položky) zo všetkých paid-ish objednávok v DB; riadky lístkov a MOJA fáza bez chaosu sa do súčtu nepočítajú (rovnako ako pri top produktoch).`}
               >
                 <div className="kpi-card__label">Priem. LTV / zákazníka</div>
                 <div className="kpi-card__value">
