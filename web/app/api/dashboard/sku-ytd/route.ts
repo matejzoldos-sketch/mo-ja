@@ -6,6 +6,7 @@ import { supabasePostgrestRpc } from "@/lib/supabasePostgrestRpc";
 export const dynamic = "force-dynamic";
 
 const ALLOWED_RANGE = new Set(["ytd", "30d", "90d", "365d"]);
+const ALLOWED_KPI_PRODUCT = new Set(["all", "moja_phase_bez", "moja_phase_plus"]);
 
 function resolveSkuRange(searchParams: URLSearchParams): string {
   const raw = searchParams.get("range")?.toLowerCase().trim() ?? "";
@@ -24,7 +25,19 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const pRange = resolveSkuRange(url.searchParams);
+  const rawKpi =
+    url.searchParams.get("kpi_product")?.toLowerCase().trim() ?? "";
+  const kpiProductEarly = ALLOWED_KPI_PRODUCT.has(rawKpi) ? rawKpi : "all";
+  const pKpiProduct =
+    kpiProductEarly === "all" ? null : kpiProductEarly;
+
   if (url.searchParams.get("mock") === "1") {
+    const mockSkus =
+      kpiProductEarly === "moja_phase_bez"
+        ? ["MOJA Phase bez fytoestrogénov"]
+        : kpiProductEarly === "moja_phase_plus"
+          ? ["MOJA Phase+ s fytoestrogénmi"]
+          : ["MOJA Phase", "MOJA Phase+", "DUO pack"];
     return NextResponse.json(
       {
         skuDailyYtd: {
@@ -32,10 +45,19 @@ export async function GET(request: Request) {
           range: pRange,
           from: "2026-01-01",
           to: "2026-04-04",
-          skuOrder: ["MOJA Phase", "MOJA Phase+", "DUO pack"],
+          kpi_product: kpiProductEarly,
+          skuOrder: mockSkus,
           points: [
-            { date: "2026-01-02", sku: "MOJA Phase", units: 3 },
-            { date: "2026-01-02", sku: "MOJA Phase+", units: 1 },
+            {
+              date: "2026-01-02",
+              sku: mockSkus[0] ?? "MOJA Phase",
+              units: 3,
+            },
+            {
+              date: "2026-01-05",
+              sku: mockSkus[0] ?? "MOJA Phase",
+              units: 2,
+            },
           ],
         },
       },
@@ -58,11 +80,14 @@ export async function GET(request: Request) {
     );
   }
 
+  const skuRpcPayload: Record<string, unknown> = { p_range: pRange };
+  if (pKpiProduct != null) skuRpcPayload.p_kpi_product = pKpiProduct;
+
   const skuRes = await supabasePostgrestRpc<unknown>(
     supabaseUrl,
     serviceKey,
     "get_shopify_sku_units_daily_ytd",
-    { p_range: pRange }
+    skuRpcPayload
   );
 
   if (skuRes.error) {

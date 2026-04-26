@@ -79,7 +79,7 @@ type RecentOrder = {
 
 type RangeKey = "365d" | "30d" | "90d";
 
-/** Filter pre KPI / scorecards (nie pre SKU graf — ten ostáva celý sortiment). */
+/** Filter pre KPI, grafy aj tabuľky predaja (vrátane denných kusov / SKU grafu). */
 type KpiProductKey = "all" | "moja_phase_bez" | "moja_phase_plus";
 
 type PayloadMeta = {
@@ -95,6 +95,8 @@ type SkuDailyYtd = {
   range?: string;
   from: string;
   to: string;
+  /** Zarovnané s meta.kpi_product dashboardu (046+) */
+  kpi_product?: string;
   skuOrder: string[];
   points: { date: string; sku: string; units: number }[];
 };
@@ -432,12 +434,13 @@ export default function DashboardClient() {
         cache: "no-store",
         headers: { "Cache-Control": "no-cache" },
       };
+      const skuQuery =
+        kpi !== "all"
+          ? `?range=${encodeURIComponent(r)}&kpi_product=${encodeURIComponent(kpi)}&_=${Date.now()}`
+          : `?range=${encodeURIComponent(r)}&_=${Date.now()}`;
       const [mainRes, skuRes] = await Promise.all([
         fetch(`/api/dashboard${q}`, fetchOpts),
-        fetch(
-          `/api/dashboard/sku-ytd?range=${encodeURIComponent(r)}&_=${Date.now()}`,
-          fetchOpts
-        ),
+        fetch(`/api/dashboard/sku-ytd${skuQuery}`, fetchOpts),
       ]);
       const mainJson = (await mainRes.json()) as Payload & { error?: string };
       if (!mainRes.ok) {
@@ -843,7 +846,8 @@ export default function DashboardClient() {
             <code>040_dashboard_top_products_label_title_first.sql</code>,{" "}
             <code>043_dashboard_avg_units_per_unique_customer.sql</code>,{" "}
             <code>044_dashboard_avg_days_first_to_second_purchase.sql</code>,{" "}
-            <code>045_dashboard_kpi_product_filter.sql</code>.
+            <code>045_dashboard_kpi_product_filter.sql</code>,{" "}
+            <code>046_sku_units_daily_ytd_kpi_product_filter.sql</code>.
           </p>
         )}
         {data && !loading && (
