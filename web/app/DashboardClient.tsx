@@ -45,6 +45,11 @@ type Kpis = {
    * v okne; null ak žiadny identifikovaný zákazník (rovnaká identita ako opakovaní / LTV).
    */
   avg_units_per_unique_customer?: number | null;
+  /**
+   * Priemer kalendárnych dní (Bratislava) medzi prvou a druhou produktovou objednávkou v okne,
+   * len zákazníci s 2+ takýmito objednávkami v okne; null ak taký nie je.
+   */
+  avg_days_first_to_second_purchase?: number | null;
   /** % distinct customers with 2+ paid-ish orders in window; null if denominator 0 */
   returning_customers_pct?: number | null;
   /**
@@ -162,6 +167,16 @@ function formatAvgUnitsPerOrder(value: number | null | undefined): string {
     minimumFractionDigits: 1,
     maximumFractionDigits: 2,
   });
+}
+
+function formatAvgDaysFirstSecond(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "—";
+  }
+  return `${Number(value).toLocaleString("sk-SK", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  })} dní`;
 }
 
 /** Least-squares line through points (i, y[i]); one point → flat line. */
@@ -681,7 +696,8 @@ export default function DashboardClient() {
             <code>038_dashboard_ltv_exclude_line_items.sql</code>,{" "}
             <code>039_dashboard_product_orders_only.sql</code>,{" "}
             <code>040_dashboard_top_products_label_title_first.sql</code>,{" "}
-            <code>043_dashboard_avg_units_per_unique_customer.sql</code>.
+            <code>043_dashboard_avg_units_per_unique_customer.sql</code>,{" "}
+            <code>044_dashboard_avg_days_first_to_second_purchase.sql</code>.
           </p>
         )}
         {data && !loading && (
@@ -738,6 +754,19 @@ export default function DashboardClient() {
                   </div>
                 </div>
               )}
+              <div
+                className="kpi-card"
+                title="Len produktové paid-ish objednávky. Pre každého zákazníka (rovnaká identita ako pri opakovaných) sa v zvolenom období vezme dátum prvej a druhej objednávky; zobrazí sa priemer rozdielov v kalendárnych dňoch (Bratislava). Zákazníci s jednou objednávkou v okne sa nepočítajú."
+              >
+                <div className="kpi-card__label">
+                  Priem. dní medzi 1. a 2. nákupom
+                </div>
+                <div className="kpi-card__value">
+                  {formatAvgDaysFirstSecond(
+                    data.kpis.avg_days_first_to_second_purchase
+                  )}
+                </div>
+              </div>
               <div className="kpi-card">
                 <div className="kpi-card__label">Priem. LTV / zákazníka</div>
                 <div className="kpi-card__value">
