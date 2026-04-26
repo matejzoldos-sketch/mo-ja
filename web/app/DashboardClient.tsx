@@ -736,9 +736,6 @@ export default function DashboardClient() {
                   Tržby po dňoch
                   {periodLabel ? ` (${periodLabel})` : ""}
                 </h2>
-                <p className="chart-card__subtitle">
-                  Denný súčet množstvo × cena z nevyložených riadkov len z produktových paid-ish objednávok.
-                </p>
                 {lineData ? (
                   <div className="line-chart-block">
                     <div className="line-chart-block__canvas">
@@ -775,9 +772,6 @@ export default function DashboardClient() {
                   Tržby podľa produktu
                   {periodLabel ? ` (${periodLabel})` : ""}
                 </h2>
-                <p className="chart-card__subtitle">
-                  Top 5 SKU/názvov z nevyložených riadkov; len produktové paid-ish objednávky.
-                </p>
                 {barData ? (
                   <div style={{ height: 260 }}>
                     <Bar
@@ -798,11 +792,6 @@ export default function DashboardClient() {
                   Top zákazníci podľa Shopify customer ID
                   {periodLabel ? ` (${periodLabel})` : ""}
                 </h2>
-                <p className="chart-card__subtitle">
-                  Len objednávky so známym customer ID (bez mena a emailu v tejto tabuľke).
-                  Hosťovské / len-email objednávky tu nie sú. Počet objednávok a tržby sú len z
-                  produktových paid-ish objednávok (súčet množstvo × cena na nevyložených riadkoch).
-                </p>
                 <table>
                   <thead>
                     <tr>
@@ -860,10 +849,6 @@ export default function DashboardClient() {
                   : "10 objednávok s najvyššou sumou v období"}
                 {periodLabel ? ` (${periodLabel})` : ""}
               </h2>
-              <p className="chart-card__subtitle">
-                Len paid-ish objednávky s aspoň jednou nevyloženou položkou. Stĺpec Suma = súčet
-                množstvo × cena z týchto položiek (nie celková suma objednávky z Shopify).
-              </p>
               <table>
                 <thead>
                   <tr>

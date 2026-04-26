@@ -311,13 +311,6 @@ a:hover {
   color: var(--text-dark);
 }
 
-.chart-card__subtitle {
-  margin: -10px 0 16px;
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-  line-height: 1.45;
-}
-
 .chart-card--sku-ytd {
   margin-bottom: var(--space-gutter);
 }
