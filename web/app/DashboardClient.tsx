@@ -667,7 +667,8 @@ export default function DashboardClient() {
             <code>005_inventory_dashboard_rpc.sql</code> (sklad),{" "}
             <code>006_sku_units_daily_ytd.sql</code>,{" "}
             <code>034_dashboard_pct_orders_multi_sku.sql</code>,{" "}
-            <code>035_dashboard_avg_customer_ltv.sql</code>.
+            <code>035_dashboard_avg_customer_ltv.sql</code>,{" "}
+            <code>036_dashboard_exclude_listky_moja_faza.sql</code>.
           </p>
         )}
         {data && !loading && (
