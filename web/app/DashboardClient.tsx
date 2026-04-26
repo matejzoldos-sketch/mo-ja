@@ -106,10 +106,10 @@ type Payload = {
 const RANGE_LABELS: Record<RangeKey, string> = {
   "30d": "Posledných 30 dní",
   "90d": "Posledných 90 dní",
-  "365d": "Posledných 12 mesiacov",
+  "365d": "Od spustenia (Nov 2025 – Súčasnosť)",
 };
 
-/** Poradie v menu: najprv kratšie rolling okná, nakoniec ~12 mesiacov (365 dní). */
+/** Poradie v menu: najprv kratšie rolling okná, nakoniec od spustenia (365d / RPC). */
 const RANGE_ORDER: readonly RangeKey[] = ["30d", "90d", "365d"];
 
 function parseRangeParam(raw: string | null): RangeKey {
