@@ -568,10 +568,10 @@ export default function DashboardClient() {
                   {formatMoney(Number(data.kpis.aov), data.kpis.currency)}
                 </div>
               </div>
-              {range === "365d" && (
+              {(range === "30d" || range === "90d" || range === "365d") && (
                 <div
                   className="kpi-card"
-                  title="Posledných 365 dní: zákazníci cez customer ID alebo email (paid / čiastočne zaplatené / čiastočne refundované). % tých, čo mali v tomto období aspoň dve také objednávky, zo všetkých, čo v období aspoň jednu mali."
+                  title={`${RANGE_LABELS[range]}: zákazníci cez customer ID alebo email (paid / čiastočne zaplatené / čiastočne refundované). % tých, čo mali v tomto období aspoň dve také objednávky, zo všetkých, čo v období aspoň jednu mali.`}
                 >
                   <div className="kpi-card__label">
                     Opakovaní zákazníci (2+ obj.)
