@@ -677,54 +677,36 @@ export default function DashboardClient() {
         {data && !loading && (
           <div ref={pdfExportRef} className="dashboard-pdf-root">
             <section className="kpi-grid">
-              <div
-                className="kpi-card"
-                title={`${RANGE_LABELS[range]}: len „produktové“ paid-ish objednávky (aspoň jedna nevyložená položka — bez lístkov a MOJA fáza bez chaosu). Obrat = súčet množstvo × jednotková cena z týchto položiek v období.`}
-              >
+              <div className="kpi-card">
                 <div className="kpi-card__label">Obrat</div>
                 <div className="kpi-card__value">
                   {formatMoney(Number(data.kpis.revenue), data.kpis.currency)}
                 </div>
               </div>
-              <div
-                className="kpi-card"
-                title={`${RANGE_LABELS[range]}: počet produktových paid-ish objednávok v období (rovnaká definícia ako pri obratu).`}
-              >
+              <div className="kpi-card">
                 <div className="kpi-card__label">Počet objednávok</div>
                 <div className="kpi-card__value">{data.kpis.orders}</div>
               </div>
-              <div
-                className="kpi-card"
-                title={`${RANGE_LABELS[range]}: obrat delený počtom produktových objednávok (nie Shopify total_price objednávky).`}
-              >
+              <div className="kpi-card">
                 <div className="kpi-card__label">AOV</div>
                 <div className="kpi-card__value">
                   {formatMoney(Number(data.kpis.aov), data.kpis.currency)}
                 </div>
               </div>
-              <div
-                className="kpi-card"
-                title={`${RANGE_LABELS[range]}: súčet množstva z nevyložených položiek delený počtom produktových paid-ish objednávok v období.`}
-              >
+              <div className="kpi-card">
                 <div className="kpi-card__label">Priem. kusov / objednávku</div>
                 <div className="kpi-card__value">
                   {formatAvgUnitsPerOrder(data.kpis.avg_units_per_order)}
                 </div>
               </div>
-              <div
-                className="kpi-card"
-                title={`${RANGE_LABELS[range]}: z produktových paid-ish objednávok podiel tých, kde sú aspoň dva rôzne SKU na nevyložených riadkoch (SKU alebo názov ako v top produktoch).`}
-              >
+              <div className="kpi-card">
                 <div className="kpi-card__label">Obj. s viac ako 1 SKU</div>
                 <div className="kpi-card__value">
                   {formatReturningPct(data.kpis.pct_orders_multi_sku)}
                 </div>
               </div>
               {(range === "30d" || range === "90d" || range === "365d") && (
-                <div
-                  className="kpi-card"
-                  title={`${RANGE_LABELS[range]}: zákazníci cez customer ID (paid-ish). % tých, čo mali v období aspoň dve produktové objednávky, zo všetkých, čo v období mali aspoň jednu produktovú objednávku.`}
-                >
+                <div className="kpi-card">
                   <div className="kpi-card__label">
                     Opakovaní zákazníci (2+ obj.)
                   </div>
@@ -733,10 +715,7 @@ export default function DashboardClient() {
                   </div>
                 </div>
               )}
-              <div
-                className="kpi-card"
-                title={`${RANGE_LABELS[range]}: medzi zákazníkmi, ktorí v období mali aspoň jednu paid-ish objednávku s identifikátorom (rovnako ako „opakovaní“), priemer súčtu (množstvo × cena položky) zo všetkých paid-ish objednávok v DB; riadky lístkov a MOJA fáza bez chaosu sa do súčtu nepočítajú (rovnako ako pri top produktoch).`}
-              >
+              <div className="kpi-card">
                 <div className="kpi-card__label">Priem. LTV / zákazníka</div>
                 <div className="kpi-card__value">
                   {data.kpis.avg_customer_ltv === null ||
