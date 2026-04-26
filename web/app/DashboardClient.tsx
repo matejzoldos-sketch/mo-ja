@@ -670,23 +670,33 @@ export default function DashboardClient() {
             <code>035_dashboard_avg_customer_ltv.sql</code>,{" "}
             <code>036_dashboard_exclude_listky_moja_faza.sql</code>,{" "}
             <code>037_dashboard_recent_orders_top_value_90_365.sql</code>,{" "}
-            <code>038_dashboard_ltv_exclude_line_items.sql</code>.
+            <code>038_dashboard_ltv_exclude_line_items.sql</code>,{" "}
+            <code>039_dashboard_product_orders_only.sql</code>.
           </p>
         )}
         {data && !loading && (
           <div ref={pdfExportRef} className="dashboard-pdf-root">
             <section className="kpi-grid">
-              <div className="kpi-card">
+              <div
+                className="kpi-card"
+                title={`${RANGE_LABELS[range]}: len „produktové“ paid-ish objednávky (aspoň jedna nevyložená položka — bez lístkov a MOJA fáza bez chaosu). Obrat = súčet množstvo × jednotková cena z týchto položiek v období.`}
+              >
                 <div className="kpi-card__label">Obrat</div>
                 <div className="kpi-card__value">
                   {formatMoney(Number(data.kpis.revenue), data.kpis.currency)}
                 </div>
               </div>
-              <div className="kpi-card">
+              <div
+                className="kpi-card"
+                title={`${RANGE_LABELS[range]}: počet produktových paid-ish objednávok v období (rovnaká definícia ako pri obratu).`}
+              >
                 <div className="kpi-card__label">Počet objednávok</div>
                 <div className="kpi-card__value">{data.kpis.orders}</div>
               </div>
-              <div className="kpi-card">
+              <div
+                className="kpi-card"
+                title={`${RANGE_LABELS[range]}: obrat delený počtom produktových objednávok (nie Shopify total_price objednávky).`}
+              >
                 <div className="kpi-card__label">AOV</div>
                 <div className="kpi-card__value">
                   {formatMoney(Number(data.kpis.aov), data.kpis.currency)}
@@ -694,7 +704,7 @@ export default function DashboardClient() {
               </div>
               <div
                 className="kpi-card"
-                title={`${RANGE_LABELS[range]}: súčet množstva z položiek objednávok (paid / čiastočne zaplatené / čiastočne refundované) delený počtom takých objednávok v období.`}
+                title={`${RANGE_LABELS[range]}: súčet množstva z nevyložených položiek delený počtom produktových paid-ish objednávok v období.`}
               >
                 <div className="kpi-card__label">Priem. kusov / objednávku</div>
                 <div className="kpi-card__value">
@@ -703,7 +713,7 @@ export default function DashboardClient() {
               </div>
               <div
                 className="kpi-card"
-                title={`${RANGE_LABELS[range]}: z platných objednávok v období podiel tých, kde sú aspoň dva rôzne SKU (identifikátor z položky: SKU alebo názov, rovnako ako v top produktoch).`}
+                title={`${RANGE_LABELS[range]}: z produktových paid-ish objednávok podiel tých, kde sú aspoň dva rôzne SKU na nevyložených riadkoch (SKU alebo názov ako v top produktoch).`}
               >
                 <div className="kpi-card__label">Obj. s viac ako 1 SKU</div>
                 <div className="kpi-card__value">
@@ -713,7 +723,7 @@ export default function DashboardClient() {
               {(range === "30d" || range === "90d" || range === "365d") && (
                 <div
                   className="kpi-card"
-                  title={`${RANGE_LABELS[range]}: zákazníci cez customer ID alebo email (paid / čiastočne zaplatené / čiastočne refundované). % tých, čo mali v tomto období aspoň dve také objednávky, zo všetkých, čo v období aspoň jednu mali.`}
+                  title={`${RANGE_LABELS[range]}: zákazníci cez customer ID (paid-ish). % tých, čo mali v období aspoň dve produktové objednávky, zo všetkých, čo v období mali aspoň jednu produktovú objednávku.`}
                 >
                   <div className="kpi-card__label">
                     Opakovaní zákazníci (2+ obj.)
@@ -747,6 +757,9 @@ export default function DashboardClient() {
                   Tržby po dňoch
                   {periodLabel ? ` (${periodLabel})` : ""}
                 </h2>
+                <p className="chart-card__subtitle">
+                  Denný súčet množstvo × cena z nevyložených riadkov len z produktových paid-ish objednávok.
+                </p>
                 {lineData ? (
                   <div className="line-chart-block">
                     <div className="line-chart-block__canvas">
@@ -783,6 +796,9 @@ export default function DashboardClient() {
                   Tržby podľa produktu
                   {periodLabel ? ` (${periodLabel})` : ""}
                 </h2>
+                <p className="chart-card__subtitle">
+                  Top 5 SKU/názvov z nevyložených riadkov; len produktové paid-ish objednávky.
+                </p>
                 {barData ? (
                   <div style={{ height: 260 }}>
                     <Bar
@@ -805,7 +821,8 @@ export default function DashboardClient() {
                 </h2>
                 <p className="chart-card__subtitle">
                   Len objednávky so známym customer ID (bez mena a emailu v tejto tabuľke).
-                  Hosťovské / len-email objednávky tu nie sú.
+                  Hosťovské / len-email objednávky tu nie sú. Počet objednávok a tržby sú len z
+                  produktových paid-ish objednávok (súčet množstvo × cena na nevyložených riadkoch).
                 </p>
                 <table>
                   <thead>
@@ -864,6 +881,10 @@ export default function DashboardClient() {
                   : "10 objednávok s najvyššou sumou v období"}
                 {periodLabel ? ` (${periodLabel})` : ""}
               </h2>
+              <p className="chart-card__subtitle">
+                Len paid-ish objednávky s aspoň jednou nevyloženou položkou. Stĺpec Suma = súčet
+                množstvo × cena z týchto položiek (nie celková suma objednávky z Shopify).
+              </p>
               <table>
                 <thead>
                   <tr>
@@ -872,7 +893,7 @@ export default function DashboardClient() {
                     <th>Zákazník</th>
                     <th>Platba</th>
                     <th>Vybavenie</th>
-                    <th>Suma</th>
+                    <th>Suma (prod.)</th>
                   </tr>
                 </thead>
                 <tbody>
