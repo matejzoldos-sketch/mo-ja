@@ -144,8 +144,14 @@ a:hover {
   min-width: min(200px, 46vw);
 }
 
-.period-filter--range {
+/* Absolútny zoznam (.period-filter__range-list) musí mať pozicionovaného rodiča — nie len pri období. */
+.period-filter--range,
+.period-filter--kpi-product {
   position: relative;
+}
+
+.site-header__dropdowns .period-filter--kpi-product {
+  min-width: min(280px, 72vw);
 }
 
 .period-filter__select--range-trigger {
