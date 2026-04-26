@@ -40,6 +40,11 @@ type Kpis = {
   avg_units_per_order?: number | null;
   /** % paid-ish orders with more than one distinct SKU/title label; null if no orders */
   pct_orders_multi_sku?: number | null;
+  /**
+   * SUM(množstvo nevyložených produktových riadkov) / počet DISTINCT shopify_order_returning_group_key
+   * v okne; null ak žiadny identifikovaný zákazník (rovnaká identita ako opakovaní / LTV).
+   */
+  avg_units_per_unique_customer?: number | null;
   /** % distinct customers with 2+ paid-ish orders in window; null if denominator 0 */
   returning_customers_pct?: number | null;
   /**
@@ -675,7 +680,8 @@ export default function DashboardClient() {
             <code>037_dashboard_recent_orders_top_value_90_365.sql</code>,{" "}
             <code>038_dashboard_ltv_exclude_line_items.sql</code>,{" "}
             <code>039_dashboard_product_orders_only.sql</code>,{" "}
-            <code>040_dashboard_top_products_label_title_first.sql</code>.
+            <code>040_dashboard_top_products_label_title_first.sql</code>,{" "}
+            <code>043_dashboard_avg_units_per_unique_customer.sql</code>.
           </p>
         )}
         {data && !loading && (
@@ -701,6 +707,19 @@ export default function DashboardClient() {
                 <div className="kpi-card__label">Priem. kusov / objednávku</div>
                 <div className="kpi-card__value">
                   {formatAvgUnitsPerOrder(data.kpis.avg_units_per_order)}
+                </div>
+              </div>
+              <div
+                className="kpi-card"
+                title="V zvolenom období (30 / 90 / 365 dní alebo YTD): súčet kusov z produktových riadkov delený počtom unikátnych zákazníkov (rovnaká identita ako pri opakovaných zákazníkoch)."
+              >
+                <div className="kpi-card__label">
+                  Priem. kusov na unikátneho zákazníka
+                </div>
+                <div className="kpi-card__value">
+                  {formatAvgUnitsPerOrder(
+                    data.kpis.avg_units_per_unique_customer
+                  )}
                 </div>
               </div>
               <div className="kpi-card">
