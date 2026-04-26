@@ -42,6 +42,7 @@ const MOCK_PAYLOAD = {
     orders: 156,
     aov: 82.31,
     currency: "EUR",
+    avg_units_per_order: 2.15,
     returning_customers_pct: 42.5,
   },
   dailyRevenue: Array.from({ length: 14 }, (_, i) => {

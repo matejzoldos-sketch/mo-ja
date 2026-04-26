@@ -36,7 +36,9 @@ type Kpis = {
   orders: number;
   aov: number;
   currency: string | null;
-  /** % distinct customers in window with a prior paid-ish order before window; null if no known customer_id in window */
+  /** SUM(line quantities) / orders (paid-ish window); null if no orders */
+  avg_units_per_order?: number | null;
+  /** % distinct customers with 2+ paid-ish orders in window; null if denominator 0 */
   returning_customers_pct?: number | null;
 };
 
@@ -138,6 +140,16 @@ function formatReturningPct(value: number | null | undefined): string {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
   })} %`;
+}
+
+function formatAvgUnitsPerOrder(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "—";
+  }
+  return Number(value).toLocaleString("sk-SK", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 2,
+  });
 }
 
 /** Least-squares line through points (i, y[i]); one point → flat line. */
@@ -602,6 +614,18 @@ export default function DashboardClient() {
                 <div className="kpi-card__label">AOV</div>
                 <div className="kpi-card__value">
                   {formatMoney(Number(data.kpis.aov), data.kpis.currency)}
+                </div>
+              </div>
+              <div
+                className="kpi-card"
+                title={`${RANGE_LABELS[range]}: súčet množstva z položiek objednávok (paid / čiastočne zaplatené / čiastočne refundované) delený počtom takých objednávok v období.`}
+              >
+                <div className="kpi-card__label">
+                  Priem. kusov / objednávku
+                  {periodLabel ? ` (${periodLabel})` : ""}
+                </div>
+                <div className="kpi-card__value">
+                  {formatAvgUnitsPerOrder(data.kpis.avg_units_per_order)}
                 </div>
               </div>
               {(range === "30d" || range === "90d" || range === "365d") && (
