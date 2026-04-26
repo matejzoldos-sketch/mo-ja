@@ -214,6 +214,17 @@ a:hover {
   opacity: 0.88;
 }
 
+.site-header__data-note {
+  max-width: var(--layout-max);
+  margin: 10px auto 0;
+  padding: 0;
+  font-size: 0.78rem;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--header-text);
+  opacity: 0.78;
+}
+
 .site-header h1 {
   margin: 0;
   font-size: 1.25rem;

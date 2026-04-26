@@ -647,6 +647,9 @@ export default function DashboardClient() {
             Posledný sync dát: {formatLastSyncDisplay(data.lastSyncAt)}
           </p>
         )}
+        <p className="site-header__data-note">
+          Dáta zobrazujú čisté predaje produktov zo zaplatených objednávok. Výpočty nezahŕňajú vstupenky na eventy, dopravu ani storná.
+        </p>
       </header>
 
       <main className="main-wrap">
