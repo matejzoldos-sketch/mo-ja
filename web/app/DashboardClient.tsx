@@ -847,7 +847,8 @@ export default function DashboardClient() {
             <code>043_dashboard_avg_units_per_unique_customer.sql</code>,{" "}
             <code>044_dashboard_avg_days_first_to_second_purchase.sql</code>,{" "}
             <code>045_dashboard_kpi_product_filter.sql</code>,{" "}
-            <code>046_sku_units_daily_ytd_kpi_product_filter.sql</code>.
+            <code>046_sku_units_daily_ytd_kpi_product_filter.sql</code>,{" "}
+            <code>047_dashboard_recent_orders_top_value_30d.sql</code>.
           </p>
         )}
         {data && !loading && (
@@ -1038,9 +1039,7 @@ export default function DashboardClient() {
 
             <section className="table-card">
               <h2>
-                {range === "30d"
-                  ? "10 najnovších objednávok v období"
-                  : "10 objednávok s najvyššou sumou v období"}
+                10 objednávok s najvyššou sumou v období
                 {chartPeriodInParens ? ` (${chartPeriodInParens})` : ""}
               </h2>
               <table>
