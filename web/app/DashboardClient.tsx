@@ -674,7 +674,8 @@ export default function DashboardClient() {
             <code>036_dashboard_exclude_listky_moja_faza.sql</code>,{" "}
             <code>037_dashboard_recent_orders_top_value_90_365.sql</code>,{" "}
             <code>038_dashboard_ltv_exclude_line_items.sql</code>,{" "}
-            <code>039_dashboard_product_orders_only.sql</code>.
+            <code>039_dashboard_product_orders_only.sql</code>,{" "}
+            <code>040_dashboard_top_products_label_title_first.sql</code>.
           </p>
         )}
         {data && !loading && (
