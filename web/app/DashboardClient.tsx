@@ -894,7 +894,7 @@ export default function DashboardClient() {
                 {range === "30d"
                   ? "10 najnovších objednávok v období"
                   : "10 objednávok s najvyššou sumou v období"}
-                {periodLabel ? ` (${periodLabel})` : ""}
+                {chartPeriodInParens ? ` (${chartPeriodInParens})` : ""}
               </h2>
               <table>
                 <thead>
