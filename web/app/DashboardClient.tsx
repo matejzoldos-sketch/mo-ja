@@ -668,7 +668,8 @@ export default function DashboardClient() {
             <code>006_sku_units_daily_ytd.sql</code>,{" "}
             <code>034_dashboard_pct_orders_multi_sku.sql</code>,{" "}
             <code>035_dashboard_avg_customer_ltv.sql</code>,{" "}
-            <code>036_dashboard_exclude_listky_moja_faza.sql</code>.
+            <code>036_dashboard_exclude_listky_moja_faza.sql</code>,{" "}
+            <code>037_dashboard_recent_orders_top_value_90_365.sql</code>.
           </p>
         )}
         {data && !loading && (
@@ -857,7 +858,9 @@ export default function DashboardClient() {
 
             <section className="table-card">
               <h2>
-                10 najnovších objednávok v období
+                {range === "30d"
+                  ? "10 najnovších objednávok v období"
+                  : "10 objednávok s najvyššou sumou v období"}
                 {periodLabel ? ` (${periodLabel})` : ""}
               </h2>
               <table>
