@@ -38,6 +38,8 @@ type Kpis = {
   currency: string | null;
   /** SUM(line quantities) / orders (paid-ish window); null if no orders */
   avg_units_per_order?: number | null;
+  /** % paid-ish orders with more than one distinct SKU/title label; null if no orders */
+  pct_orders_multi_sku?: number | null;
   /** % distinct customers with 2+ paid-ish orders in window; null if denominator 0 */
   returning_customers_pct?: number | null;
 };
@@ -592,7 +594,8 @@ export default function DashboardClient() {
             <code>024_dashboard_top_customers_by_id.sql</code>,{" "}
             <code>025_shopify_order_effective_customer_id_if_missing.sql</code>,{" "}
             <code>005_inventory_dashboard_rpc.sql</code> (sklad),{" "}
-            <code>006_sku_units_daily_ytd.sql</code>.
+            <code>006_sku_units_daily_ytd.sql</code>,{" "}
+            <code>034_dashboard_pct_orders_multi_sku.sql</code>.
           </p>
         )}
         {data && !loading && (
@@ -626,6 +629,18 @@ export default function DashboardClient() {
                 </div>
                 <div className="kpi-card__value">
                   {formatAvgUnitsPerOrder(data.kpis.avg_units_per_order)}
+                </div>
+              </div>
+              <div
+                className="kpi-card"
+                title={`${RANGE_LABELS[range]}: z platných objednávok v období podiel tých, kde sú aspoň dva rôzne SKU (identifikátor z položky: SKU alebo názov, rovnako ako v top produktoch).`}
+              >
+                <div className="kpi-card__label">
+                  Obj. s viac ako 1 SKU
+                  {periodLabel ? ` (${periodLabel})` : ""}
+                </div>
+                <div className="kpi-card__value">
+                  {formatReturningPct(data.kpis.pct_orders_multi_sku)}
                 </div>
               </div>
               {(range === "30d" || range === "90d" || range === "365d") && (
