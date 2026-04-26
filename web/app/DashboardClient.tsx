@@ -181,6 +181,22 @@ function formatMonthSk(isoMonth: string) {
   });
 }
 
+/** Odstráni mesiace na začiatku, kde sú oba súčty 0 (prázdne stĺpce pred prvým predajom). */
+function trimLeadingZeroMonths(m: MonthlyNewVsReturning): MonthlyNewVsReturning {
+  let i = 0;
+  while (
+    i < m.months.length &&
+    Number(m.newRevenue[i] ?? 0) + Number(m.returningRevenue[i] ?? 0) === 0
+  ) {
+    i += 1;
+  }
+  return {
+    months: m.months.slice(i),
+    newRevenue: m.newRevenue.slice(i),
+    returningRevenue: m.returningRevenue.slice(i),
+  };
+}
+
 function formatMoney(amount: number, currency: string | null) {
   const c = currency || "EUR";
   try {
@@ -614,40 +630,39 @@ export default function DashboardClient() {
     },
   };
 
-  const monthlyStackedBarData =
-    data?.monthlyNewVsReturning?.months?.length &&
-    data.monthlyNewVsReturning.months.length ===
-      data.monthlyNewVsReturning.newRevenue.length &&
-    data.monthlyNewVsReturning.months.length ===
-      data.monthlyNewVsReturning.returningRevenue.length
-      ? {
-          labels: data.monthlyNewVsReturning.months.map((iso) =>
-            formatMonthSk(iso)
-          ),
-          datasets: [
-            {
-              label: "Noví zákazníci",
-              data: data.monthlyNewVsReturning.newRevenue.map((v) =>
-                Number(v)
-              ),
-              backgroundColor: PRIMARY,
-              borderColor: TEXT,
-              borderWidth: 1,
-              stack: "rev",
-            },
-            {
-              label: "Vracajúci sa",
-              data: data.monthlyNewVsReturning.returningRevenue.map((v) =>
-                Number(v)
-              ),
-              backgroundColor: SECONDARY,
-              borderColor: TEXT,
-              borderWidth: 1,
-              stack: "rev",
-            },
-          ],
-        }
-      : null;
+  const monthlyStackedBarData = (() => {
+    const raw = data?.monthlyNewVsReturning;
+    if (
+      !raw?.months?.length ||
+      raw.months.length !== raw.newRevenue.length ||
+      raw.months.length !== raw.returningRevenue.length
+    ) {
+      return null;
+    }
+    const trimmed = trimLeadingZeroMonths(raw);
+    if (trimmed.months.length === 0) return null;
+    return {
+      labels: trimmed.months.map((iso) => formatMonthSk(iso)),
+      datasets: [
+        {
+          label: "Noví zákazníci",
+          data: trimmed.newRevenue.map((v) => Number(v)),
+          backgroundColor: PRIMARY,
+          borderColor: TEXT,
+          borderWidth: 1,
+          stack: "rev",
+        },
+        {
+          label: "Vracajúci sa",
+          data: trimmed.returningRevenue.map((v) => Number(v)),
+          backgroundColor: SECONDARY,
+          borderColor: TEXT,
+          borderWidth: 1,
+          stack: "rev",
+        },
+      ],
+    };
+  })();
 
   const monthlyStackedBarOptions: ChartOptions<"bar"> = {
     ...chartOptions,
@@ -1092,11 +1107,6 @@ export default function DashboardClient() {
                   Mesačné tržby: Noví vs. Vracajúci sa
                   {chartPeriodInParens ? ` (${chartPeriodInParens})` : ""}
                 </h2>
-                <p className="chart-card__subtitle">
-                  Skladaný stĺpcový graf. Noví: prvá objednávka s meranými produktovými položkami v
-                  histórii; vracajúci: už predtým mali takú objednávku. Riadky bez priraditeľnej identity
-                  zákazníka sa do súčtov nepočítajú.
-                </p>
                 <div style={{ height: 300 }}>
                   <Bar
                     data={monthlyStackedBarData}
