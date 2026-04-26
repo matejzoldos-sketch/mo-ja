@@ -66,6 +66,8 @@ type PayloadMeta = { range: string; from: string; to: string };
 
 type SkuDailyYtd = {
   year: number;
+  /** ytd | 30d | 90d | 365d — z RPC */
+  range?: string;
   from: string;
   to: string;
   skuOrder: string[];
@@ -291,7 +293,10 @@ export default function DashboardClient() {
       };
       const [mainRes, skuRes] = await Promise.all([
         fetch(`/api/dashboard${q}`, fetchOpts),
-        fetch(`/api/dashboard/sku-ytd?_=${Date.now()}`, fetchOpts),
+        fetch(
+          `/api/dashboard/sku-ytd?range=${encodeURIComponent(r)}&_=${Date.now()}`,
+          fetchOpts
+        ),
       ]);
       const mainJson = (await mainRes.json()) as Payload & { error?: string };
       if (!mainRes.ok) {
@@ -342,6 +347,11 @@ export default function DashboardClient() {
   const periodLabel = data?.meta
     ? `${formatSkDate(data.meta.from)} – ${formatSkDate(data.meta.to)}`
     : "";
+
+  const skuChartPeriodLabel =
+    data?.skuDailyYtd?.from && data?.skuDailyYtd?.to
+      ? `${formatSkDate(data.skuDailyYtd.from)} – ${formatSkDate(data.skuDailyYtd.to)}`
+      : "";
 
   const lineData = data
     ? (() => {
@@ -681,7 +691,8 @@ export default function DashboardClient() {
             {data.skuDailyYtd && skuYtdLineData ? (
               <section className="chart-card chart-card--sku-ytd">
                 <h2>
-                  Denné predané kusy podľa SKU (od 1. 1. {data.skuDailyYtd.year})
+                  Denné predané kusy podľa SKU
+                  {skuChartPeriodLabel ? ` (${skuChartPeriodLabel})` : ""}
                 </h2>
                 <div className="sku-ytd-chart-wrap">
                   <Line data={skuYtdLineData} options={skuYtdLineOptions} />
@@ -692,9 +703,10 @@ export default function DashboardClient() {
               skuYtdLineData === null ? (
               <section className="chart-card chart-card--sku-ytd">
                 <h2>
-                  Denné predané kusy podľa SKU (od 1. 1. {data.skuDailyYtd.year})
+                  Denné predané kusy podľa SKU
+                  {skuChartPeriodLabel ? ` (${skuChartPeriodLabel})` : ""}
                 </h2>
-                <p className="msg">Zatiaľ žiadne predaje v tomto roku.</p>
+                <p className="msg">Zatiaľ žiadne predaje v zvolenom období.</p>
               </section>
             ) : null}
 

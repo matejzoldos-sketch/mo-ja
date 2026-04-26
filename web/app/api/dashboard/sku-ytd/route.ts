@@ -5,6 +5,15 @@ import { supabasePostgrestRpc } from "@/lib/supabasePostgrestRpc";
 
 export const dynamic = "force-dynamic";
 
+const ALLOWED_RANGE = new Set(["ytd", "30d", "90d", "365d"]);
+
+function resolveSkuRange(searchParams: URLSearchParams): string {
+  const raw = searchParams.get("range")?.toLowerCase().trim() ?? "";
+  if (!raw) return "ytd";
+  if (ALLOWED_RANGE.has(raw)) return raw;
+  return "ytd";
+}
+
 export async function GET(request: Request) {
   if (!(await isAuthorizedRequest(request))) {
     return NextResponse.json(
@@ -14,11 +23,13 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url);
+  const pRange = resolveSkuRange(url.searchParams);
   if (url.searchParams.get("mock") === "1") {
     return NextResponse.json(
       {
         skuDailyYtd: {
           year: 2026,
+          range: pRange,
           from: "2026-01-01",
           to: "2026-04-04",
           skuOrder: ["MOJA Phase", "MOJA Phase+", "DUO pack"],
@@ -51,7 +62,7 @@ export async function GET(request: Request) {
     supabaseUrl,
     serviceKey,
     "get_shopify_sku_units_daily_ytd",
-    {}
+    { p_range: pRange }
   );
 
   if (skuRes.error) {
