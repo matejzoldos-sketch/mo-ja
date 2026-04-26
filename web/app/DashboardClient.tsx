@@ -118,6 +118,17 @@ type PurchaseCountBucket = {
   pct: number;
 };
 
+/** Histogram dní medzi dvoma po sebe idúcimi nákupmi v okne (050+). */
+type PurchaseIntervalBucket = {
+  bucket: number;
+  label: string;
+  count: number;
+};
+
+type PurchaseIntervalHistogram = {
+  buckets: PurchaseIntervalBucket[];
+};
+
 type Payload = {
   meta: PayloadMeta;
   kpis: Kpis;
@@ -127,6 +138,7 @@ type Payload = {
   recentOrders: RecentOrder[];
   monthlyNewVsReturning?: MonthlyNewVsReturning;
   purchaseCountDistribution?: PurchaseCountBucket[];
+  purchaseIntervalHistogram?: PurchaseIntervalHistogram;
   skuDailyYtd?: SkuDailyYtd;
   /** ISO čas posledného úspešného behu sync_shopify (shopify_sync_state.full_sync) */
   lastSyncAt?: string | null;
@@ -796,6 +808,68 @@ export default function DashboardClient() {
     },
   };
 
+  const intervalBuckets =
+    data?.purchaseIntervalHistogram?.buckets?.filter(
+      (b) => b != null && typeof b.label === "string"
+    ) ?? [];
+  const purchaseIntervalBarData =
+    intervalBuckets.length > 0
+      ? {
+          labels: intervalBuckets.map((b) => b.label),
+          datasets: [
+            {
+              label: "Počet párov nákupov",
+              data: intervalBuckets.map((b) => Number(b.count)),
+              backgroundColor: SECONDARY,
+              borderColor: TEXT,
+              borderWidth: 1,
+            },
+          ],
+        }
+      : null;
+
+  const purchaseIntervalBarOptions: ChartOptions<"bar"> = {
+    ...chartOptions,
+    plugins: {
+      ...chartOptions.plugins,
+      legend: { display: false as const },
+      tooltip: {
+        enabled: true,
+        callbacks: {
+          label(ctx) {
+            const n = ctx.parsed.y;
+            const v =
+              n === null || n === undefined || Number.isNaN(Number(n))
+                ? 0
+                : Math.round(Number(n));
+            return v === 1 ? "1 pár nákupov" : `${v} párov nákupov`;
+          },
+        },
+      },
+    },
+    scales: {
+      x: {
+        ...chartOptions.scales.x,
+        title: {
+          display: true,
+          text: "Interval medzi nákupmi (kalendárne dni, Europe/Bratislava)",
+          color: TEXT,
+          font: { size: 11, family: "Manrope" },
+        },
+      },
+      y: {
+        ...chartOptions.scales.y,
+        title: {
+          display: true,
+          text: "Počet dvojíc po sebe idúcich nákupov",
+          color: TEXT,
+          font: { size: 11, family: "Manrope" },
+        },
+        beginAtZero: true,
+      },
+    },
+  };
+
   const lineChartOptions = {
     ...chartOptions,
     plugins: {
@@ -1051,7 +1125,8 @@ export default function DashboardClient() {
             <code>046_sku_units_daily_ytd_kpi_product_filter.sql</code>,{" "}
             <code>047_dashboard_recent_orders_top_value_30d.sql</code>,{" "}
             <code>048_dashboard_monthly_new_vs_returning_revenue.sql</code>,{" "}
-            <code>049_dashboard_purchase_count_distribution.sql</code>.
+            <code>049_dashboard_purchase_count_distribution.sql</code>,{" "}
+            <code>050_dashboard_purchase_interval_histogram.sql</code>.
           </p>
         )}
         {data && !loading && (
@@ -1211,6 +1286,21 @@ export default function DashboardClient() {
                   </section>
                 ) : null}
               </div>
+            ) : null}
+
+            {purchaseIntervalBarData ? (
+              <section className="chart-card chart-card--interval-histogram">
+                <h2>
+                  Frekvencia nákupov (histogram intervalov)
+                  {chartPeriodInParens ? ` (${chartPeriodInParens})` : ""}
+                </h2>
+                <div style={{ height: 280 }}>
+                  <Bar
+                    data={purchaseIntervalBarData}
+                    options={purchaseIntervalBarOptions}
+                  />
+                </div>
+              </section>
             ) : null}
 
             {(data.topCustomers?.length ?? 0) > 0 ? (

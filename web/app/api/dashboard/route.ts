@@ -81,6 +81,16 @@ const MOCK_PAYLOAD = {
     { bucket: 4, label: "4 nákupy", customers: 11, pct: 8.5 },
     { bucket: 5, label: "5+ nákupov", customers: 7, pct: 5.4 },
   ],
+  purchaseIntervalHistogram: {
+    buckets: [
+      { bucket: 1, label: "0–7 dní", count: 12 },
+      { bucket: 2, label: "8–14 dní", count: 7 },
+      { bucket: 3, label: "15–30 dní", count: 15 },
+      { bucket: 4, label: "31–60 dní", count: 9 },
+      { bucket: 5, label: "61–120 dní", count: 4 },
+      { bucket: 6, label: "121+ dní", count: 2 },
+    ],
+  },
   recentOrders: [1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010].map(
     (id, i) => {
       const day = 20 - Math.floor(i / 2);

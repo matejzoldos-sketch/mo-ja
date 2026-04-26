@@ -365,6 +365,10 @@ a:hover {
   min-height: 260px;
 }
 
+.chart-card--interval-histogram {
+  margin-bottom: var(--space-gutter);
+}
+
 .sklad-chart-section {
   margin-bottom: var(--space-gutter);
 }
