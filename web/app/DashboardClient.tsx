@@ -299,6 +299,8 @@ export default function DashboardClient() {
   const [loading, setLoading] = useState(true);
   const [rangeMenuOpen, setRangeMenuOpen] = useState(false);
   const rangeMenuRef = useRef<HTMLDivElement>(null);
+  const [pdfExporting, setPdfExporting] = useState(false);
+  const pdfExportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!rangeMenuOpen) return;
@@ -523,6 +525,59 @@ export default function DashboardClient() {
     },
   };
 
+  const downloadDashboardPdf = useCallback(async () => {
+    const root = pdfExportRef.current;
+    if (!root || !data) return;
+    setPdfExporting(true);
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+      const canvas = await html2canvas(root, {
+        scale: 1.75,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+        scrollX: 0,
+        scrollY: -window.scrollY,
+        windowWidth: root.scrollWidth,
+      });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const imgW = pageW;
+      const imgH = (canvas.height * imgW) / canvas.width;
+      let heightLeft = imgH;
+      let y = 0;
+      pdf.addImage(imgData, "PNG", 0, y, imgW, imgH);
+      heightLeft -= pageH;
+      while (heightLeft > 0) {
+        y = heightLeft - imgH;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 0, y, imgW, imgH);
+        heightLeft -= pageH;
+      }
+      const from = data.meta.from.replace(/\s/g, "");
+      const to = data.meta.to.replace(/\s/g, "");
+      pdf.save(`predaj-${range}_${from}_${to}.pdf`);
+    } catch (e) {
+      console.error(e);
+      window.alert(
+        e instanceof Error
+          ? e.message
+          : "Export do PDF zlyhal. Skús znova alebo iný prehliadač."
+      );
+    } finally {
+      setPdfExporting(false);
+    }
+  }, [data, range]);
+
   return (
     <>
       <header className="site-header">
@@ -574,6 +629,17 @@ export default function DashboardClient() {
                 </ul>
               ) : null}
             </div>
+            {data && !loading && !err ? (
+              <button
+                type="button"
+                className="dashboard-pdf-btn"
+                disabled={pdfExporting}
+                aria-busy={pdfExporting}
+                onClick={() => void downloadDashboardPdf()}
+              >
+                {pdfExporting ? "Generujem PDF…" : "Stiahnuť PDF"}
+              </button>
+            ) : null}
           </div>
         </div>
         {data?.lastSyncAt != null && data.lastSyncAt !== "" && (
@@ -605,7 +671,7 @@ export default function DashboardClient() {
           </p>
         )}
         {data && !loading && (
-          <>
+          <div ref={pdfExportRef} className="dashboard-pdf-root">
             <section className="kpi-grid">
               <div className="kpi-card">
                 <div className="kpi-card__label">Obrat</div>
@@ -823,7 +889,7 @@ export default function DashboardClient() {
                 </tbody>
               </table>
             </section>
-          </>
+          </div>
         )}
       </main>
     </>

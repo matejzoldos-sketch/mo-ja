@@ -73,6 +73,28 @@ a:hover {
   min-width: min(200px, 46vw);
 }
 
+.dashboard-pdf-btn {
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--header-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dashboard-pdf-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.dashboard-pdf-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
 /* Sklad: na mobile dropdown vľavo (Predaj ostáva vpravo s dvoma selectmi) */
 @media (max-width: 768px) {
   .site-header--sklad .site-header__inner {
