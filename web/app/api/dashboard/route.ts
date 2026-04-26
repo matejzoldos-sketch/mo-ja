@@ -7,6 +7,7 @@ import { supabasePostgrestRpc } from "@/lib/supabasePostgrestRpc";
 export const dynamic = "force-dynamic";
 
 const ALLOWED_RANGE = new Set(["ytd", "30d", "90d", "365d"]);
+const ALLOWED_KPI_PRODUCT = new Set(["all", "moja_phase_bez", "moja_phase_plus"]);
 
 /** Prvý segment hostu *.supabase.co — na overenie, že Production volá očakávaný projekt. */
 function supabaseProjectRef(url: string): string | null {
@@ -36,6 +37,7 @@ const MOCK_PAYLOAD = {
     range: "365d",
     from: "2025-04-04",
     to: "2026-04-04",
+    kpi_product: "all",
   },
   kpis: {
     revenue: 12840.5,
@@ -118,6 +120,12 @@ export async function GET(request: Request) {
   const normalized =
     rawRangeEarly === "ytd" ? "365d" : rawRangeEarly;
   const rangeEarly = ALLOWED_RANGE.has(normalized) ? normalized : "30d";
+  const rawKpi =
+    url.searchParams.get("kpi_product")?.toLowerCase().trim() ?? "";
+  const kpiProductEarly = ALLOWED_KPI_PRODUCT.has(rawKpi) ? rawKpi : "all";
+  const pKpiProduct =
+    kpiProductEarly === "all" ? null : kpiProductEarly;
+
   if (url.searchParams.get("mock") === "1") {
     return NextResponse.json(
       {
@@ -125,6 +133,7 @@ export async function GET(request: Request) {
         meta: {
           ...MOCK_PAYLOAD.meta,
           range: rangeEarly,
+          kpi_product: kpiProductEarly,
         },
       },
       { headers: jsonNoStoreHeaders }
@@ -146,10 +155,16 @@ export async function GET(request: Request) {
     );
   }
 
+  const dashRpcPayload: Record<string, unknown> = { p_range: rangeEarly };
+  if (pKpiProduct != null) dashRpcPayload.p_kpi_product = pKpiProduct;
+
   const [dashRes, lastSyncAt] = await Promise.all([
-    supabasePostgrestRpc<Record<string, unknown>>(supabaseUrl, serviceKey, "get_shopify_dashboard_mvp", {
-      p_range: rangeEarly,
-    }),
+    supabasePostgrestRpc<Record<string, unknown>>(
+      supabaseUrl,
+      serviceKey,
+      "get_shopify_dashboard_mvp",
+      dashRpcPayload
+    ),
     resolveLastSyncAt(supabaseUrl, serviceKey),
   ]);
 

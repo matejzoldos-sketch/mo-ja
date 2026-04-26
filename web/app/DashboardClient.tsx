@@ -79,7 +79,15 @@ type RecentOrder = {
 
 type RangeKey = "365d" | "30d" | "90d";
 
-type PayloadMeta = { range: string; from: string; to: string };
+/** Filter pre KPI / scorecards (nie pre SKU graf — ten ostáva celý sortiment). */
+type KpiProductKey = "all" | "moja_phase_bez" | "moja_phase_plus";
+
+type PayloadMeta = {
+  range: string;
+  from: string;
+  to: string;
+  kpi_product?: string;
+};
 
 type SkuDailyYtd = {
   year: number;
@@ -111,6 +119,24 @@ const RANGE_LABELS: Record<RangeKey, string> = {
 
 /** Poradie v menu: najprv kratšie rolling okná, nakoniec od spustenia (365d / RPC). */
 const RANGE_ORDER: readonly RangeKey[] = ["30d", "90d", "365d"];
+
+const KPI_PRODUCT_LABELS: Record<KpiProductKey, string> = {
+  all: "Všetky produkty",
+  moja_phase_bez: "MOJA Phase bez fytoestrogénov",
+  moja_phase_plus: "MOJA Phase+ s fytoestrogénmi",
+};
+
+const KPI_PRODUCT_ORDER: readonly KpiProductKey[] = [
+  "all",
+  "moja_phase_bez",
+  "moja_phase_plus",
+];
+
+function parseKpiProductParam(raw: string | null): KpiProductKey {
+  const s = (raw || "").toLowerCase().trim();
+  if (s === "moja_phase_bez" || s === "moja_phase_plus") return s;
+  return "all";
+}
 
 function parseRangeParam(raw: string | null): RangeKey {
   const s = (raw || "").toLowerCase().trim();
@@ -289,10 +315,19 @@ export default function DashboardClient() {
   const searchParams = useSearchParams();
   const rangeFromUrl = parseRangeParam(searchParams.get("range"));
   const [range, setRange] = useState<RangeKey>(rangeFromUrl);
+  const kpiProductFromUrl = parseKpiProductParam(
+    searchParams.get("kpi_product")
+  );
+  const [kpiProduct, setKpiProduct] =
+    useState<KpiProductKey>(kpiProductFromUrl);
 
   useEffect(() => {
     setRange(rangeFromUrl);
   }, [rangeFromUrl]);
+
+  useEffect(() => {
+    setKpiProduct(kpiProductFromUrl);
+  }, [kpiProductFromUrl]);
 
   useEffect(() => {
     const raw = searchParams.get("range");
@@ -312,11 +347,39 @@ export default function DashboardClient() {
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }, [searchParams, pathname, router]);
 
+  useEffect(() => {
+    const raw = searchParams.get("kpi_product");
+    if (!raw) return;
+    const s = raw.toLowerCase().trim();
+    if (!(s === "moja_phase_bez" || s === "moja_phase_plus" || s === "all")) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("kpi_product");
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      return;
+    }
+    if (s === "all") {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("kpi_product");
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      return;
+    }
+    if (raw !== s) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("kpi_product", s);
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    }
+  }, [searchParams, pathname, router]);
+
   const [data, setData] = useState<Payload | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [rangeMenuOpen, setRangeMenuOpen] = useState(false);
   const rangeMenuRef = useRef<HTMLDivElement>(null);
+  const [kpiMenuOpen, setKpiMenuOpen] = useState(false);
+  const kpiMenuRef = useRef<HTMLDivElement>(null);
   const [pdfExporting, setPdfExporting] = useState(false);
   const pdfExportRef = useRef<HTMLDivElement>(null);
 
@@ -338,11 +401,33 @@ export default function DashboardClient() {
     };
   }, [rangeMenuOpen]);
 
-  const load = useCallback(async (r: RangeKey) => {
+  useEffect(() => {
+    if (!kpiMenuOpen) return;
+    const close = () => setKpiMenuOpen(false);
+    const onDown = (e: MouseEvent) => {
+      if (kpiMenuRef.current?.contains(e.target as Node)) return;
+      close();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [kpiMenuOpen]);
+
+  const load = useCallback(async (r: RangeKey, kpi: KpiProductKey) => {
     setLoading(true);
     setErr(null);
     try {
-      const q = `?range=${encodeURIComponent(r)}&_=${Date.now()}`;
+      const kpiQ =
+        kpi !== "all"
+          ? `&kpi_product=${encodeURIComponent(kpi)}`
+          : "";
+      const q = `?range=${encodeURIComponent(r)}${kpiQ}&_=${Date.now()}`;
       const fetchOpts: RequestInit = {
         cache: "no-store",
         headers: { "Cache-Control": "no-cache" },
@@ -380,22 +465,33 @@ export default function DashboardClient() {
   }, []);
 
   useEffect(() => {
-    load(range);
-  }, [load, range]);
+    void load(range, kpiProduct);
+  }, [load, range, kpiProduct]);
 
   useEffect(() => {
     const onVis = () => {
-      if (document.visibilityState === "visible") void load(range);
+      if (document.visibilityState === "visible")
+        void load(range, kpiProduct);
     };
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
-  }, [load, range]);
+  }, [load, range, kpiProduct]);
 
   function onRangeChange(next: RangeKey) {
     setRangeMenuOpen(false);
     setRange(next);
     const params = new URLSearchParams(searchParams.toString());
     params.set("range", next);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }
+
+  function onKpiProductChange(next: KpiProductKey) {
+    setKpiMenuOpen(false);
+    setKpiProduct(next);
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === "all") params.delete("kpi_product");
+    else params.set("kpi_product", next);
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }
@@ -588,7 +684,9 @@ export default function DashboardClient() {
       }
       const from = data.meta.from.replace(/\s/g, "");
       const to = data.meta.to.replace(/\s/g, "");
-      pdf.save(`predaj-${range}_${from}_${to}.pdf`);
+      const kpiSlug =
+        kpiProduct === "all" ? "" : `-${kpiProduct}`;
+      pdf.save(`predaj-${range}${kpiSlug}_${from}_${to}.pdf`);
     } catch (e) {
       console.error(e);
       window.alert(
@@ -599,7 +697,7 @@ export default function DashboardClient() {
     } finally {
       setPdfExporting(false);
     }
-  }, [data, range]);
+  }, [data, range, kpiProduct]);
 
   return (
     <>
@@ -646,6 +744,50 @@ export default function DashboardClient() {
                       >
                         {v === range ? "✓ " : ""}
                         {RANGE_LABELS[v]}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+            <div
+              className="period-filter period-filter--kpi-product"
+              ref={kpiMenuRef}
+            >
+              <button
+                type="button"
+                className="period-filter__select period-filter__select--range-trigger"
+                aria-expanded={kpiMenuOpen}
+                aria-haspopup="listbox"
+                aria-label="KPI podľa produktu"
+                onClick={() => setKpiMenuOpen((o) => !o)}
+              >
+                <span>{KPI_PRODUCT_LABELS[kpiProduct]}</span>
+                <span className="period-filter__chevron" aria-hidden>
+                  ▼
+                </span>
+              </button>
+              {kpiMenuOpen ? (
+                <ul
+                  className="period-filter__range-list"
+                  role="listbox"
+                  aria-label="KPI podľa produktu"
+                >
+                  {KPI_PRODUCT_ORDER.map((v) => (
+                    <li key={v} role="presentation">
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={v === kpiProduct}
+                        className={
+                          v === kpiProduct
+                            ? "period-filter__range-option is-selected"
+                            : "period-filter__range-option"
+                        }
+                        onClick={() => onKpiProductChange(v)}
+                      >
+                        {v === kpiProduct ? "✓ " : ""}
+                        {KPI_PRODUCT_LABELS[v]}
                       </button>
                     </li>
                   ))}
@@ -700,7 +842,8 @@ export default function DashboardClient() {
             <code>039_dashboard_product_orders_only.sql</code>,{" "}
             <code>040_dashboard_top_products_label_title_first.sql</code>,{" "}
             <code>043_dashboard_avg_units_per_unique_customer.sql</code>,{" "}
-            <code>044_dashboard_avg_days_first_to_second_purchase.sql</code>.
+            <code>044_dashboard_avg_days_first_to_second_purchase.sql</code>,{" "}
+            <code>045_dashboard_kpi_product_filter.sql</code>.
           </p>
         )}
         {data && !loading && (
