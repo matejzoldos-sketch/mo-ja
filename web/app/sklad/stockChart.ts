@@ -5,8 +5,23 @@ export type StockChartYtd = {
   from: string;
   to: string;
   skuOrder: string[];
-  points: { date: string; sku: string; stock: number }[];
+  points: {
+    date: string;
+    sku: string;
+    stock: number;
+    /** Po migr. 041: zobrazený názov (môže sa líšiť od sku). */
+    product_title?: string;
+  }[];
 };
+
+function displayTitleForSkuSeries(
+  s: StockChartYtd,
+  skuKey: string
+): string {
+  const row = s.points.find((p) => p.sku === skuKey);
+  const t = row?.product_title?.trim();
+  return t || skuKey;
+}
 
 /** Sklad chart: first useful snapshots from ~7 Apr — clamp if RPC still returns Jan 1 / 1 Apr. */
 function effectiveChartFromIso(s: StockChartYtd): string {
@@ -67,7 +82,8 @@ export function buildStockHistoryChart(
   const datasets: ChartData<"line">["datasets"] = [];
   for (let i = 0; i < s.skuOrder.length; i++) {
     const sku = s.skuOrder[i];
-    const label = sku.length > 40 ? `${sku.slice(0, 38)}…` : sku;
+    const rawLabel = displayTitleForSkuSeries(s, sku);
+    const label = rawLabel.length > 40 ? `${rawLabel.slice(0, 38)}…` : rawLabel;
     const byDay = new Map<string, number>();
     for (const p of s.points) {
       if (p.sku === sku) byDay.set(p.date, Number(p.stock));
@@ -204,7 +220,8 @@ export function buildStockSkuPanels(
   const panels: StockSkuPanel[] = [];
   for (let i = 0; i < n; i++) {
     const sku = s.skuOrder[i];
-    const label = sku.length > 40 ? `${sku.slice(0, 38)}…` : sku;
+    const rawLabel = displayTitleForSkuSeries(s, sku);
+    const label = rawLabel.length > 40 ? `${rawLabel.slice(0, 38)}…` : rawLabel;
     const byDay = new Map<string, number>();
     for (const p of s.points) {
       if (p.sku === sku) byDay.set(p.date, Number(p.stock));

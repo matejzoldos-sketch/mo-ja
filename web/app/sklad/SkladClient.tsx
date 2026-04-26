@@ -36,6 +36,8 @@ type InvRow = {
   location_id: number;
   location_name: string | null;
   sku: string;
+  /** Názov z objednákových položiek (title), inak SKU — z RPC po migr. 041. */
+  product_title?: string;
   available: number;
   updated_at: string | null;
   fetched_at: string | null;
@@ -225,18 +227,20 @@ export default function SkladClient() {
             <code>020_inventory_stock_chart_skip_empty_sku.sql</code>,{" "}
             <code>021_inventory_skip_empty_sku_robust.sql</code>,{" "}
             <code>022_inventory_estimated_stockout_date.sql</code>,{" "}
-            <code>023_inventory_stockout_date_to_char.sql</code>.
+            <code>023_inventory_stockout_date_to_char.sql</code>,{" "}
+            <code>041_dashboard_sku_units_title_first_inventory_product_labels.sql</code>,{" "}
+            <code>042_inventory_product_title_eff_inv_and_match_key.sql</code>.
           </p>
         )}
         {!loading && !err && rows && (
           <>
             <section className="chart-card chart-card--sku-ytd sklad-chart-section">
               <h2>
-                Vývoj skladu podľa SKU (od 7. 4.{" "}
+                Vývoj skladu podľa produktu (od 7. 4.{" "}
                 {stockChartYtd?.year ?? new Date().getFullYear()})
               </h2>
               <p className="chart-card__subtitle">
-                Každé SKU má vlastnú os Y — menšie zmeny sú čitateľnejšie ako pri jednom
+                Každý produkt má vlastnú os Y — menšie zmeny sú čitateľnejšie ako pri jednom
                 spoločnom grafe.
               </p>
               {stockSkuPanels?.length ? (
@@ -262,7 +266,7 @@ export default function SkladClient() {
             </section>
 
             <section className="table-card">
-              <h2>Aktuálny stav podľa lokácie a SKU</h2>
+              <h2>Aktuálny stav podľa lokácie a produktu</h2>
               {rows.length === 0 ? (
                 <p className="msg">
                   Žiadne dáta o sklade. Spusti synchronizáciu s inventárom (
@@ -274,6 +278,7 @@ export default function SkladClient() {
                     <thead>
                       <tr>
                         <th>Lokácia</th>
+                        <th>Produkt</th>
                         <th>SKU</th>
                         <th>Dostupné</th>
                         <th>Priem. denná spotreba YTD</th>
@@ -288,6 +293,7 @@ export default function SkladClient() {
                           key={`${r.inventory_item_id}-${r.location_id}`}
                         >
                           <td>{r.location_name || "—"}</td>
+                          <td>{r.product_title?.trim() || r.sku}</td>
                           <td>{r.sku}</td>
                           <td>{r.available}</td>
                           <td>

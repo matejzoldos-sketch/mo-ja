@@ -827,7 +827,7 @@ export default function DashboardClient() {
             {data.skuDailyYtd && skuYtdLineData ? (
               <section className="chart-card chart-card--sku-ytd">
                 <h2>
-                  Denné predané kusy podľa SKU
+                  Denné predané kusy podľa produktu
                   {skuChartPeriodLabel ? ` (${skuChartPeriodLabel})` : ""}
                 </h2>
                 <div className="sku-ytd-chart-wrap">
@@ -839,7 +839,7 @@ export default function DashboardClient() {
               skuYtdLineData === null ? (
               <section className="chart-card chart-card--sku-ytd">
                 <h2>
-                  Denné predané kusy podľa SKU
+                  Denné predané kusy podľa produktu
                   {skuChartPeriodLabel ? ` (${skuChartPeriodLabel})` : ""}
                 </h2>
                 <p className="msg">Zatiaľ žiadne predaje v zvolenom období.</p>
