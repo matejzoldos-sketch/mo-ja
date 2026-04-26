@@ -42,6 +42,11 @@ type Kpis = {
   pct_orders_multi_sku?: number | null;
   /** % distinct customers with 2+ paid-ish orders in window; null if denominator 0 */
   returning_customers_pct?: number | null;
+  /**
+   * Priemerný celkový obrat (paid-ish, všetky časy v DB) na zákazníka medzi tými,
+   * čo mali v období aspoň jednu identifikovanú objednávku (rovnaký kľúč ako opakovaní); null ak nikto.
+   */
+  avg_customer_ltv?: number | null;
 };
 
 type Daily = { date: string; revenue: number };
@@ -595,7 +600,8 @@ export default function DashboardClient() {
             <code>025_shopify_order_effective_customer_id_if_missing.sql</code>,{" "}
             <code>005_inventory_dashboard_rpc.sql</code> (sklad),{" "}
             <code>006_sku_units_daily_ytd.sql</code>,{" "}
-            <code>034_dashboard_pct_orders_multi_sku.sql</code>.
+            <code>034_dashboard_pct_orders_multi_sku.sql</code>,{" "}
+            <code>035_dashboard_avg_customer_ltv.sql</code>.
           </p>
         )}
         {data && !loading && (
@@ -657,6 +663,25 @@ export default function DashboardClient() {
                   </div>
                 </div>
               )}
+              <div
+                className="kpi-card"
+                title={`${RANGE_LABELS[range]}: medzi zákazníkmi, ktorí v období mali aspoň jednu paid-ish objednávku s identifikátorom (rovnako ako „opakovaní“), priemer ich celkového obratu zo všetkých paid-ish objednávok v databáze (lifetime v rámci syncu).`}
+              >
+                <div className="kpi-card__label">
+                  Priem. LTV / zákazníka
+                  {periodLabel ? ` (${periodLabel})` : ""}
+                </div>
+                <div className="kpi-card__value">
+                  {data.kpis.avg_customer_ltv === null ||
+                  data.kpis.avg_customer_ltv === undefined ||
+                  Number.isNaN(Number(data.kpis.avg_customer_ltv))
+                    ? "—"
+                    : formatMoney(
+                        Number(data.kpis.avg_customer_ltv),
+                        data.kpis.currency
+                      )}
+                </div>
+              </div>
             </section>
 
             <section className="charts-row">
