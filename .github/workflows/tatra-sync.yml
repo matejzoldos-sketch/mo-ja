@@ -12,7 +12,7 @@ on:
       days:
         description: "Počet dní spätne (booking)"
         required: true
-        default: "45"
+        default: "400"
       tatra_env:
         description: "Tatra API (OAuth + Premium API koreň)"
         required: true
@@ -35,7 +35,7 @@ jobs:
     timeout-minutes: 30
     env:
       TATRA_ENV: ${{ github.event_name == 'workflow_dispatch' && inputs.tatra_env || 'production' }}
-      TATRA_TX_DATE_FROM_MIN: "2025-11-20"
+      TATRA_TX_DATE_FROM_MIN: "2026-01-01"
 
     steps:
       - uses: actions/checkout@v4
@@ -49,4 +49,4 @@ jobs:
       - run: pip install -r requirements.txt
 
       - name: Run sync_tatra
-        run: python etl/sync_tatra.py --days "${{ github.event_name == 'workflow_dispatch' && inputs.days || '45' }}"
+        run: python etl/sync_tatra.py --days "${{ github.event_name == 'workflow_dispatch' && inputs.days || '400' }}"
