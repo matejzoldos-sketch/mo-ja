@@ -84,6 +84,31 @@ Workflow: každý deň o **00:00 UTC** (približne **02:00** Bratislava v CEST) 
 
 5. Ak appku máš **len v Partner Dashboard** a nie v **Develop apps** v tom obchode, statický `shpat_` token tam nemusí existovať — potrebuješ **OAuth access token** po inštalácii na daný obchod, alebo zjednodušiť: vytvor **Develop apps** priamo v obchode a použi ten **Admin API access token**.
 
+### Tatra banka sync
+
+Pred prvým behom spusti migrácie **`051`–`054`** (`tatra_transactions`, `tatra_account_balances`, pohľad `tatra_cashflow_dashboard`):
+
+```bash
+supabase link --project-ref kqsmsegcqdhuhiofxyuu
+supabase db push
+```
+
+alebo SQL súbory v [Supabase SQL Editor](https://supabase.com/dashboard).
+
+**GitHub Secrets** (okrem Shopify a Supabase):
+
+- `TATRA_CLIENT_ID`, `TATRA_CLIENT_SECRET` (stačí `client_credentials` ako v zita-dashboard)
+- voliteľne `TATRA_REFRESH_TOKEN` — len ak banka vyžaduje OAuth refresh namiesto client credentials
+
+Workflow **Tatra banka sync**: denne **00:30 UTC** (pol hodiny po Shopify), alebo manuálne **Actions → Tatra banka sync → Run workflow**.
+
+```bash
+python etl/sync_tatra.py --days 7 --dry-run
+python etl/sync_tatra.py --days 45
+```
+
+Jednorazový OAuth refresh token: `scripts/tatra_oauth_pkce.py` (pozri komentáre v súbore).
+
 ## Dashboard (Next.js na Vercel)
 
 Priečinok [`web/`](web/): KPI, grafy (Chart.js), tabuľka posledných objednávok. Dáta z RPC `get_shopify_dashboard_mvp()` v Supabase.
@@ -107,6 +132,7 @@ Po migráciách **`015`–`018`** spusti znova **`python sync_shopify.py --ytd`*
 
 ## Tabuľky
 
+- `tatra_transactions`, `tatra_account_balances`, pohľad `tatra_cashflow_dashboard` (sync `etl/sync_tatra.py`)
 - `shopify_orders` (`customer_display_name` po `002`, `customer_id` po `015`, `customer_email` po `017`), `shopify_order_line_items`, `shopify_locations`, `shopify_inventory_levels`, `shopify_sync_state` (`resource` = `full_sync`, `last_success_at`). Po úspešnom dokončení blokov objednávky / inventár sa zapíše checkpoint. Pri upserte sa nastavuje **`fetched_at`** (čas behu synclu) na lokácie, objednávky, riadky a úrovne skladu. **Hlavička „Posledný sync“** na webe berie **najnovší** z `last_success_at` a `max(fetched_at)` z týchto tabuliek (API `resolveLastSyncAt`). Ak GitHub Actions píše do **iného** Supabase projektu než Vercel (`SUPABASE_URL` / service role), dáta na dashboarde ostanú staré — secrets musia smerovať na ten istý projekt.
 
 RLS je zapnuté bez politík pre anon — prístup len cez **service role** (skript / server).
