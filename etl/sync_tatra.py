@@ -259,6 +259,12 @@ def fetch_accounts(access_token: str) -> List[dict]:
                         "Over zmluvu Premium API v banke, stav aplikácie v dev portáli a pri FAC_BBTB "
                         "aktívny súhlas v Business banking. Podpora: developer@tatrabanka.sk."
                     )
+                elif err.get("errorCode") == "NO_AUTHORIZATION":
+                    log.error(
+                        "NO_AUTHORIZATION: Token OK, ale chýba súhlas AIS / prepojenie účtov v Business "
+                        "bankingu pre túto appku (FAC_BBTB), alebo iný Client ID ako v schválenej ZITA appke. "
+                        "Podpora: developer@tatrabanka.sk."
+                    )
             except Exception:
                 pass
         resp.raise_for_status()
@@ -549,7 +555,8 @@ def fetch_transactions_for_account(
 
     # TB: GET /v5/accounts/{account-id}/transactions (Business banking + Premium API Účty)
     root = _premium_api_root()
-    first_url = f"{root}/v5/accounts/{resource_id}/transactions"
+    enc_rid = quote(str(resource_id), safe="-_.~")
+    first_url = f"{root}/v5/accounts/{enc_rid}/transactions"
     params = {
         "dateFrom": date_from.isoformat(),
         "dateTo": date_to.isoformat(),
