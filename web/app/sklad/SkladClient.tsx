@@ -204,14 +204,16 @@ export default function SkladClient() {
       <header className="site-header site-header--sklad">
         <div className="site-header__inner">
           <HeaderBrand />
-          <div className="site-header__dropdowns">
+          <div className="site-toolbar__filters site-toolbar__filters--inline">
             <HeaderSectionSelect />
           </div>
         </div>
         {lastSyncAt != null && (
-          <p className="site-header__sync-meta">
-            Posledný sync dát: {formatLastSyncDisplay(lastSyncAt)}
-          </p>
+          <div className="site-header__meta">
+            <p className="site-header__sync-meta">
+              Posledný sync dát: {formatLastSyncDisplay(lastSyncAt)}
+            </p>
+          </div>
         )}
       </header>
 

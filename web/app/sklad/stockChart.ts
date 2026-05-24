@@ -105,8 +105,8 @@ export function buildStockHistoryChart(
   return { labels: days, datasets };
 }
 
-const TEXT = "#333333";
-const GRID = "rgba(51,51,51,0.08)";
+const TEXT = "#1a1f28";
+const GRID = "rgba(15, 23, 42, 0.06)";
 
 const Y_PADDING_RATIO = 0.08;
 /** Tighter padding when each SKU has its own chart — movement reads larger. */

@@ -182,20 +182,20 @@ function parseRangeParam(raw: string | null): RangeKey {
   return "30d";
 }
 
-const PRIMARY = "#f7f775";
-const SECONDARY = "#9d9a89";
-const TEXT = "#333333";
+const PRIMARY = "#e4e04a";
+const SECONDARY = "#6b7f62";
+const TEXT = "#1a1f28";
 
 /** Farby výsekov pie „počet nákupov“ (max. 5 segmentov). */
 const PURCHASE_COUNT_PIE_COLORS = [
   PRIMARY,
   SECONDARY,
-  "rgba(247, 247, 117, 0.72)",
-  "rgba(157, 154, 137, 0.55)",
-  "#5c5a52",
+  "#c9c94a",
+  "#8fa386",
+  "#3d4a38",
 ];
-const GRID = "rgba(51,51,51,0.08)";
-const TREND_LINE = "rgba(51, 51, 51, 0.5)";
+const GRID = "rgba(15, 23, 42, 0.06)";
+const TREND_LINE = "rgba(107, 127, 98, 0.55)";
 
 /** Suffix on trend dataset labels; filtered out of legend. */
 const SKU_CHART_TREND_SUFFIX = " (trend)";
@@ -604,7 +604,7 @@ export default function DashboardClient() {
               label: "Tržby (deň)",
               data: revenues,
               borderColor: SECONDARY,
-              backgroundColor: "rgba(157, 154, 137, 0.15)",
+              backgroundColor: "rgba(107, 127, 98, 0.12)",
               fill: true,
               tension: 0.25,
               pointBackgroundColor: PRIMARY,
@@ -1019,7 +1019,9 @@ export default function DashboardClient() {
       <header className="site-header">
         <div className="site-header__inner">
           <HeaderBrand />
-          <div className="site-header__dropdowns">
+        </div>
+        <div className="site-toolbar">
+          <div className="site-toolbar__filters">
             <HeaderSectionSelect />
             <div
               className="period-filter period-filter--range"
@@ -1109,36 +1111,39 @@ export default function DashboardClient() {
                 </ul>
               ) : null}
             </div>
-            {data && !loading && !err ? (
-              <>
-                <button
-                  type="button"
-                  className="dashboard-pdf-btn"
-                  onClick={downloadDashboardMd}
-                >
-                  Stiahnuť MD
-                </button>
-                <button
-                  type="button"
-                  className="dashboard-pdf-btn"
-                  disabled={pdfExporting}
-                  aria-busy={pdfExporting}
-                  onClick={() => void downloadDashboardPdf()}
-                >
-                  {pdfExporting ? "Generujem PDF…" : "Stiahnuť PDF"}
-                </button>
-              </>
-            ) : null}
           </div>
+          {data && !loading && !err ? (
+            <div className="site-toolbar__actions">
+              <button
+                type="button"
+                className="dashboard-export-btn"
+                onClick={downloadDashboardMd}
+              >
+                Stiahnuť MD
+              </button>
+              <button
+                type="button"
+                className="dashboard-export-btn dashboard-export-btn--accent"
+                disabled={pdfExporting}
+                aria-busy={pdfExporting}
+                onClick={() => void downloadDashboardPdf()}
+              >
+                {pdfExporting ? "Generujem PDF…" : "Stiahnuť PDF"}
+              </button>
+            </div>
+          ) : null}
         </div>
-        {data?.lastSyncAt != null && data.lastSyncAt !== "" && (
-          <p className="site-header__sync-meta">
-            Posledný sync dát: {formatLastSyncDisplay(data.lastSyncAt)}
+        <div className="site-header__meta">
+          {data?.lastSyncAt != null && data.lastSyncAt !== "" && (
+            <p className="site-header__sync-meta">
+              Posledný sync dát: {formatLastSyncDisplay(data.lastSyncAt)}
+            </p>
+          )}
+          <p className="site-header__data-note">
+            Dáta zobrazujú čisté predaje produktov zo zaplatených objednávok.
+            Výpočty nezahŕňajú vstupenky na eventy, dopravu ani storná.
           </p>
-        )}
-        <p className="site-header__data-note">
-          Dáta zobrazujú čisté predaje produktov zo zaplatených objednávok. Výpočty nezahŕňajú vstupenky na eventy, dopravu ani storná.
-        </p>
+        </div>
       </header>
 
       <main className="main-wrap">
@@ -1178,17 +1183,17 @@ export default function DashboardClient() {
         {data && !loading && (
           <div ref={pdfExportRef} className="dashboard-pdf-root">
             <section className="kpi-grid">
-              <div className="kpi-card">
+              <div className="kpi-card kpi-card--hero">
                 <div className="kpi-card__label">Obrat</div>
                 <div className="kpi-card__value">
                   {formatMoney(Number(data.kpis.revenue), data.kpis.currency)}
                 </div>
               </div>
-              <div className="kpi-card">
+              <div className="kpi-card kpi-card--hero">
                 <div className="kpi-card__label">Počet objednávok</div>
                 <div className="kpi-card__value">{data.kpis.orders}</div>
               </div>
-              <div className="kpi-card">
+              <div className="kpi-card kpi-card--hero">
                 <div className="kpi-card__label">AOV</div>
                 <div className="kpi-card__value">
                   {formatMoney(Number(data.kpis.aov), data.kpis.currency)}

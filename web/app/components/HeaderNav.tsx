@@ -3,7 +3,19 @@
 import { usePathname, useRouter } from "next/navigation";
 
 export function HeaderBrand() {
-  return <span className="header-brand-nav__title">MO–JA dashboard</span>;
+  const pathname = usePathname();
+  const section =
+    pathname === "/sklad" ? "Sklad" : pathname === "/" ? "Predaj" : "Prehľad";
+
+  return (
+    <div className="header-brand">
+      <span className="header-brand__mark" aria-hidden />
+      <div className="header-brand__text">
+        <span className="header-brand__title">MO–JA</span>
+        <span className="header-brand__subtitle">{section}</span>
+      </div>
+    </div>
+  );
 }
 
 export function HeaderSectionSelect() {
