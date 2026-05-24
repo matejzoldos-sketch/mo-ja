@@ -1182,23 +1182,26 @@ export default function DashboardClient() {
         )}
         {data && !loading && (
           <div ref={pdfExportRef} className="dashboard-pdf-root">
-            <section className="kpi-grid">
-              <div className="kpi-card kpi-card--hero">
-                <div className="kpi-card__label">Obrat</div>
-                <div className="kpi-card__value">
-                  {formatMoney(Number(data.kpis.revenue), data.kpis.currency)}
+            <section className="kpi-section">
+              <div className="kpi-grid kpi-grid--hero">
+                <div className="kpi-card kpi-card--hero">
+                  <div className="kpi-card__label">Obrat</div>
+                  <div className="kpi-card__value">
+                    {formatMoney(Number(data.kpis.revenue), data.kpis.currency)}
+                  </div>
+                </div>
+                <div className="kpi-card kpi-card--hero">
+                  <div className="kpi-card__label">Počet objednávok</div>
+                  <div className="kpi-card__value">{data.kpis.orders}</div>
+                </div>
+                <div className="kpi-card kpi-card--hero">
+                  <div className="kpi-card__label">AOV</div>
+                  <div className="kpi-card__value">
+                    {formatMoney(Number(data.kpis.aov), data.kpis.currency)}
+                  </div>
                 </div>
               </div>
-              <div className="kpi-card kpi-card--hero">
-                <div className="kpi-card__label">Počet objednávok</div>
-                <div className="kpi-card__value">{data.kpis.orders}</div>
-              </div>
-              <div className="kpi-card kpi-card--hero">
-                <div className="kpi-card__label">AOV</div>
-                <div className="kpi-card__value">
-                  {formatMoney(Number(data.kpis.aov), data.kpis.currency)}
-                </div>
-              </div>
+              <div className="kpi-grid kpi-grid--secondary">
               <div className="kpi-card">
                 <div className="kpi-card__label">Priem. kusov / objednávku</div>
                 <div className="kpi-card__value">
@@ -1247,6 +1250,7 @@ export default function DashboardClient() {
                         data.kpis.currency
                       )}
                 </div>
+              </div>
               </div>
             </section>
 
