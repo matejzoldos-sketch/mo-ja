@@ -19,6 +19,10 @@ import type { ChartData, ChartOptions } from "chart.js";
 import { Line, Bar, Pie } from "react-chartjs-2";
 import { HeaderBrand, HeaderSectionSelect } from "./components/HeaderNav";
 import { formatLastSyncDisplay } from "@/lib/formatLastSync";
+import {
+  buildDashboardMarkdown,
+  downloadDashboardMarkdown,
+} from "@/lib/dashboardMarkdownExport";
 
 ChartJS.register(
   CategoryScale,
@@ -922,6 +926,39 @@ export default function DashboardClient() {
     },
   };
 
+  const downloadDashboardMd = useCallback(() => {
+    if (!data) return;
+    const md = buildDashboardMarkdown({
+      range,
+      rangeLabel: RANGE_LABELS[range],
+      kpiProductLabel: KPI_PRODUCT_LABELS[kpiProduct],
+      periodLabel,
+      chartPeriodLabel: chartPeriodInParens,
+      lastSyncAt: data.lastSyncAt,
+      lastSyncDisplay:
+        data.lastSyncAt != null && data.lastSyncAt !== ""
+          ? formatLastSyncDisplay(data.lastSyncAt)
+          : undefined,
+      kpis: data.kpis,
+      dailyRevenue: data.dailyRevenue,
+      topProducts: data.topProducts,
+      topCustomers: data.topCustomers,
+      recentOrders: data.recentOrders,
+      monthlyNewVsReturning: data.monthlyNewVsReturning,
+      purchaseCountDistribution: data.purchaseCountDistribution,
+      purchaseIntervalHistogram: data.purchaseIntervalHistogram,
+      skuDailyYtd: data.skuDailyYtd,
+      trimLeadingZeroDailyRevenue: range === "365d",
+    });
+    const from = data.meta.from.replace(/\s/g, "");
+    const to = data.meta.to.replace(/\s/g, "");
+    const kpiSlug = kpiProduct === "all" ? "" : `-${kpiProduct}`;
+    downloadDashboardMarkdown(
+      md,
+      `predaj-${range}${kpiSlug}_${from}_${to}.md`
+    );
+  }, [data, range, kpiProduct, periodLabel, chartPeriodInParens]);
+
   const downloadDashboardPdf = useCallback(async () => {
     const root = pdfExportRef.current;
     if (!root || !data) return;
@@ -1073,15 +1110,24 @@ export default function DashboardClient() {
               ) : null}
             </div>
             {data && !loading && !err ? (
-              <button
-                type="button"
-                className="dashboard-pdf-btn"
-                disabled={pdfExporting}
-                aria-busy={pdfExporting}
-                onClick={() => void downloadDashboardPdf()}
-              >
-                {pdfExporting ? "Generujem PDF…" : "Stiahnuť PDF"}
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="dashboard-pdf-btn"
+                  onClick={downloadDashboardMd}
+                >
+                  Stiahnuť MD
+                </button>
+                <button
+                  type="button"
+                  className="dashboard-pdf-btn"
+                  disabled={pdfExporting}
+                  aria-busy={pdfExporting}
+                  onClick={() => void downloadDashboardPdf()}
+                >
+                  {pdfExporting ? "Generujem PDF…" : "Stiahnuť PDF"}
+                </button>
+              </>
             ) : null}
           </div>
         </div>
