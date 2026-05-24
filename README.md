@@ -97,17 +97,25 @@ alebo SQL súbory v [Supabase SQL Editor](https://supabase.com/dashboard).
 
 **GitHub Secrets** (okrem Shopify a Supabase):
 
-- `TATRA_CLIENT_ID`, `TATRA_CLIENT_SECRET` (stačí `client_credentials` ako v zita-dashboard)
-- voliteľne `TATRA_REFRESH_TOKEN` — len ak banka vyžaduje OAuth refresh namiesto client credentials
+- `TATRA_CLIENT_ID`, `TATRA_CLIENT_SECRET`
+- **`TATRA_REFRESH_TOKEN` (povinné pre AIS)** — `client_credentials` síce vráti access token, ale `GET /v3/accounts` typicky skončí `403 NO_AUTHORIZATION` bez OAuth súhlasu. Workflow má `TATRA_REQUIRE_REFRESH_TOKEN=1` a bez secretu sync nespustí.
+
+Ak už beží sync v **zita-dashboard** s tou istou Tatra appkou, skopíruj do tohto repa rovnaké `TATRA_CLIENT_ID`, `TATRA_CLIENT_SECRET` a `TATRA_REFRESH_TOKEN` (hint v logu: posledných 8 znakov client_id musí sedieť). Iná appka v dev portáli = nový OAuth flow.
 
 Workflow **Tatra banka sync**: denne **00:30 UTC** (pol hodiny po Shopify), alebo manuálne **Actions → Tatra banka sync → Run workflow**.
 
 ```bash
+python scripts/tatra_check_auth.py          # len token + accounts, bez DB
 python etl/sync_tatra.py --days 7 --dry-run
 python etl/sync_tatra.py --days 45
 ```
 
-Jednorazový OAuth refresh token: `scripts/tatra_oauth_pkce.py` (pozri komentáre v súbore).
+**Jednorazový OAuth refresh token** (ak secret chýba alebo banka zmenila súhlas):
+
+1. Nasadiť `docs/tatra-oauth-callback/` na HTTPS (GitHub Pages z `/docs` alebo Vercel) a v Tatra dev portáli zaregistrovať presne tú istú Redirect URL.
+2. `python scripts/tatra_oauth_pkce.py authorize --client-id … --redirect-uri 'https://…/tatra-oauth-callback/'`
+3. Po prihlásení v banke: `python scripts/tatra_oauth_pkce.py exchange --code '…' --client-id … --client-secret … --redirect-uri '…'`
+4. `refresh_token` z výstupu → GitHub Secret `TATRA_REFRESH_TOKEN` (a `.env` lokálne).
 
 ## Dashboard (Next.js na Vercel)
 

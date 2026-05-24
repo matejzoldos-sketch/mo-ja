@@ -102,7 +102,7 @@ def _tx_date_from_floor() -> Optional[date]:
         return None
 
 # Jednoznačná značka v logu (GitHub Actions), aby bolo jasné, ktorá verzia skriptu beží.
-SYNC_TATRA_BUILD = "merged-account-tx-key-20260404"
+SYNC_TATRA_BUILD = "require-refresh-preflight-20260521"
 
 # ---------------------------------------------------------------------------
 # Defaults (Tatra dokumentácia – presné cesty tokenu doplň zo Swaggeru OAuth)
@@ -166,6 +166,31 @@ def _oauth_grant_effective() -> str:
     if TATRA_OAUTH_GRANT_RAW in ("", "auto"):
         return "refresh_token" if TATRA_REFRESH_TOKEN else "client_credentials"
     return TATRA_OAUTH_GRANT_RAW
+
+
+def _client_id_hint() -> str:
+    """Posledné znaky client_id — na porovnanie s appkou v Tatra portáli / ZITA."""
+    cid = (TATRA_CLIENT_ID or "").strip()
+    if len(cid) <= 8:
+        return "(prázdne alebo príliš krátke)"
+    return f"…{cid[-8:]}"
+
+
+def _require_refresh_token_configured() -> None:
+    """V CI nastav TATRA_REQUIRE_REFRESH_TOKEN=1 — client_credentials bez súhlasu AIS zlyhá."""
+    raw = os.environ.get("TATRA_REQUIRE_REFRESH_TOKEN", "").strip().lower()
+    if raw not in ("1", "true", "yes"):
+        return
+    if TATRA_REFRESH_TOKEN:
+        return
+    log.error(
+        "TATRA_REQUIRE_REFRESH_TOKEN=1, ale TATRA_REFRESH_TOKEN chýba. "
+        "AIS (GET /v3/accounts) vyžaduje OAuth súhlas — pozri scripts/tatra_oauth_pkce.py "
+        "a docs/tatra-oauth-callback/. Ulož refresh_token do GitHub Secret TATRA_REFRESH_TOKEN. "
+        "Ak používaš rovnakú appku ako ZITA dashboard, skopíruj ten istý secret (client_id musí sedieť: %s).",
+        _client_id_hint(),
+    )
+    sys.exit(1)
 
 
 def _basic_auth_header() -> Dict[str, str]:
@@ -260,10 +285,15 @@ def fetch_accounts(access_token: str) -> List[dict]:
                         "aktívny súhlas v Business banking. Podpora: developer@tatrabanka.sk."
                     )
                 elif err.get("errorCode") == "NO_AUTHORIZATION":
+                    grant = _oauth_grant_effective()
                     log.error(
-                        "NO_AUTHORIZATION: Token OK, ale chýba súhlas AIS / prepojenie účtov v Business "
-                        "bankingu pre túto appku (FAC_BBTB), alebo iný Client ID ako v schválenej ZITA appke. "
-                        "Podpora: developer@tatrabanka.sk."
+                        "NO_AUTHORIZATION: Token OK, ale banka nemá platný súhlas AIS pre client_id %s "
+                        "(grant=%s). Typické príčiny: (1) chýba TATRA_REFRESH_TOKEN — jednorazovo "
+                        "scripts/tatra_oauth_pkce.py authorize + exchange; (2) iný Client ID ako appka "
+                        "schválená v Business banking / ZITA; (3) súhlas FAC_BBTB neaktívny v TB Business. "
+                        "Podpora: developer@tatrabanka.sk.",
+                        _client_id_hint(),
+                        grant,
                     )
             except Exception:
                 pass
@@ -724,6 +754,8 @@ def main() -> None:
 
     log.info("sync_tatra build=%s", SYNC_TATRA_BUILD)
 
+    _require_refresh_token_configured()
+
     grant = _oauth_grant_effective()
     if grant == "refresh_token":
         if not TATRA_REFRESH_TOKEN:
@@ -749,9 +781,17 @@ def main() -> None:
         log.info("Obmedzenie booking: date_from %s → %s (--date-from alebo TATRA_TX_DATE_FROM_MIN)", date_from, floor)
         date_from = floor
 
+    rt_status = (
+        f"nastavený (dĺžka {len(TATRA_REFRESH_TOKEN)})"
+        if TATRA_REFRESH_TOKEN
+        else "CHÝBA — sync použije client_credentials (AIS /accounts často vráti NO_AUTHORIZATION)"
+    )
     log.info(
-        "Tatra env=%s, grant=%s (raw=%s), oauth_scope=%s, refresh_auth=%s, accounts=%s, api root=%s",
+        "Tatra env=%s, client_id=%s, TATRA_REFRESH_TOKEN=%s, grant=%s (raw=%s), "
+        "oauth_scope=%s, refresh_auth=%s, accounts=%s, api root=%s",
         TATRA_ENV,
+        _client_id_hint(),
+        rt_status,
         grant,
         TATRA_OAUTH_GRANT_RAW or "auto",
         TATRA_OAUTH_SCOPE,
@@ -759,6 +799,12 @@ def main() -> None:
         _accounts_api_base(),
         _premium_api_root(),
     )
+    if grant == "client_credentials":
+        log.warning(
+            "Grant client_credentials: token získaš, ale AIS účty vyžadujú OAuth refresh_token "
+            "(alebo aktívny súhlas FAC_BBTB v Business banking pre tento client_id). "
+            "Pozri README → Tatra banka sync."
+        )
     log.info("Date range %s → %s", date_from, date_to)
 
     if grant == "refresh_token":

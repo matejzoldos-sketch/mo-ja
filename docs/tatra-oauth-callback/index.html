@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tatra OAuth – návrat z banky</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; line-height: 1.5; }
+    body { max-width: 52rem; margin: 2rem auto; padding: 0 1rem; color: #111; }
+    h1 { font-size: 1.25rem; }
+    .box {
+      background: #f4f4f5;
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin: 1rem 0;
+      word-break: break-all;
+      font-family: ui-monospace, monospace;
+      font-size: 0.875rem;
+    }
+    .ok { border-left: 4px solid #16a34a; }
+    .err { border-left: 4px solid #dc2626; }
+    .muted { color: #71717a; font-size: 0.9rem; }
+    button {
+      margin-top: 0.75rem;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      background: #fff;
+    }
+    button:hover { background: #fafafa; }
+  </style>
+</head>
+<body>
+  <h1>Tatra banka – OAuth návrat</h1>
+  <p class="muted">
+    Po úspešnom prihlásení sem banka presmeruje s parametrami v adrese. Skopíruj
+    <strong>code</strong> do príkazu <code>exchange</code> (súbor
+    <code>.tatra_code_verifier.txt</code> musí byť z kroku <code>authorize</code>).
+  </p>
+
+  <div id="error-box" class="box err" style="display: none;"></div>
+  <div id="success-box" style="display: none;">
+    <p><strong>Authorization code</strong> (skopíruj celý reťazec):</p>
+    <div id="code-out" class="box ok"></div>
+    <button type="button" id="copy-code">Kopírovať code</button>
+    <p class="muted">State (kontrola):</p>
+    <div id="state-out" class="box"></div>
+  </div>
+  <div id="empty-box" class="muted" style="display: none;">
+    Žiadne parametre v URL. Otvor túto stránku až po presmerovaní z banky, alebo
+    skontroluj Redirect URL v dev portáli (musí byť presne táto adresa vrátane cesty).
+  </div>
+
+  <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e4e4e7;" />
+  <p class="muted">
+    <strong>Nasadenie (HTTPS):</strong> súbor je v repozitári v
+    <code>docs/tatra-oauth-callback/</code>. V Tatra portáli musí byť Redirect URL
+    <strong>presne</strong> tá istá adresa ako v prehliadači (vrátane lomky na konci, ak ju používaš).<br /><br />
+    <strong>GitHub Pages:</strong> Settings → Pages → Build from branch <code>main</code>, folder
+    <code>/docs</code>. Potom URL bude typicky
+    <code>https://&lt;user&gt;.github.io/&lt;repo&gt;/tatra-oauth-callback/</code>.<br />
+    <strong>Vercel / Netlify:</strong> nasaď len priečinok <code>docs/tatra-oauth-callback</code> ako root projektu.
+  </p>
+
+  <script>
+    (function () {
+      var p = new URLSearchParams(window.location.search);
+      var code = p.get("code");
+      var state = p.get("state");
+      var err = p.get("error");
+      var desc = p.get("error_description");
+
+      var errorBox = document.getElementById("error-box");
+      var successBox = document.getElementById("success-box");
+      var emptyBox = document.getElementById("empty-box");
+
+      if (err) {
+        errorBox.style.display = "block";
+        errorBox.textContent =
+          "error=" + err + (desc ? "\n" + desc : "");
+        return;
+      }
+
+      if (code) {
+        successBox.style.display = "block";
+        document.getElementById("code-out").textContent = code;
+        document.getElementById("state-out").textContent = state || "(prázdny)";
+        document.getElementById("copy-code").onclick = function () {
+          navigator.clipboard.writeText(code).then(function () {
+            alert("Code skopírovaný.");
+          });
+        };
+        return;
+      }
+
+      emptyBox.style.display = "block";
+    })();
+  </script>
+</body>
+</html>
