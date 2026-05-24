@@ -179,7 +179,7 @@ function parseRangeParam(raw: string | null): RangeKey {
   const s = (raw || "").toLowerCase().trim();
   if (s === "ytd") return "365d";
   if (s === "30d" || s === "90d" || s === "365d") return s;
-  return "30d";
+  return "365d";
 }
 
 const PRIMARY = "#e4e04a";

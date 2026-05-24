@@ -141,7 +141,7 @@ export async function GET(request: Request) {
   const rawRangeEarly = url.searchParams.get("range")?.toLowerCase().trim() ?? "";
   const normalized =
     rawRangeEarly === "ytd" ? "365d" : rawRangeEarly;
-  const rangeEarly = ALLOWED_RANGE.has(normalized) ? normalized : "30d";
+  const rangeEarly = ALLOWED_RANGE.has(normalized) ? normalized : "365d";
   const rawKpi =
     url.searchParams.get("kpi_product")?.toLowerCase().trim() ?? "";
   const kpiProductEarly = ALLOWED_KPI_PRODUCT.has(rawKpi) ? rawKpi : "all";
