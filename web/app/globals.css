@@ -145,6 +145,56 @@ a:hover {
   flex-shrink: 0;
 }
 
+@media (max-width: 768px) {
+  .site-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .site-toolbar__filters {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .site-toolbar__filters .period-filter__select,
+  .site-toolbar__filters .period-filter--range,
+  .site-toolbar__filters .period-filter--kpi-product {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .period-filter--range,
+  .period-filter--kpi-product {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .period-filter__select--range-trigger > span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .site-toolbar__actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .site-toolbar__actions .dashboard-export-btn,
+  .site-toolbar__actions .dashboard-pdf-btn {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+}
+
 .site-header__meta {
   max-width: var(--layout-max);
   margin: 0 auto;
@@ -256,6 +306,7 @@ a:hover {
   justify-content: space-between;
   gap: 8px;
   width: 100%;
+  min-width: 0;
   text-align: left;
 }
 
