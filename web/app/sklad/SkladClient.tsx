@@ -204,7 +204,7 @@ export default function SkladClient() {
       <header className="site-header site-header--sklad">
         <div className="site-header__inner">
           <HeaderBrand />
-          <div className="site-toolbar__filters site-toolbar__filters--inline">
+          <div className="site-toolbar__filters site-toolbar__filters--under-brand">
             <HeaderSectionSelect />
           </div>
         </div>

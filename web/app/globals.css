@@ -286,21 +286,18 @@ a:hover {
 /* Sklad: jednoduchší header bez druhého riadku toolbar */
 .site-header--sklad .site-header__inner {
   padding-bottom: 14px;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
-.site-header--sklad .site-toolbar__filters--inline {
-  margin-left: auto;
+.site-header--sklad .site-toolbar__filters--under-brand {
+  width: 100%;
+  margin-top: 10px;
 }
 
 @media (max-width: 768px) {
-  .site-header--sklad .site-header__inner {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .site-header--sklad .site-toolbar__filters--inline {
-    margin-left: 0;
-    width: 100%;
+  .site-header--sklad .site-toolbar__filters--under-brand {
+    margin-top: 8px;
   }
 }
 
