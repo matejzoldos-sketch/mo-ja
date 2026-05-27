@@ -137,6 +137,48 @@ a:hover {
   min-width: 0;
 }
 
+/* Section menu (Predaj / Sklad / Insighty) */
+.header-section-switch {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.header-section-switch__segmented {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.header-section-switch__btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-dark);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  padding: 8px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.header-section-switch__btn:hover {
+  background: var(--surface-muted);
+}
+
+.header-section-switch__btn.is-active {
+  background: rgba(228, 224, 74, 0.35);
+}
+
+.header-section-switch__select {
+  display: none;
+}
+
 .site-toolbar__actions {
   display: flex;
   flex-wrap: wrap;
@@ -157,6 +199,16 @@ a:hover {
     align-items: stretch;
     width: 100%;
     gap: 8px;
+  }
+
+  .header-section-switch__segmented {
+    display: none;
+  }
+
+  .header-section-switch__select {
+    display: block;
+    width: 100%;
+    min-width: 0;
   }
 
   .site-toolbar__filters .period-filter__select,
