@@ -437,7 +437,8 @@ export default function MarketingClient() {
               Produktové objednávky (paid) · obdobie {periodLabel}
             </p>
 
-            <section className="kpi-section kpi-section--secondary">
+            <section className="kpi-section">
+              <div className="kpi-grid kpi-grid--marketing">
               <div className="kpi-card">
                 <div className="kpi-card__label">Objednávky</div>
                 <div className="kpi-card__value">{data.kpis.orders}</div>
@@ -465,6 +466,7 @@ export default function MarketingClient() {
                 <div className="kpi-card__value">
                   {data.kpis.orders_without_utm}
                 </div>
+              </div>
               </div>
             </section>
 
