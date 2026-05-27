@@ -112,6 +112,43 @@ function breakdownForDimension(
   return data.bySource ?? [];
 }
 
+function normalizeMarketingPayload(raw: unknown): MarketingPayload | null {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const o = raw as Record<string, unknown>;
+  const kpisRaw = o.kpis;
+  if (kpisRaw == null || typeof kpisRaw !== "object" || Array.isArray(kpisRaw)) {
+    return null;
+  }
+  const k = kpisRaw as Record<string, unknown>;
+  const metaRaw = o.meta;
+  const meta =
+    metaRaw != null && typeof metaRaw === "object" && !Array.isArray(metaRaw)
+      ? (metaRaw as MarketingPayload["meta"])
+      : { range: "90d", from: "", to: "" };
+
+  const asRows = (v: unknown): BreakdownRow[] =>
+    Array.isArray(v) ? (v as BreakdownRow[]) : [];
+
+  return {
+    meta,
+    kpis: {
+      orders: Number(k.orders) || 0,
+      orders_with_utm: Number(k.orders_with_utm) || 0,
+      orders_without_utm: Number(k.orders_without_utm) || 0,
+      revenue: Number(k.revenue) || 0,
+      currency: typeof k.currency === "string" ? k.currency : "EUR",
+      pct_orders_with_utm:
+        k.pct_orders_with_utm == null ? null : Number(k.pct_orders_with_utm),
+    },
+    bySource: asRows(o.bySource),
+    byMedium: asRows(o.byMedium),
+    byCampaign: asRows(o.byCampaign),
+    recentOrders: Array.isArray(o.recentOrders)
+      ? (o.recentOrders as MarketingPayload["recentOrders"])
+      : [],
+  };
+}
+
 export default function MarketingClient() {
   const router = useRouter();
   const pathname = usePathname();
@@ -181,8 +218,12 @@ export default function MarketingClient() {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error || `HTTP ${res.status}`);
       }
-      const json = (await res.json()) as MarketingPayload;
-      setData(json);
+      const json: unknown = await res.json();
+      const normalized = normalizeMarketingPayload(json);
+      if (!normalized) {
+        throw new Error("Neplatná odpoveď marketing API");
+      }
+      setData(normalized);
     } catch (e) {
       setData(null);
       setErr(e instanceof Error ? e.message : String(e));
@@ -217,16 +258,22 @@ export default function MarketingClient() {
     [data, dimension]
   );
 
+  const chartRows = useMemo(
+    () => rows.filter((r) => Number(r.revenue) > 0),
+    [rows]
+  );
+
   const pieData: ChartData<"pie"> | null = useMemo(() => {
-    if (!rows.length) return null;
+    if (!chartRows.length) return null;
     return {
-      labels: rows.map((r) =>
-        r.label.length > 28 ? `${r.label.slice(0, 26)}…` : r.label
-      ),
+      labels: chartRows.map((r) => {
+        const label = r.label ?? "—";
+        return label.length > 28 ? `${label.slice(0, 26)}…` : label;
+      }),
       datasets: [
         {
-          data: rows.map((r) => Number(r.revenue)),
-          backgroundColor: rows.map(
+          data: chartRows.map((r) => Number(r.revenue)),
+          backgroundColor: chartRows.map(
             (_, i) => PIE_COLORS[i % PIE_COLORS.length]
           ),
           borderColor: TEXT,
@@ -234,74 +281,84 @@ export default function MarketingClient() {
         },
       ],
     };
-  }, [rows]);
+  }, [chartRows]);
 
-  const pieOptions: ChartOptions<"pie"> = {
-    responsive: true,
-    maintainAspectRatio: true,
-    aspectRatio: 1.15,
-    plugins: {
-      legend: {
-        position: "bottom",
-        labels: {
-          color: TEXT,
-          font: { family: "DM Sans, sans-serif", size: 11 },
-          padding: 10,
-          boxWidth: 12,
+  const pieOptions: ChartOptions<"pie"> = useMemo(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: true,
+      aspectRatio: 1.15,
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: {
+            color: TEXT,
+            font: { family: "DM Sans, sans-serif", size: 11 },
+            padding: 10,
+            boxWidth: 12,
+          },
         },
-      },
-      tooltip: {
-        callbacks: {
-          label(ctx) {
-            const row = rows[ctx.dataIndex];
-            if (!row) return "";
-            return [
-              `${row.label}`,
-              `Tržby: ${formatMoney(row.revenue, data?.kpis.currency)} (${row.pct_revenue} %)`,
-              `Objednávky: ${row.orders} (${row.pct_orders} %)`,
-            ];
+        tooltip: {
+          callbacks: {
+            label(ctx) {
+              const row = chartRows[ctx.dataIndex];
+              if (!row) return "";
+              return [
+                `${row.label ?? "—"}`,
+                `Tržby: ${formatMoney(row.revenue, data?.kpis.currency)} (${row.pct_revenue} %)`,
+                `Objednávky: ${row.orders} (${row.pct_orders} %)`,
+              ];
+            },
           },
         },
       },
-    },
-  };
+    }),
+    [chartRows, data?.kpis.currency]
+  );
 
   const periodLabel = data?.meta
     ? `${data.meta.from} – ${data.meta.to}`
     : RANGE_LABELS[range];
 
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <div className="app-header__inner">
+    <>
+      <header className="site-header">
+        <div className="site-header__inner">
           <HeaderBrand />
-          <div className="app-header__tools">
+        </div>
+        <div className="site-toolbar">
+          <div className="site-toolbar__filters">
             <HeaderSectionSelect />
-            <div className="period-filter" ref={rangeMenuRef}>
+            <div className="period-filter period-filter--range" ref={rangeMenuRef}>
               <button
                 type="button"
-                className="period-filter__trigger"
-                onClick={() => setRangeMenuOpen((o) => !o)}
+                className="period-filter__select period-filter__select--range-trigger"
                 aria-expanded={rangeMenuOpen}
                 aria-haspopup="listbox"
+                aria-label="Obdobie"
+                onClick={() => setRangeMenuOpen((o) => !o)}
               >
                 <span>{RANGE_LABELS[range]}</span>
-                <span className="period-filter__chev" aria-hidden>
-                  ▾
+                <span className="period-filter__chevron" aria-hidden>
+                  ▼
                 </span>
               </button>
               {rangeMenuOpen ? (
-                <ul className="period-filter__menu" role="listbox">
+                <ul
+                  className="period-filter__range-list"
+                  role="listbox"
+                  aria-label="Obdobie"
+                >
                   {RANGE_ORDER.map((v) => (
-                    <li key={v}>
+                    <li key={v} role="presentation">
                       <button
                         type="button"
                         role="option"
                         aria-selected={v === range}
                         className={
                           v === range
-                            ? "period-filter__option is-active"
-                            : "period-filter__option"
+                            ? "period-filter__range-option is-selected"
+                            : "period-filter__range-option"
                         }
                         onClick={() => {
                           setRangeInUrl(v);
@@ -316,31 +373,36 @@ export default function MarketingClient() {
                 </ul>
               ) : null}
             </div>
-            <div className="period-filter" ref={dimMenuRef}>
+            <div className="period-filter period-filter--kpi-product" ref={dimMenuRef}>
               <button
                 type="button"
-                className="period-filter__trigger"
-                onClick={() => setDimMenuOpen((o) => !o)}
+                className="period-filter__select period-filter__select--range-trigger"
                 aria-expanded={dimMenuOpen}
                 aria-haspopup="listbox"
+                aria-label="Rozmer UTM"
+                onClick={() => setDimMenuOpen((o) => !o)}
               >
                 <span>{DIMENSION_LABELS[dimension]}</span>
-                <span className="period-filter__chev" aria-hidden>
-                  ▾
+                <span className="period-filter__chevron" aria-hidden>
+                  ▼
                 </span>
               </button>
               {dimMenuOpen ? (
-                <ul className="period-filter__menu" role="listbox">
+                <ul
+                  className="period-filter__range-list"
+                  role="listbox"
+                  aria-label="Rozmer UTM"
+                >
                   {(["source", "medium", "campaign"] as const).map((v) => (
-                    <li key={v}>
+                    <li key={v} role="presentation">
                       <button
                         type="button"
                         role="option"
                         aria-selected={v === dimension}
                         className={
                           v === dimension
-                            ? "period-filter__option is-active"
-                            : "period-filter__option"
+                            ? "period-filter__range-option is-selected"
+                            : "period-filter__range-option"
                         }
                         onClick={() => {
                           setDimensionInUrl(v);
@@ -486,6 +548,6 @@ export default function MarketingClient() {
           </>
         ) : null}
       </main>
-    </div>
+    </>
   );
 }

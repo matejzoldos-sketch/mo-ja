@@ -66,19 +66,25 @@ export async function GET(request: Request) {
   }
 
   try {
-    const payload = await supabasePostgrestRpc<unknown>(
+    const rpcRes = await supabasePostgrestRpc<Record<string, unknown>>(
       supabaseUrl,
       serviceKey,
       "get_shopify_marketing_dashboard",
       { p_range: range }
     );
-    if (payload == null) {
+    if (rpcRes.error) {
+      return NextResponse.json(
+        { error: rpcRes.error },
+        { status: 500, headers: jsonNoStoreHeaders }
+      );
+    }
+    if (rpcRes.data == null) {
       return NextResponse.json(
         { error: "Marketing RPC returned null (invalid range?)" },
         { status: 500, headers: jsonNoStoreHeaders }
       );
     }
-    return NextResponse.json(payload, { headers: jsonNoStoreHeaders });
+    return NextResponse.json(rpcRes.data, { headers: jsonNoStoreHeaders });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json(
