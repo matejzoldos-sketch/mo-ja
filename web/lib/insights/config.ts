@@ -25,5 +25,11 @@ export const INSIGHT_THRESHOLDS = {
 
   overstockWarnDays: 365,
   overstockMinAvailable: 500,
+
+  utmCoverageWarnPct: 70,
+  utmCoverageCriticalPct: 50,
+  utmUnknownRevenueWarnPct: 20,
+  utmChannelConcentrationWarnPct: 60,
+  utmChannelConcentrationCriticalPct: 75,
 } as const;
 

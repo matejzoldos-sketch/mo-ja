@@ -73,4 +73,42 @@ export type InventoryRow = {
   estimated_days_of_stock?: number | null;
 };
 
+export type MarketingBreakdownRow = {
+  label: string;
+  orders: number;
+  revenue: number;
+  pct_orders: number;
+  pct_revenue: number;
+};
+
+export type MarketingRecentOrder = {
+  id: number;
+  name: string;
+  created_at: string;
+  revenue: number;
+  currency: string | null;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  channel_source: string;
+  utm_landing_page: string | null;
+  utm_attribution_ready: boolean | null;
+};
+
+export type MarketingPayload = {
+  meta: { range: string; from: string; to: string };
+  kpis: {
+    orders: number;
+    orders_with_utm: number;
+    orders_without_utm: number;
+    revenue: number;
+    currency: string;
+    pct_orders_with_utm: number | null;
+  };
+  bySource: MarketingBreakdownRow[];
+  byMedium: MarketingBreakdownRow[];
+  byCampaign: MarketingBreakdownRow[];
+  recentOrders: MarketingRecentOrder[];
+};
+
 

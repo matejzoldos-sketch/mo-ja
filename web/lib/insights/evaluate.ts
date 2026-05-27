@@ -7,6 +7,8 @@ import type {
   PurchaseCountBucket,
   SkuDaily,
   DashboardPayload,
+  MarketingBreakdownRow,
+  MarketingPayload,
 } from "./types";
 
 function fmtMoney(amount: number, currency: string | null): string {
@@ -84,6 +86,33 @@ function normalizeInventoryRows(levels: InventoryRow[] | undefined): InventoryRo
   return levels.filter(
     (r) => r && typeof r === "object" && typeof (r as InventoryRow).sku === "string"
   );
+}
+
+function normalizeMarketingPayload(m: MarketingPayload | undefined): MarketingPayload | null {
+  if (!m || typeof m !== "object") return null;
+  if (!m.meta || typeof m.meta !== "object") return null;
+  if (!m.kpis || typeof m.kpis !== "object") return null;
+  if (!Array.isArray(m.bySource)) return null;
+  return m;
+}
+
+function pickUnknownRow(
+  rows: MarketingBreakdownRow[] | undefined
+): MarketingBreakdownRow | null {
+  if (!Array.isArray(rows)) return null;
+  const r = rows.find((x) => (x.label || "").toLowerCase().includes("neznámy"));
+  return r ?? null;
+}
+
+function pickTopRow(
+  rows: MarketingBreakdownRow[] | undefined
+): MarketingBreakdownRow | null {
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+  const sorted = rows
+    .slice()
+    .filter((r) => Number.isFinite(Number(r.revenue)))
+    .sort((a, b) => Number(b.revenue) - Number(a.revenue));
+  return sorted[0] ?? null;
 }
 
 function pickOverstock(inv: InventoryRow[]): { r: InventoryRow; days: number } | null {
@@ -164,8 +193,10 @@ export function evaluateInsights(input: {
   dashboard: DashboardPayload;
   skuDailyYtd?: SkuDaily;
   inventoryLevels?: InventoryRow[];
+  marketing?: MarketingPayload;
 }): { risks: Insight[]; opportunities: Insight[] } {
-  const { range, kpiProduct, dashboard, skuDailyYtd, inventoryLevels } = input;
+  const { range, kpiProduct, dashboard, skuDailyYtd, inventoryLevels, marketing } =
+    input;
   const cur = dashboard.kpis.currency;
   const periodHref =
     kpiProduct && kpiProduct !== "all"
@@ -438,6 +469,76 @@ export function evaluateInsights(input: {
         metric: { label: "Dostupné", value: `${Number(slow.available)} ks` },
         link: { href: "/sklad", label: "Otvoriť sklad" },
       });
+    }
+  }
+
+  // Marketing UTM insights (only for all products).
+  if (kpiProduct === "all") {
+    const m = normalizeMarketingPayload(marketing);
+    const marketingHref = `/marketing?range=${encodeURIComponent(range)}`;
+    if (m) {
+      const cov = safeNum(m.kpis.pct_orders_with_utm);
+      if (cov != null && cov < INSIGHT_THRESHOLDS.utmCoverageWarnPct) {
+        const sev: InsightSeverity =
+          cov < INSIGHT_THRESHOLDS.utmCoverageCriticalPct ? "critical" : "warning";
+        insights.push({
+          id: "utm_coverage_low",
+          kind: "risk",
+          severity: sev,
+          score: severityScore(sev) + (INSIGHT_THRESHOLDS.utmCoverageWarnPct - cov),
+          title: "Marketing: veľa objednávok bez UTM",
+          body: `Len ${fmtPct(cov)} objednávok má UTM/journey atribúciu. Bez toho sa ťažko hodnotí výkon kanálov.`,
+          metric: { label: "UTM coverage", value: fmtPct(cov) },
+          link: { href: marketingHref, label: "Otvoriť marketing" },
+        });
+      } else if (cov != null && cov >= INSIGHT_THRESHOLDS.utmCoverageWarnPct) {
+        insights.push({
+          id: "utm_coverage_ok",
+          kind: "opportunity",
+          severity: "info",
+          score: 35 + Math.min(20, cov - INSIGHT_THRESHOLDS.utmCoverageWarnPct),
+          title: "Marketing: dobré pokrytie UTM",
+          body: `UTM/journey je dostupné pre ${fmtPct(cov)} objednávok. To je dobrý základ na optimalizáciu akvizície.`,
+          metric: { label: "UTM coverage", value: fmtPct(cov) },
+          link: { href: marketingHref, label: "Otvoriť marketing" },
+        });
+      }
+
+      const unknown = pickUnknownRow(m.bySource);
+      const unkRev = unknown ? safeNum(unknown.pct_revenue) : null;
+      if (unknown && unkRev != null && unkRev >= INSIGHT_THRESHOLDS.utmUnknownRevenueWarnPct) {
+        insights.push({
+          id: "utm_unknown_revenue_high",
+          kind: "risk",
+          severity: "warning",
+          score: 60 + Math.min(25, unkRev - INSIGHT_THRESHOLDS.utmUnknownRevenueWarnPct),
+          title: "Marketing: vysoký podiel „Neznámy“ zdroj",
+          body: `„Neznámy“ tvorí ${fmtPct(unkRev)} tržieb v atribúcii. Skontroluj UTM tagging (Meta, email, linky).`,
+          metric: { label: "Neznámy", value: fmtPct(unkRev) },
+          link: { href: `${marketingHref}&dim=source`, label: "Otvoriť zdroje" },
+        });
+      }
+
+      const top = pickTopRow(m.bySource);
+      const topRev = top ? safeNum(top.pct_revenue) : null;
+      if (top && topRev != null && topRev >= INSIGHT_THRESHOLDS.utmChannelConcentrationWarnPct) {
+        const sev: InsightSeverity =
+          topRev >= INSIGHT_THRESHOLDS.utmChannelConcentrationCriticalPct
+            ? "critical"
+            : "warning";
+        insights.push({
+          id: "utm_channel_concentration",
+          kind: "risk",
+          severity: sev,
+          score:
+            severityScore(sev) +
+            Math.min(30, topRev - INSIGHT_THRESHOLDS.utmChannelConcentrationWarnPct),
+          title: "Marketing: závislosť na jednom kanáli",
+          body: `${top.label} tvorí ${fmtPct(topRev)} tržieb (UTM). Pri výpadku kanála bude zásah veľký — zvaž rozšírenie mixu.`,
+          metric: { label: "Top kanál", value: fmtPct(topRev) },
+          link: { href: `${marketingHref}&dim=source`, label: "Otvoriť zdroje" },
+        });
+      }
     }
   }
 
