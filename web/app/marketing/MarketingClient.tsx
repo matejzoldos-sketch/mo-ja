@@ -343,7 +343,6 @@ export default function MarketingClient() {
       to: data.meta.to,
       kpis: data.kpis,
       breakdownRows,
-      recentOrders: data.recentOrders ?? [],
       currency: data.kpis.currency,
     });
 
@@ -621,40 +620,6 @@ export default function MarketingClient() {
                     </tbody>
                   </table>
                 </div>
-              </div>
-            </section>
-
-            <section className="chart-card chart-card--marketing-orders">
-              <h2>Objednávky s UTM (top 50 podľa tržieb)</h2>
-              <div className="table-scroll">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Objednávka</th>
-                      <th>Dátum</th>
-                      <th className="num">Tržby</th>
-                      <th>Zdroj</th>
-                      <th>Medium</th>
-                      <th>Kampaň</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(data.recentOrders ?? []).map((o) => (
-                      <tr key={o.id}>
-                        <td>{o.name}</td>
-                        <td>{o.created_at}</td>
-                        <td className="num">
-                          {formatMoney(o.revenue, o.currency)}
-                        </td>
-                        <td title={o.utm_source ?? undefined}>
-                          {o.channel_source}
-                        </td>
-                        <td>{o.utm_medium?.trim() || "—"}</td>
-                        <td>{o.utm_campaign?.trim() || "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
               </div>
             </section>
           </div>

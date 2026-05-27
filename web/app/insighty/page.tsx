@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import type { Metadata } from "next";
 import InsightyClient from "./InsightyClient";
 
@@ -8,10 +7,6 @@ export const metadata: Metadata = {
 };
 
 export default function InsightyPage() {
-  return (
-    <Suspense fallback={<p className="msg main-wrap">Načítavam…</p>}>
-      <InsightyClient />
-    </Suspense>
-  );
+  return <InsightyClient />;
 }
 

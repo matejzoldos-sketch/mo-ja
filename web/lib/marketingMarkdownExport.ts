@@ -50,7 +50,6 @@ export type MarketingMarkdownInput = {
   to: string;
   kpis: MarketingPayloadForExport["kpis"];
   breakdownRows: MarketingBreakdownRow[];
-  recentOrders: MarketingRecentOrder[];
   currency: string;
 };
 
@@ -123,26 +122,6 @@ export function buildMarketingMarkdown(input: MarketingMarkdownInput): string {
           formatMoney(Number(r.revenue), input.currency),
           formatPct(r.pct_orders),
           formatPct(r.pct_revenue),
-        ])
-      )
-    );
-    lines.push("");
-  }
-
-  if (input.recentOrders.length > 0) {
-    lines.push("## Top objednávky s UTM (max 50)");
-    lines.push("");
-    lines.push(
-      mdTable(
-        ["Objednávka", "Dátum", "Tržby", "Zdroj", "Medium", "Kampaň", "UTM ready"],
-        input.recentOrders.slice(0, 50).map((o) => [
-          o.name,
-          o.created_at,
-          formatMoney(Number(o.revenue), o.currency || input.currency),
-          o.utm_source ?? "—",
-          o.utm_medium ?? "—",
-          o.utm_campaign ?? "—",
-          o.utm_attribution_ready == null ? "—" : o.utm_attribution_ready ? "yes" : "no",
         ])
       )
     );
