@@ -86,6 +86,22 @@ function normalizeInventoryRows(levels: InventoryRow[] | undefined): InventoryRo
   );
 }
 
+function pickOverstock(inv: InventoryRow[]): { r: InventoryRow; days: number } | null {
+  const rows = inv
+    .map((r) => {
+      const days = safeNum(r.estimated_days_of_stock);
+      return days == null ? null : { r, days };
+    })
+    .filter((x): x is { r: InventoryRow; days: number } => x != null)
+    .filter(
+      (x) =>
+        x.days >= INSIGHT_THRESHOLDS.overstockWarnDays &&
+        Number(x.r.available) >= INSIGHT_THRESHOLDS.overstockMinAvailable
+    )
+    .sort((a, b) => b.days - a.days);
+  return rows[0] ?? null;
+}
+
 function skuUnitsDeltaPct(sku: SkuDaily | undefined, windowDays = 14): {
   sku: string;
   prev: number;
@@ -381,6 +397,23 @@ export function evaluateInsights(input: {
           value: soon.r.estimated_stockout_date ?? "—",
           delta: `${soon.days} dní`,
         },
+        link: { href: "/sklad", label: "Otvoriť sklad" },
+      });
+    }
+
+    const over = pickOverstock(inv);
+    if (over) {
+      const name = over.r.product_title?.trim() || over.r.sku;
+      insights.push({
+        id: "overstock_days",
+        kind: "opportunity",
+        severity: "info",
+        score: 55 + Math.min(30, (over.days - INSIGHT_THRESHOLDS.overstockWarnDays) / 30),
+        title: "Sklad: veľmi vysoká zásoba",
+        body: `${name} má približne ${Math.round(over.days)} dní zásoby (odhad) a ${
+          Number(over.r.available)
+        } ks dostupných. Zváž promo/bundle alebo úpravu ďalších doobjednaní.`,
+        metric: { label: "Zásoba", value: `${Math.round(over.days)} dní` },
         link: { href: "/sklad", label: "Otvoriť sklad" },
       });
     }

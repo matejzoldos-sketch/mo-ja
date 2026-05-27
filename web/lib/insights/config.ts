@@ -18,9 +18,12 @@ export const INSIGHT_THRESHOLDS = {
   skuUnitsDeltaPctWarn: 30,
   skuUnitsDeltaPctGood: 25,
 
-  stockoutWarnDays: 14,
-  stockoutCriticalDays: 7,
+  stockoutWarnDays: 30,
+  stockoutCriticalDays: 10,
   slowMoverMinAvailable: 30,
   slowMoverMaxDailyUnits: 0.05,
+
+  overstockWarnDays: 365,
+  overstockMinAvailable: 500,
 } as const;
 
