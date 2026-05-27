@@ -949,6 +949,12 @@ td code {
   color: rgba(37, 99, 235, 0.95);
 }
 
+.insight-card__badge--sales {
+  background: rgba(228, 224, 74, 0.35);
+  border: 1px solid rgba(228, 224, 74, 0.55);
+  color: rgba(26, 31, 40, 0.95);
+}
+
 .insight-card__title {
   margin: 0;
   font-size: 0.95rem;

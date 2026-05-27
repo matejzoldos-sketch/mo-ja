@@ -179,7 +179,11 @@ export default function InsightyClient() {
             <span className="insight-card__badge insight-card__badge--inventory">
               Sklad
             </span>
-          ) : null}
+          ) : (
+            <span className="insight-card__badge insight-card__badge--sales">
+              Predaj
+            </span>
+          )}
           {i.kind === "risk" ? "⚠ Riziko" : "✦ Príležitosť"} ·{" "}
           {severityLabel(i.severity)}
         </div>
