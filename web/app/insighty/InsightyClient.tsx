@@ -171,7 +171,7 @@ export default function InsightyClient() {
   const renderCard = (i: Insight) => (
     <article
       key={i.id}
-      className={`insight-card insight-card--${i.kind} insight-card--${i.severity}`}
+      className={`insight-card insight-card--${i.kind} insight-card--${i.severity}${i.link?.href === "/sklad" ? " insight-card--inventory" : ""}`}
     >
       <div className="insight-card__head">
         <div className="insight-card__kicker">

@@ -903,6 +903,11 @@ td code {
   box-shadow: var(--shadow-sm);
 }
 
+.insight-card--inventory {
+  background: linear-gradient(145deg, #f6fbff 0%, var(--surface) 65%);
+  border-color: rgba(37, 99, 235, 0.16);
+}
+
 .insight-card__kicker {
   font-size: 0.72rem;
   font-weight: 700;
