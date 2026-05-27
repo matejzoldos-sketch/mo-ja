@@ -624,6 +624,10 @@ a:hover {
   .charts-row {
     grid-template-columns: 1.15fr 1fr;
   }
+
+  .charts-row--single {
+    grid-template-columns: 1fr;
+  }
 }
 
 .chart-card {

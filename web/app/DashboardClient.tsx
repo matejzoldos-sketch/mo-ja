@@ -1254,7 +1254,11 @@ export default function DashboardClient() {
               </div>
             </section>
 
-            <section className="charts-row">
+            <section
+              className={`charts-row${
+                kpiProduct === "all" ? "" : " charts-row--single"
+              }`}
+            >
               <div className="chart-card" style={{ minHeight: 320 }}>
                 <h2>
                   Tržby po dňoch
@@ -1291,23 +1295,25 @@ export default function DashboardClient() {
                   </div>
                 ) : null}
               </div>
-              <div className="chart-card" style={{ minHeight: 320 }}>
-                <h2>
-                  Tržby podľa produktu
-                  {chartPeriodInParens ? ` (${chartPeriodInParens})` : ""}
-                </h2>
-                {barData ? (
-                  <div style={{ height: 260 }}>
-                    <Bar
-                      data={barData}
-                      options={{
-                        ...chartOptions,
-                        indexAxis: "y" as const,
-                      }}
-                    />
-                  </div>
-                ) : null}
-              </div>
+              {kpiProduct === "all" ? (
+                <div className="chart-card" style={{ minHeight: 320 }}>
+                  <h2>
+                    Tržby podľa produktu
+                    {chartPeriodInParens ? ` (${chartPeriodInParens})` : ""}
+                  </h2>
+                  {barData ? (
+                    <div style={{ height: 260 }}>
+                      <Bar
+                        data={barData}
+                        options={{
+                          ...chartOptions,
+                          indexAxis: "y" as const,
+                        }}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </section>
 
             {monthlyStackedBarData || purchaseCountPieData ? (
