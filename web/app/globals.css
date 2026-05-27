@@ -904,8 +904,20 @@ td code {
 }
 
 .insight-card--inventory {
-  background: linear-gradient(145deg, #f6fbff 0%, var(--surface) 65%);
-  border-color: rgba(37, 99, 235, 0.16);
+  position: relative;
+  background: rgba(37, 99, 235, 0.06);
+  border-color: rgba(37, 99, 235, 0.26);
+}
+
+.insight-card--inventory::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: rgba(37, 99, 235, 0.55);
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
 }
 
 .insight-card__kicker {
@@ -915,6 +927,26 @@ td code {
   letter-spacing: 0.06em;
   color: var(--text-muted);
   margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.insight-card__badge {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.insight-card__badge--inventory {
+  background: rgba(37, 99, 235, 0.14);
+  border: 1px solid rgba(37, 99, 235, 0.28);
+  color: rgba(37, 99, 235, 0.95);
 }
 
 .insight-card__title {
