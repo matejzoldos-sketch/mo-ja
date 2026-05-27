@@ -808,6 +808,116 @@ td code {
   border: 1px solid rgba(220, 38, 38, 0.15);
 }
 
+/* —— Insights —— */
+.insights-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+}
+
+@media (min-width: 960px) {
+  .insights-grid {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+}
+
+.insights-col__title {
+  margin: 0 0 12px;
+  font-size: 0.9375rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-dark);
+}
+
+.insights-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.insight-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  box-shadow: var(--shadow-sm);
+}
+
+.insight-card__kicker {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.insight-card__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-dark);
+  line-height: 1.25;
+}
+
+.insight-card__body {
+  margin: 10px 0 0;
+  color: var(--text);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.insight-card__metric {
+  margin-top: 12px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  color: var(--text-dark);
+}
+
+.insight-card__metric-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.insight-card__metric-value {
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.insight-card__metric-delta {
+  margin-left: auto;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.insight-card__link {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.insight-card--risk.insight-card--critical {
+  border-color: rgba(220, 38, 38, 0.22);
+  box-shadow: 0 12px 32px rgba(220, 38, 38, 0.08);
+}
+
+.insight-card--risk.insight-card--warning {
+  border-color: rgba(234, 179, 8, 0.25);
+}
+
+.insight-card--opportunity.insight-card--info {
+  border-color: rgba(22, 163, 74, 0.18);
+}
+
 /* —— Login —— */
 .login-page {
   display: flex;
