@@ -105,14 +105,33 @@ function pickUnknownRow(
 }
 
 function pickTopRow(
-  rows: MarketingBreakdownRow[] | undefined
+  rows: MarketingBreakdownRow[] | undefined,
+  by: "revenue" | "orders" = "revenue"
 ): MarketingBreakdownRow | null {
   if (!Array.isArray(rows) || rows.length === 0) return null;
   const sorted = rows
     .slice()
-    .filter((r) => Number.isFinite(Number(r.revenue)))
-    .sort((a, b) => Number(b.revenue) - Number(a.revenue));
+    .filter((r) => Number.isFinite(Number(by === "revenue" ? r.revenue : r.orders)))
+    .sort((a, b) => Number(b[by]) - Number(a[by]));
   return sorted[0] ?? null;
+}
+
+function isUnnamedCampaign(label: string | undefined): boolean {
+  const s = (label || "").trim();
+  return !s || s === "—" || s === "-" || s.toLowerCase() === "—";
+}
+
+function marketingLink(
+  range: string,
+  dim?: "source" | "medium" | "campaign"
+): { href: string; label: string } {
+  const base = `/marketing?range=${encodeURIComponent(range)}`;
+  const href = dim ? `${base}&dim=${dim}` : base;
+  return { href, label: "Otvoriť marketing" };
+}
+
+function labelMatchesChannel(label: string, pattern: RegExp): boolean {
+  return pattern.test((label || "").toLowerCase());
 }
 
 function pickOverstock(inv: InventoryRow[]): { r: InventoryRow; days: number } | null {
@@ -472,12 +491,16 @@ export function evaluateInsights(input: {
     }
   }
 
-  // Marketing UTM insights (only for all products).
+  // Marketing UTM insights (only when viewing all products).
   if (kpiProduct === "all") {
     const m = normalizeMarketingPayload(marketing);
-    const marketingHref = `/marketing?range=${encodeURIComponent(range)}`;
     if (m) {
+      const orders = m.kpis.orders ?? 0;
+      const withoutUtm = m.kpis.orders_without_utm ?? 0;
+      const withoutUtmPct =
+        orders > 0 ? (withoutUtm / orders) * 100 : null;
       const cov = safeNum(m.kpis.pct_orders_with_utm);
+
       if (cov != null && cov < INSIGHT_THRESHOLDS.utmCoverageWarnPct) {
         const sev: InsightSeverity =
           cov < INSIGHT_THRESHOLDS.utmCoverageCriticalPct ? "critical" : "warning";
@@ -489,7 +512,7 @@ export function evaluateInsights(input: {
           title: "Marketing: veľa objednávok bez UTM",
           body: `Len ${fmtPct(cov)} objednávok má UTM/journey atribúciu. Bez toho sa ťažko hodnotí výkon kanálov.`,
           metric: { label: "UTM coverage", value: fmtPct(cov) },
-          link: { href: marketingHref, label: "Otvoriť marketing" },
+          link: marketingLink(range),
         });
       } else if (cov != null && cov >= INSIGHT_THRESHOLDS.utmCoverageWarnPct) {
         insights.push({
@@ -500,7 +523,23 @@ export function evaluateInsights(input: {
           title: "Marketing: dobré pokrytie UTM",
           body: `UTM/journey je dostupné pre ${fmtPct(cov)} objednávok. To je dobrý základ na optimalizáciu akvizície.`,
           metric: { label: "UTM coverage", value: fmtPct(cov) },
-          link: { href: marketingHref, label: "Otvoriť marketing" },
+          link: marketingLink(range),
+        });
+      }
+
+      if (
+        withoutUtmPct != null &&
+        withoutUtmPct >= INSIGHT_THRESHOLDS.utmOrdersWithoutUtmWarnPct
+      ) {
+        insights.push({
+          id: "utm_orders_without_utm",
+          kind: "risk",
+          severity: withoutUtmPct >= 25 ? "warning" : "info",
+          score: 50 + Math.min(30, withoutUtmPct - INSIGHT_THRESHOLDS.utmOrdersWithoutUtmWarnPct),
+          title: "Marketing: veľa objednávok bez UTM",
+          body: `${withoutUtm} z ${orders} objednávok (${fmtPct(withoutUtmPct)}) nemá priradené UTM. Skontroluj checkout a UTM parametre.`,
+          metric: { label: "Bez UTM", value: fmtPct(withoutUtmPct) },
+          link: marketingLink(range),
         });
       }
 
@@ -510,34 +549,179 @@ export function evaluateInsights(input: {
         insights.push({
           id: "utm_unknown_revenue_high",
           kind: "risk",
-          severity: "warning",
+          severity: unkRev >= 25 ? "warning" : "info",
           score: 60 + Math.min(25, unkRev - INSIGHT_THRESHOLDS.utmUnknownRevenueWarnPct),
           title: "Marketing: vysoký podiel „Neznámy“ zdroj",
-          body: `„Neznámy“ tvorí ${fmtPct(unkRev)} tržieb v atribúcii. Skontroluj UTM tagging (Meta, email, linky).`,
+          body: `„Neznámy“ tvorí ${fmtPct(unkRev)} tržieb v atribúcii. Skontroluj UTM tagging (Meta, email, linky, QR).`,
           metric: { label: "Neznámy", value: fmtPct(unkRev) },
-          link: { href: `${marketingHref}&dim=source`, label: "Otvoriť zdroje" },
+          link: marketingLink(range, "source"),
         });
       }
 
-      const top = pickTopRow(m.bySource);
-      const topRev = top ? safeNum(top.pct_revenue) : null;
-      if (top && topRev != null && topRev >= INSIGHT_THRESHOLDS.utmChannelConcentrationWarnPct) {
+      const topRevRow = pickTopRow(m.bySource, "revenue");
+      const topRev = topRevRow ? safeNum(topRevRow.pct_revenue) : null;
+      if (topRevRow && topRev != null && topRev >= INSIGHT_THRESHOLDS.utmChannelConcentrationWarnPct) {
         const sev: InsightSeverity =
           topRev >= INSIGHT_THRESHOLDS.utmChannelConcentrationCriticalPct
             ? "critical"
             : "warning";
         insights.push({
-          id: "utm_channel_concentration",
+          id: "utm_channel_concentration_revenue",
           kind: "risk",
           severity: sev,
           score:
             severityScore(sev) +
             Math.min(30, topRev - INSIGHT_THRESHOLDS.utmChannelConcentrationWarnPct),
-          title: "Marketing: závislosť na jednom kanáli",
-          body: `${top.label} tvorí ${fmtPct(topRev)} tržieb (UTM). Pri výpadku kanála bude zásah veľký — zvaž rozšírenie mixu.`,
+          title: "Marketing: závislosť na jednom kanáli (tržby)",
+          body: `${topRevRow.label} tvorí ${fmtPct(topRev)} tržieb. Pri výpadku kanála bude zásah veľký — zvaž rozšírenie mixu.`,
           metric: { label: "Top kanál", value: fmtPct(topRev) },
-          link: { href: `${marketingHref}&dim=source`, label: "Otvoriť zdroje" },
+          link: marketingLink(range, "source"),
         });
+      }
+
+      const topOrdRow = pickTopRow(m.bySource, "orders");
+      const topOrdPct =
+        topOrdRow && orders > 0
+          ? (Number(topOrdRow.orders) / orders) * 100
+          : null;
+      if (
+        topOrdRow &&
+        topOrdPct != null &&
+        topOrdPct >= INSIGHT_THRESHOLDS.utmChannelConcentrationOrdersWarnPct
+      ) {
+        insights.push({
+          id: "utm_channel_concentration_orders",
+          kind: "risk",
+          severity:
+            topOrdPct >= INSIGHT_THRESHOLDS.utmChannelConcentrationCriticalPct
+              ? "critical"
+              : "warning",
+          score:
+            severityScore(
+              topOrdPct >= INSIGHT_THRESHOLDS.utmChannelConcentrationCriticalPct
+                ? "critical"
+                : "warning"
+            ) + Math.min(25, topOrdPct - INSIGHT_THRESHOLDS.utmChannelConcentrationOrdersWarnPct),
+          title: "Marketing: závislosť na jednom kanáli (objednávky)",
+          body: `${topOrdRow.label} tvorí ${fmtPct(topOrdPct)} objednávok. Diverzifikuj zdroje, aby výpadok jedného kanála nebol kritický.`,
+          metric: { label: "Top kanál", value: fmtPct(topOrdPct) },
+          link: marketingLink(range, "source"),
+        });
+      }
+
+      const campaigns = Array.isArray(m.byCampaign) ? m.byCampaign : [];
+      const namedCampaigns = campaigns.filter((c) => !isUnnamedCampaign(c.label));
+      const unnamed = campaigns.filter((c) => isUnnamedCampaign(c.label));
+      const unnamedOrders = unnamed.reduce((s, c) => s + Number(c.orders || 0), 0);
+      const unnamedOrderPct =
+        orders > 0 ? (unnamedOrders / orders) * 100 : null;
+      if (
+        unnamedOrderPct != null &&
+        unnamedOrderPct >= INSIGHT_THRESHOLDS.utmMissingCampaignOrdersWarnPct &&
+        unnamedOrders >= 20
+      ) {
+        insights.push({
+          id: "utm_missing_campaign",
+          kind: "risk",
+          severity: unnamedOrderPct >= 40 ? "warning" : "info",
+          score: 55 + Math.min(25, unnamedOrderPct - INSIGHT_THRESHOLDS.utmMissingCampaignOrdersWarnPct),
+          title: "Marketing: chýba názov kampane",
+          body: `${fmtPct(unnamedOrderPct)} objednávok (${unnamedOrders}) nemá vyplnenú kampaň v UTM. Doplň campaign v odkazoch a reklamách.`,
+          metric: { label: "Bez kampane", value: fmtPct(unnamedOrderPct) },
+          link: marketingLink(range, "campaign"),
+        });
+      }
+
+      const topCamp = namedCampaigns
+        .slice()
+        .sort((a, b) => Number(b.revenue) - Number(a.revenue))[0];
+      if (topCamp && Number(topCamp.revenue) > 0) {
+        insights.push({
+          id: "utm_top_campaign",
+          kind: "opportunity",
+          severity: "info",
+          score: 40 + Math.min(20, Number(topCamp.pct_revenue)),
+          title: "Marketing: top kampaň podľa tržieb",
+          body: `${topCamp.label} tvorí ${fmtPct(Number(topCamp.pct_revenue))} tržieb v období.`,
+          metric: { label: "Kampaň", value: topCamp.label },
+          link: marketingLink(range, "campaign"),
+        });
+      }
+
+      const recent = Array.isArray(m.recentOrders) ? m.recentOrders : [];
+      if (recent.length > 0) {
+        const pending = recent.filter((o) => o.utm_attribution_ready === false).length;
+        const pendingPct = (pending / recent.length) * 100;
+        if (pendingPct >= INSIGHT_THRESHOLDS.utmAttributionPendingWarnPct) {
+          insights.push({
+            id: "utm_attribution_pending",
+            kind: "risk",
+            severity: pendingPct >= 40 ? "warning" : "info",
+            score: 50 + Math.min(30, pendingPct - INSIGHT_THRESHOLDS.utmAttributionPendingWarnPct),
+            title: "Marketing: neúplná atribúcia",
+            body: `U ${recent.length} top objednávkach má ${pending} (${fmtPct(pendingPct)}) ešte bez finálnej Shopify atribúcie (utm_attribution_ready=false).`,
+            metric: { label: "Čaká na atribúciu", value: fmtPct(pendingPct) },
+            link: marketingLink(range),
+          });
+        }
+      }
+
+      const metaAds = m.bySource.find((r) =>
+        labelMatchesChannel(r.label, /meta\s*ads|facebook/i)
+      );
+      if (metaAds && orders > 0) {
+        const metaOrdPct = (Number(metaAds.orders) / orders) * 100;
+        if (metaOrdPct >= INSIGHT_THRESHOLDS.utmMetaAdsOrdersWarnPct) {
+          insights.push({
+            id: "utm_meta_ads_orders",
+            kind: "risk",
+            severity: metaOrdPct >= 35 ? "warning" : "info",
+            score: 45 + Math.min(20, metaOrdPct - INSIGHT_THRESHOLDS.utmMetaAdsOrdersWarnPct),
+            title: "Marketing: silný podiel Meta Ads",
+            body: `Meta Ads tvorí ${fmtPct(metaOrdPct)} objednávok. Skontroluj kreatívy, UTM a landing page konzistenciu.`,
+            metric: { label: "Meta Ads", value: fmtPct(metaOrdPct) },
+            link: marketingLink(range, "source"),
+          });
+        }
+      }
+
+      const direct = m.bySource.find((r) =>
+        labelMatchesChannel(r.label, /^direct$/i)
+      );
+      if (direct && orders > 0) {
+        const directOrdPct = (Number(direct.orders) / orders) * 100;
+        if (directOrdPct >= 12) {
+          insights.push({
+            id: "utm_direct_share",
+            kind: "opportunity",
+            severity: "info",
+            score: 35 + Math.min(15, directOrdPct),
+            title: "Marketing: významný Direct traffic",
+            body: `Direct tvorí ${fmtPct(directOrdPct)} objednávok. Skontroluj, či ide o brand search alebo chýbajúci UTM na homepage.`,
+            metric: { label: "Direct", value: fmtPct(directOrdPct) },
+            link: marketingLink(range, "source"),
+          });
+        }
+      }
+
+      const instagram = m.bySource.find((r) =>
+        labelMatchesChannel(r.label, /instagram/i)
+      );
+      if (instagram && metaAds && orders > 0) {
+        const igPct = (Number(instagram.orders) / orders) * 100;
+        const metaPct = (Number(metaAds.orders) / orders) * 100;
+        if (igPct >= 10 && metaPct >= 10) {
+          insights.push({
+            id: "utm_instagram_meta_split",
+            kind: "opportunity",
+            severity: "info",
+            score: 32,
+            title: "Marketing: Instagram + Meta Ads mix",
+            body: `Instagram (${fmtPct(igPct)} a Meta Ads (${fmtPct(metaPct)}) sú oba významné platené kanály — sleduj ich spolu aj zvlášť.`,
+            metric: { label: "Kanály", value: "IG + Meta" },
+            link: marketingLink(range, "source"),
+          });
+        }
       }
     }
   }
@@ -558,11 +742,11 @@ export function evaluateInsights(input: {
   const risks = insights
     .filter((i) => i.kind === "risk")
     .sort((a, b) => b.score - a.score)
-    .slice(0, 5);
+    .slice(0, 8);
   const opportunities = insights
     .filter((i) => i.kind === "opportunity")
     .sort((a, b) => b.score - a.score)
-    .slice(0, 5);
+    .slice(0, 8);
 
   return { risks, opportunities };
 }

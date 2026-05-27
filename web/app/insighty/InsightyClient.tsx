@@ -168,16 +168,29 @@ export default function InsightyClient() {
   const risks = data?.risks ?? [];
   const opportunities = data?.opportunities ?? [];
 
+  const isMarketingInsight = (i: Insight) =>
+    i.id.startsWith("utm_") || Boolean(i.link?.href?.startsWith("/marketing"));
+
   const renderCard = (i: Insight) => (
     <article
       key={i.id}
-      className={`insight-card insight-card--${i.kind} insight-card--${i.severity}${i.link?.href?.startsWith("/sklad") ? " insight-card--inventory" : ""}`}
+      className={`insight-card insight-card--${i.kind} insight-card--${i.severity}${
+        isMarketingInsight(i)
+          ? " insight-card--marketing"
+          : i.link?.href?.startsWith("/sklad")
+            ? " insight-card--inventory"
+            : ""
+      }`}
     >
       <div className="insight-card__head">
         <div className="insight-card__kicker">
           {i.link?.href?.startsWith("/sklad") ? (
             <span className="insight-card__badge insight-card__badge--inventory">
               Sklad
+            </span>
+          ) : isMarketingInsight(i) ? (
+            <span className="insight-card__badge insight-card__badge--marketing">
+              Marketing
             </span>
           ) : (
             <span className="insight-card__badge insight-card__badge--sales">

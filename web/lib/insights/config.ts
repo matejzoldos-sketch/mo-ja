@@ -28,8 +28,13 @@ export const INSIGHT_THRESHOLDS = {
 
   utmCoverageWarnPct: 70,
   utmCoverageCriticalPct: 50,
-  utmUnknownRevenueWarnPct: 20,
+  utmUnknownRevenueWarnPct: 15,
   utmChannelConcentrationWarnPct: 60,
   utmChannelConcentrationCriticalPct: 75,
+  utmChannelConcentrationOrdersWarnPct: 45,
+  utmOrdersWithoutUtmWarnPct: 18,
+  utmMissingCampaignOrdersWarnPct: 25,
+  utmAttributionPendingWarnPct: 25,
+  utmMetaAdsOrdersWarnPct: 20,
 } as const;
 

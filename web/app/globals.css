@@ -972,6 +972,29 @@ td code {
   border-color: rgba(37, 99, 235, 0.26);
 }
 
+.insight-card--marketing {
+  position: relative;
+  background: rgba(124, 58, 237, 0.06);
+  border-color: rgba(124, 58, 237, 0.22);
+}
+
+.insight-card--marketing::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: rgba(124, 58, 237, 0.55);
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+}
+
+.insight-card__badge--marketing {
+  background: rgba(124, 58, 237, 0.14);
+  border: 1px solid rgba(124, 58, 237, 0.28);
+  color: rgba(91, 33, 182, 0.95);
+}
+
 .insight-card--inventory::before {
   content: "";
   position: absolute;
