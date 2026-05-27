@@ -432,13 +432,13 @@ export default function MarketingClient() {
         ) : null}
 
         {data ? (
-          <>
+          <div className="dashboard-pdf-root">
             <p className="dashboard-period-hint">
               Produktové objednávky (paid) · obdobie {periodLabel}
             </p>
 
             <section className="kpi-section">
-              <div className="kpi-grid kpi-grid--marketing">
+              <div className="kpi-grid kpi-grid--secondary">
               <div className="kpi-card">
                 <div className="kpi-card__label">Objednávky</div>
                 <div className="kpi-card__value">{data.kpis.orders}</div>
@@ -547,7 +547,7 @@ export default function MarketingClient() {
                 </table>
               </div>
             </section>
-          </>
+          </div>
         ) : null}
       </main>
     </>
