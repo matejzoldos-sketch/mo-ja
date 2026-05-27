@@ -145,8 +145,11 @@ a:hover {
 }
 
 .header-section-switch__segmented {
-  display: inline-flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  width: 100%;
+  max-width: 420px;
   border: 1px solid var(--border-strong);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
@@ -162,9 +165,10 @@ a:hover {
   font: inherit;
   font-size: 0.8125rem;
   font-weight: 700;
-  padding: 8px 12px;
+  padding: 8px 10px;
   cursor: pointer;
   white-space: nowrap;
+  text-align: center;
 }
 
 .header-section-switch__btn:hover {
@@ -176,7 +180,7 @@ a:hover {
 }
 
 .header-section-switch__select {
-  display: none;
+  display: none !important;
 }
 
 .site-toolbar__actions {
@@ -201,14 +205,17 @@ a:hover {
     gap: 8px;
   }
 
-  .header-section-switch__segmented {
-    display: none;
+  .header-section-switch {
+    width: 100%;
   }
 
-  .header-section-switch__select {
-    display: block;
-    width: 100%;
-    min-width: 0;
+  .header-section-switch__segmented {
+    max-width: none;
+  }
+
+  .header-section-switch__btn {
+    font-size: 0.75rem;
+    padding: 8px 6px;
   }
 
   .site-toolbar__filters .period-filter__select,

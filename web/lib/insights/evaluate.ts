@@ -91,9 +91,9 @@ function skuUnitsDeltaPct(sku: SkuDaily | undefined, windowDays = 14): {
     for (const d of ds) {
       const m = byDate.get(d);
       if (!m) continue;
-      for (const [skuName, units] of m.entries()) {
+      Array.from(m.entries()).forEach(([skuName, units]) => {
         out.set(skuName, (out.get(skuName) ?? 0) + units);
-      }
+      });
     }
     return out;
   };
@@ -105,12 +105,12 @@ function skuUnitsDeltaPct(sku: SkuDaily | undefined, windowDays = 14): {
   // Pick most-sold SKU in current window.
   let bestSku = "";
   let bestCur = -1;
-  for (const [s, u] of curTotals.entries()) {
+  Array.from(curTotals.entries()).forEach(([s, u]) => {
     if (u > bestCur) {
       bestSku = s;
       bestCur = u;
     }
-  }
+  });
   if (!bestSku) return null;
   const curUnits = Number(curTotals.get(bestSku) ?? 0);
   const prevUnits = Number(prevTotals.get(bestSku) ?? 0);
