@@ -59,3 +59,18 @@ export type InsightsResponse = {
   opportunities: Insight[];
 };
 
+export type InventoryRow = {
+  inventory_item_id: number;
+  location_id: number;
+  location_name: string | null;
+  sku: string;
+  product_title?: string;
+  available: number;
+  updated_at: string | null;
+  fetched_at: string | null;
+  avg_daily_units_sold_ytd: number | null;
+  estimated_stockout_date?: string | null;
+  estimated_days_of_stock?: number | null;
+};
+
+

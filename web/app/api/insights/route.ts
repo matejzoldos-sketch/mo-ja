@@ -3,7 +3,12 @@ import { isAuthorizedRequest } from "@/lib/dashboardAuth";
 import { jsonNoStoreHeaders } from "@/lib/apiJsonNoStore";
 import { supabasePostgrestRpc } from "@/lib/supabasePostgrestRpc";
 import { evaluateInsights } from "@/lib/insights/evaluate";
-import type { DashboardPayload, InsightsResponse, SkuDaily } from "@/lib/insights/types";
+import type {
+  DashboardPayload,
+  InsightsResponse,
+  InventoryRow,
+  SkuDaily,
+} from "@/lib/insights/types";
 
 export const dynamic = "force-dynamic";
 
@@ -88,7 +93,7 @@ export async function GET(request: Request) {
   const skuRpcPayload: Record<string, unknown> = { p_range: range };
   if (pKpi != null) skuRpcPayload.p_kpi_product = pKpi;
 
-  const [dashRes, skuRes] = await Promise.all([
+  const [dashRes, skuRes, invRes] = await Promise.all([
     supabasePostgrestRpc<unknown>(
       supabaseUrl,
       serviceKey,
@@ -101,6 +106,12 @@ export async function GET(request: Request) {
       "get_shopify_sku_units_daily_ytd",
       skuRpcPayload
     ),
+    supabasePostgrestRpc<unknown>(
+      supabaseUrl,
+      serviceKey,
+      "get_shopify_inventory_dashboard",
+      {}
+    ),
   ]);
 
   if (dashRes.error) {
@@ -112,6 +123,12 @@ export async function GET(request: Request) {
   if (skuRes.error) {
     return NextResponse.json(
       { error: skuRes.error },
+      { status: 500, headers: jsonNoStoreHeaders }
+    );
+  }
+  if (invRes.error) {
+    return NextResponse.json(
+      { error: invRes.error },
       { status: 500, headers: jsonNoStoreHeaders }
     );
   }
@@ -134,11 +151,16 @@ export async function GET(request: Request) {
       ? (skuRes.data as SkuDaily)
       : undefined;
 
+  const inventoryLevels = Array.isArray(invRes.data)
+    ? (invRes.data as InventoryRow[])
+    : undefined;
+
   const { risks, opportunities } = evaluateInsights({
     range,
     kpiProduct,
     dashboard,
     skuDailyYtd,
+    inventoryLevels,
   });
 
   const out: InsightsResponse = {

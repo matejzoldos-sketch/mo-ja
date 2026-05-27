@@ -3,6 +3,7 @@ import type {
   Daily,
   Insight,
   InsightSeverity,
+  InventoryRow,
   PurchaseCountBucket,
   SkuDaily,
   DashboardPayload,
@@ -66,6 +67,25 @@ function safeNum(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function daysUntil(isoYmd: string): number | null {
+  const [y, m, d] = isoYmd.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  const now = new Date();
+  const todayUtc = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+  );
+  const targetUtc = new Date(Date.UTC(y, m - 1, d));
+  const diffMs = targetUtc.getTime() - todayUtc.getTime();
+  return Math.round(diffMs / (1000 * 60 * 60 * 24));
+}
+
+function normalizeInventoryRows(levels: InventoryRow[] | undefined): InventoryRow[] {
+  if (!Array.isArray(levels)) return [];
+  return levels.filter(
+    (r) => r && typeof r === "object" && typeof (r as InventoryRow).sku === "string"
+  );
+}
+
 function skuUnitsDeltaPct(sku: SkuDaily | undefined, windowDays = 14): {
   sku: string;
   prev: number;
@@ -127,8 +147,9 @@ export function evaluateInsights(input: {
   kpiProduct: string;
   dashboard: DashboardPayload;
   skuDailyYtd?: SkuDaily;
+  inventoryLevels?: InventoryRow[];
 }): { risks: Insight[]; opportunities: Insight[] } {
-  const { range, kpiProduct, dashboard, skuDailyYtd } = input;
+  const { range, kpiProduct, dashboard, skuDailyYtd, inventoryLevels } = input;
   const cur = dashboard.kpis.currency;
   const periodHref =
     kpiProduct && kpiProduct !== "all"
@@ -294,6 +315,95 @@ export function evaluateInsights(input: {
         )} vs. predchádzajúcich 14 dní (${skuDelta.prev} → ${skuDelta.cur}).`,
         metric: { label: "Δ kusy (14d)", value: `+${fmtPct(skuDelta.pct)}` },
         link: { href: periodHref, label: "Otvoriť predaj" },
+      });
+    }
+  }
+
+  // Inventory (Sklad): stockout + out-of-stock with demand + slow movers.
+  const inv = normalizeInventoryRows(inventoryLevels);
+  if (inv.length > 0) {
+    const withDemand = inv.filter((r) => (safeNum(r.avg_daily_units_sold_ytd) ?? 0) > 0);
+
+    const zeroDemand = withDemand
+      .filter((r) => Number(r.available) <= 0)
+      .sort(
+        (a, b) =>
+          (safeNum(b.avg_daily_units_sold_ytd) ?? 0) -
+          (safeNum(a.avg_daily_units_sold_ytd) ?? 0)
+      )[0];
+
+    if (zeroDemand) {
+      const daily = safeNum(zeroDemand.avg_daily_units_sold_ytd) ?? 0;
+      const name = zeroDemand.product_title?.trim() || zeroDemand.sku;
+      insights.push({
+        id: "stock_zero_with_demand",
+        kind: "risk",
+        severity: "critical",
+        score: 120 + Math.min(50, daily * 10),
+        title: "Sklad: 0 kusov pri existujúcom dopyte",
+        body: `${name} má dostupnosť 0, ale historicky sa predáva ~${daily.toLocaleString(
+          "sk-SK",
+          { maximumFractionDigits: 2 }
+        )} ks/deň (YTD).`,
+        metric: { label: "Dostupné", value: "0 ks" },
+        link: { href: "/sklad", label: "Otvoriť sklad" },
+      });
+    }
+
+    const soon = withDemand
+      .map((r) => {
+        const dd =
+          typeof r.estimated_stockout_date === "string" && r.estimated_stockout_date
+            ? daysUntil(r.estimated_stockout_date)
+            : null;
+        return dd == null ? null : { r, days: dd };
+      })
+      .filter(
+        (x): x is { r: InventoryRow; days: number } => x != null && x.days >= 0
+      )
+      .sort((a, b) => a.days - b.days)[0];
+
+    if (soon && soon.days <= INSIGHT_THRESHOLDS.stockoutWarnDays) {
+      const sev: InsightSeverity =
+        soon.days <= INSIGHT_THRESHOLDS.stockoutCriticalDays ? "critical" : "warning";
+      const name = soon.r.product_title?.trim() || soon.r.sku;
+      insights.push({
+        id: "stockout_soon",
+        kind: "risk",
+        severity: sev,
+        score:
+          severityScore(sev) +
+          Math.max(0, INSIGHT_THRESHOLDS.stockoutWarnDays - soon.days) * 4,
+        title: "Sklad: hrozí vypredanie",
+        body: `${name} pravdepodobne dôjde približne o ${soon.days} dní (odhad z YTD spotreby).`,
+        metric: {
+          label: "Stockout",
+          value: soon.r.estimated_stockout_date ?? "—",
+          delta: `${soon.days} dní`,
+        },
+        link: { href: "/sklad", label: "Otvoriť sklad" },
+      });
+    }
+
+    const slow = inv
+      .filter(
+        (r) =>
+          Number(r.available) >= INSIGHT_THRESHOLDS.slowMoverMinAvailable &&
+          (safeNum(r.avg_daily_units_sold_ytd) ?? 0) <= INSIGHT_THRESHOLDS.slowMoverMaxDailyUnits
+      )
+      .sort((a, b) => Number(b.available) - Number(a.available))[0];
+
+    if (slow) {
+      const name = slow.product_title?.trim() || slow.sku;
+      insights.push({
+        id: "slow_mover_stock",
+        kind: "opportunity",
+        severity: "info",
+        score: 35 + Math.min(20, Number(slow.available) / 10),
+        title: "Sklad: pomalý tovar s vysokou zásobou",
+        body: `${name} má ${Number(slow.available)} ks na sklade a veľmi nízky YTD odber. Zváž promo/bundle alebo zníženie ďalšieho doobjednania.`,
+        metric: { label: "Dostupné", value: `${Number(slow.available)} ks` },
+        link: { href: "/sklad", label: "Otvoriť sklad" },
       });
     }
   }
