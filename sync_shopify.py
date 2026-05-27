@@ -21,6 +21,7 @@ Usage:
   python sync_shopify.py --ytd              # orders with created_at >= Jan 1 (current year)
   python sync_shopify.py --from 2026-01-01   # updated_at >= date (YYYY-MM-DD)
   python sync_shopify.py --created-from 2025-11-20  # orders created_at >= date (one-shot backfill; wins over --ytd/--from/--days)
+  python sync_shopify.py --utm-backfill          # re-sync orders since SHOPIFY_ORDERS_SINCE (default 2025-11-01) for UTM
   python sync_shopify.py --orders-only
   python sync_shopify.py --inventory-only
 """
@@ -291,6 +292,36 @@ query Orders($cursor: String, $query: String!) {
         totalPriceSet { shopMoney { amount currencyCode } }
         subtotalPriceSet { shopMoney { amount currencyCode } }
         email
+        customerJourneySummary {
+          ready
+          daysToConversion
+          firstVisit {
+            landingPage
+            referrerUrl
+            source
+            sourceType
+            utmParameters {
+              source
+              medium
+              campaign
+              content
+              term
+            }
+          }
+          lastVisit {
+            landingPage
+            referrerUrl
+            source
+            sourceType
+            utmParameters {
+              source
+              medium
+              campaign
+              content
+              term
+            }
+          }
+        }
         lineItems(first: 250) {
           edges {
             node {
@@ -411,6 +442,35 @@ def sync_locations(
     log.info("Upserted %d locations", len(rows))
 
 
+def _blank_str(v: Any) -> Optional[str]:
+    if not isinstance(v, str):
+        return None
+    s = v.strip()
+    return s or None
+
+
+def extract_order_utm_fields(node: Dict[str, Any]) -> Dict[str, Any]:
+    """Last-touch attribution from Order.customerJourneySummary (Shopify Admin GraphQL)."""
+    summary = node.get("customerJourneySummary") if isinstance(node.get("customerJourneySummary"), dict) else {}
+    last_visit = summary.get("lastVisit") if isinstance(summary.get("lastVisit"), dict) else {}
+    first_visit = summary.get("firstVisit") if isinstance(summary.get("firstVisit"), dict) else {}
+    visit = last_visit or first_visit
+    utm = visit.get("utmParameters") if isinstance(visit.get("utmParameters"), dict) else {}
+
+    utm_source = _blank_str(utm.get("source")) or _blank_str(visit.get("source"))
+    return {
+        "utm_attribution_ready": summary.get("ready"),
+        "utm_source": utm_source,
+        "utm_medium": _blank_str(utm.get("medium")),
+        "utm_campaign": _blank_str(utm.get("campaign")),
+        "utm_content": _blank_str(utm.get("content")),
+        "utm_term": _blank_str(utm.get("term")),
+        "utm_landing_page": _blank_str(visit.get("landingPage")),
+        "utm_referrer_url": _blank_str(visit.get("referrerUrl")),
+        "utm_visit_source": _blank_str(visit.get("source")),
+    }
+
+
 def order_node_to_rows(
     node: Dict[str, Any],
 ) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
@@ -452,6 +512,7 @@ def order_node_to_rows(
         "customer_email": customer_email,
         # displayName: ORDERS_QUERY + read_customers.
         "customer_display_name": None,
+        **extract_order_utm_fields(node),
         "raw_json": node,
     }
 
@@ -506,6 +567,7 @@ def sync_orders(
     log.info("Fetching orders query=%r ...", search_query)
     cursor: Optional[str] = None
     total_orders = 0
+    with_utm = 0
     while True:
         data = shopify_graphql(
             client,
@@ -529,6 +591,8 @@ def sync_orders(
                 log.warning("Skip order: %s", e)
                 continue
             orow["fetched_at"] = sync_run_at
+            if orow.get("utm_source") or orow.get("utm_campaign") or orow.get("utm_medium"):
+                with_utm += 1
             for lr in lrows:
                 lr["fetched_at"] = sync_run_at
             order_rows.append(orow)
@@ -552,7 +616,11 @@ def sync_orders(
             break
         cursor = page.get("endCursor")
 
-    log.info("Synced %d orders (this query window)", total_orders)
+    log.info(
+        "Synced %d orders (this query window); %d with UTM medium/source/campaign",
+        total_orders,
+        with_utm,
+    )
 
 
 def sync_inventory(
@@ -688,7 +756,22 @@ def main() -> None:
     )
     parser.add_argument("--orders-only", action="store_true")
     parser.add_argument("--inventory-only", action="store_true")
+    parser.add_argument(
+        "--utm-backfill",
+        action="store_true",
+        help="Re-sync orders since SHOPIFY_ORDERS_SINCE (default 2025-11-01) to populate UTM columns; implies --orders-only",
+    )
     args = parser.parse_args()
+
+    if args.utm_backfill:
+        since_raw = (os.environ.get("SHOPIFY_ORDERS_SINCE") or "2025-11-01").strip()
+        try:
+            args.created_from = datetime.strptime(since_raw, "%Y-%m-%d").date()
+        except ValueError:
+            log.error("Invalid SHOPIFY_ORDERS_SINCE=%r (expected YYYY-MM-DD)", since_raw)
+            sys.exit(1)
+        args.orders_only = True
+        log.info("UTM backfill: created_at >= %s (orders only)", args.created_from.isoformat())
     args.ytd_year = args.ytd_year or date.today().year
 
     store = _normalize_store(_require_env("SHOPIFY_STORE"))
