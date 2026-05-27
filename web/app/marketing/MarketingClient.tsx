@@ -11,6 +11,10 @@ import {
 import type { ChartData, ChartOptions } from "chart.js";
 import { Pie } from "react-chartjs-2";
 import { HeaderBrand, HeaderSectionSelect } from "../components/HeaderNav";
+import {
+  buildMarketingMarkdown,
+  downloadMarketingMarkdown,
+} from "@/lib/marketingMarkdownExport";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -172,6 +176,9 @@ export default function MarketingClient() {
   const [dimMenuOpen, setDimMenuOpen] = useState(false);
   const dimMenuRef = useRef<HTMLDivElement>(null);
 
+  const [pdfExporting, setPdfExporting] = useState(false);
+  const pdfExportRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!rangeMenuOpen) return;
     const close = () => setRangeMenuOpen(false);
@@ -320,6 +327,89 @@ export default function MarketingClient() {
     ? `${data.meta.from} – ${data.meta.to}`
     : RANGE_LABELS[range];
 
+  const downloadMarketingMd = useCallback(() => {
+    if (!data) return;
+    const breakdownRows = breakdownForDimension(data, dimension);
+    const from = data.meta.from.replace(/\s/g, "");
+    const to = data.meta.to.replace(/\s/g, "");
+
+    const md = buildMarketingMarkdown({
+      range,
+      rangeLabel: RANGE_LABELS[range],
+      periodLabel,
+      dimension,
+      dimensionLabel: DIMENSION_LABELS[dimension],
+      from: data.meta.from,
+      to: data.meta.to,
+      kpis: data.kpis,
+      breakdownRows,
+      recentOrders: data.recentOrders ?? [],
+      currency: data.kpis.currency,
+    });
+
+    downloadMarketingMarkdown(
+      md,
+      `marketing-${range}-${dimension}_${from}_${to}.md`
+    );
+  }, [data, range, dimension, periodLabel]);
+
+  const downloadMarketingPdf = useCallback(async () => {
+    const root = pdfExportRef.current;
+    if (!root || !data) return;
+    setPdfExporting(true);
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+      const canvas = await html2canvas(root, {
+        scale: 1.75,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+        scrollX: 0,
+        scrollY: -window.scrollY,
+        windowWidth: root.scrollWidth,
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const imgW = pageW;
+      const imgH = (canvas.height * imgW) / canvas.width;
+      let heightLeft = imgH;
+      let y = 0;
+
+      pdf.addImage(imgData, "PNG", 0, y, imgW, imgH);
+      heightLeft -= pageH;
+      while (heightLeft > 0) {
+        y = heightLeft - imgH;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 0, y, imgW, imgH);
+        heightLeft -= pageH;
+      }
+
+      const from = data.meta.from.replace(/\s/g, "");
+      const to = data.meta.to.replace(/\s/g, "");
+      pdf.save(`marketing-${range}-${dimension}_${from}_${to}.pdf`);
+    } catch (e) {
+      console.error(e);
+      window.alert(
+        e instanceof Error
+          ? e.message
+          : "Export do PDF zlyhal. Skús znova alebo iný prehliadač."
+      );
+    } finally {
+      setPdfExporting(false);
+    }
+  }, [data, range, dimension]);
+
   return (
     <>
       <header className="site-header">
@@ -418,6 +508,26 @@ export default function MarketingClient() {
               ) : null}
             </div>
           </div>
+          {data && !loading && !err ? (
+            <div className="site-toolbar__actions">
+              <button
+                type="button"
+                className="dashboard-export-btn"
+                onClick={downloadMarketingMd}
+              >
+                Stiahnuť MD
+              </button>
+              <button
+                type="button"
+                className="dashboard-export-btn dashboard-export-btn--accent"
+                disabled={pdfExporting}
+                aria-busy={pdfExporting}
+                onClick={() => void downloadMarketingPdf()}
+              >
+                {pdfExporting ? "Generujem PDF…" : "Stiahnuť PDF"}
+              </button>
+            </div>
+          ) : null}
         </div>
       </header>
 
@@ -432,7 +542,7 @@ export default function MarketingClient() {
         ) : null}
 
         {data ? (
-          <div className="dashboard-pdf-root">
+          <div className="dashboard-pdf-root" ref={pdfExportRef}>
             <p className="dashboard-period-hint">
               Produktové objednávky (paid) · obdobie {periodLabel}
             </p>
