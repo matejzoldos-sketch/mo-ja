@@ -4,7 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { HeaderBrand, HeaderSectionSelect } from "../components/HeaderNav";
 import { INSIGHTS_DEFAULT_RANGE } from "@/lib/insights/config";
-import type { InsightsResponse, Insight } from "@/lib/insights/types";
+import type {
+  InsightsResponse,
+  Insight,
+  InsightArea,
+} from "@/lib/insights/types";
 
 type RangeKey = "30d" | "90d" | "365d";
 type KpiProductKey = "all" | "moja_phase_bez" | "moja_phase_plus";
@@ -38,6 +42,24 @@ function parseKpiProductParam(raw: string | null): KpiProductKey {
   const s = (raw || "").toLowerCase().trim();
   if (s === "moja_phase_bez" || s === "moja_phase_plus") return s;
   return "all";
+}
+
+function resolveInsightArea(i: Insight): InsightArea {
+  if (i.area === "marketing" || i.area === "inventory" || i.area === "sales") {
+    return i.area;
+  }
+  const href = i.link?.href ?? "";
+  if (href.includes("/marketing") || i.id.startsWith("utm_")) return "marketing";
+  if (
+    href.startsWith("/sklad") ||
+    i.id.startsWith("stock") ||
+    i.id === "stockout_soon" ||
+    i.id === "overstock_days" ||
+    i.id === "slow_mover_stock"
+  ) {
+    return "inventory";
+  }
+  return "sales";
 }
 
 function severityLabel(s: Insight["severity"]): string {
@@ -168,27 +190,26 @@ export default function InsightyClient() {
   const risks = data?.risks ?? [];
   const opportunities = data?.opportunities ?? [];
 
-  const isMarketingInsight = (i: Insight) =>
-    i.id.startsWith("utm_") || Boolean(i.link?.href?.startsWith("/marketing"));
-
-  const renderCard = (i: Insight) => (
+  const renderCard = (i: Insight) => {
+    const area = resolveInsightArea(i);
+    return (
     <article
       key={i.id}
       className={`insight-card insight-card--${i.kind} insight-card--${i.severity}${
-        isMarketingInsight(i)
+        area === "marketing"
           ? " insight-card--marketing"
-          : i.link?.href?.startsWith("/sklad")
+          : area === "inventory"
             ? " insight-card--inventory"
             : ""
       }`}
     >
       <div className="insight-card__head">
         <div className="insight-card__kicker">
-          {i.link?.href?.startsWith("/sklad") ? (
+          {area === "inventory" ? (
             <span className="insight-card__badge insight-card__badge--inventory">
               Sklad
             </span>
-          ) : isMarketingInsight(i) ? (
+          ) : area === "marketing" ? (
             <span className="insight-card__badge insight-card__badge--marketing">
               Marketing
             </span>
@@ -218,7 +239,8 @@ export default function InsightyClient() {
         </a>
       ) : null}
     </article>
-  );
+    );
+  };
 
   return (
     <>

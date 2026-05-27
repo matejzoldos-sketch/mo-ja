@@ -1,11 +1,13 @@
 export type InsightKind = "risk" | "opportunity";
 export type InsightSeverity = "critical" | "warning" | "info";
+export type InsightArea = "sales" | "inventory" | "marketing";
 
 export type Insight = {
   id: string;
   kind: InsightKind;
   severity: InsightSeverity;
   score: number;
+  area?: InsightArea;
   title: string;
   body: string;
   metric?: { label: string; value: string; delta?: string };
