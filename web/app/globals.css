@@ -146,10 +146,10 @@ a:hover {
 
 .header-section-switch__segmented {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: stretch;
   width: 100%;
-  max-width: 420px;
+  max-width: 520px;
   border: 1px solid var(--border-strong);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
@@ -628,6 +628,68 @@ a:hover {
   .charts-row--single {
     grid-template-columns: 1fr;
   }
+
+  .charts-row--marketing {
+    grid-template-columns: 1fr 1.2fr;
+  }
+}
+
+.charts-row--marketing {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+}
+
+.marketing-pie-wrap {
+  max-width: 360px;
+  margin: 0 auto;
+}
+
+.chart-card--marketing-orders {
+  margin-top: 18px;
+}
+
+.kpi-card__suffix {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.dashboard-period-hint {
+  margin: 0 0 16px;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.data-table th,
+.data-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.data-table th.num,
+.data-table td.num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.data-table thead th {
+  font-weight: 700;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 .chart-card {
