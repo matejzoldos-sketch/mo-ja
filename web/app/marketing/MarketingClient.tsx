@@ -290,13 +290,23 @@ export default function MarketingClient() {
     };
   }, [chartRows]);
 
+  const [compactCharts, setCompactCharts] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 520px)");
+    const update = () => setCompactCharts(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
   const pieOptions: ChartOptions<"pie"> = useMemo(
     () => ({
       responsive: true,
       maintainAspectRatio: true,
-      aspectRatio: 1.15,
+      aspectRatio: compactCharts ? 1 : 1.15,
       plugins: {
         legend: {
+          display: !compactCharts,
           position: "bottom",
           labels: {
             color: TEXT,
@@ -320,7 +330,7 @@ export default function MarketingClient() {
         },
       },
     }),
-    [chartRows, data?.kpis.currency]
+    [chartRows, compactCharts, data?.kpis.currency]
   );
 
   const periodLabel = data?.meta
@@ -411,13 +421,15 @@ export default function MarketingClient() {
 
   return (
     <>
-      <header className="site-header">
+      <header className="site-header site-header--sklad">
         <div className="site-header__inner">
           <HeaderBrand />
+          <div className="site-toolbar__filters site-toolbar__filters--under-brand">
+            <HeaderSectionSelect />
+          </div>
         </div>
         <div className="site-toolbar">
           <div className="site-toolbar__filters">
-            <HeaderSectionSelect />
             <div className="period-filter period-filter--range" ref={rangeMenuRef}>
               <button
                 type="button"
@@ -580,7 +592,7 @@ export default function MarketingClient() {
             </section>
 
             <section className="charts-row charts-row--marketing">
-              <div className="chart-card">
+              <div className="chart-card chart-card--marketing-pie">
                 <h2>
                   Podiel tržieb podľa {DIMENSION_LABELS[dimension].toLowerCase()}
                 </h2>
