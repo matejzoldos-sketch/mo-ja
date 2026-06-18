@@ -1,5 +1,5 @@
-# Tatra banka AIS → Supabase. Vyžaduje TATRA_REFRESH_TOKEN (OAuth súhlas AIS).
-# Secrets: SUPABASE_*, TATRA_CLIENT_ID, TATRA_CLIENT_SECRET, TATRA_REFRESH_TOKEN.
+# Tatra banka AIS → Supabase. Token: Basic auth + refresh_token (odporúčané) alebo client_credentials.
+# Secrets: SUPABASE_*, TATRA_CLIENT_ID, TATRA_CLIENT_SECRET; voliteľne TATRA_REFRESH_TOKEN (ak je, použije sa auto).
 
 name: Tatra banka sync
 
@@ -36,8 +36,6 @@ jobs:
     env:
       TATRA_ENV: ${{ github.event_name == 'workflow_dispatch' && inputs.tatra_env || 'production' }}
       TATRA_TX_DATE_FROM_MIN: "2026-01-01"
-      # Bez refresh tokenu AIS vracia NO_AUTHORIZATION (token cez client_credentials nestačí).
-      TATRA_REQUIRE_REFRESH_TOKEN: "1"
 
     steps:
       - uses: actions/checkout@v4

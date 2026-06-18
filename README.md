@@ -97,10 +97,10 @@ alebo SQL súbory v [Supabase SQL Editor](https://supabase.com/dashboard).
 
 **GitHub Secrets** (okrem Shopify a Supabase):
 
-- `TATRA_CLIENT_ID`, `TATRA_CLIENT_SECRET`
-- **`TATRA_REFRESH_TOKEN` (povinné pre AIS)** — `client_credentials` síce vráti access token, ale `GET /v3/accounts` typicky skončí `403 NO_AUTHORIZATION` bez OAuth súhlasu. Workflow má `TATRA_REQUIRE_REFRESH_TOKEN=1` a bez secretu sync nespustí.
+- `TATRA_CLIENT_ID`, `TATRA_CLIENT_SECRET` — **vlastná** Tatra appka mo-ja (iná firma = iné credentials než ZITA; rovnaký typ produktu a nastavenie v dev portáli)
+- voliteľne `TATRA_REFRESH_TOKEN` — ak je nastavený, sync ho použije namiesto `client_credentials`
 
-Ak už beží sync v **zita-dashboard** s tou istou Tatra appkou, skopíruj do tohto repa rovnaké `TATRA_CLIENT_ID`, `TATRA_CLIENT_SECRET` a `TATRA_REFRESH_TOKEN` (hint v logu: posledných 8 znakov client_id musí sedieť). Iná appka v dev portáli = nový OAuth flow.
+V TB Business **mo-ja** musí byť aktivovaný súhlas AIS (FAC_BBTB) pre **túto** appku (client_id z dev portálu mo-ja). Rovnaký postup ako pri inej firme so Premium API — nie kopírovanie secretov, ale rovnaký typ bankového súhlasu.
 
 Workflow **Tatra banka sync**: denne **00:30 UTC** (pol hodiny po Shopify), alebo manuálne **Actions → Tatra banka sync → Run workflow**.
 
