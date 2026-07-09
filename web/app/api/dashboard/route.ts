@@ -7,6 +7,10 @@ import {
   periodToRpcPayload,
   resolvePeriodFromSearchParams,
 } from "@/lib/dashboardPeriodApi";
+import {
+  previousPeriodBounds,
+  previousPeriodLabel,
+} from "@/lib/dashboardPeriodCompare";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +56,17 @@ const MOCK_PAYLOAD = {
     avg_customer_ltv: 312.45,
     avg_units_per_unique_customer: 4.62,
     avg_days_first_to_second_purchase: 38.5,
+  },
+  kpisPrevious: {
+    revenue: 11200.0,
+    orders: 142,
+    aov: 78.87,
+    currency: "EUR",
+    avg_units_per_order: 2.05,
+    returning_customers_pct: 39.2,
+    avg_customer_ltv: 298.1,
+    avg_units_per_unique_customer: 4.41,
+    avg_days_first_to_second_purchase: 41.0,
   },
   dailyRevenue: Array.from({ length: 14 }, (_, i) => {
     const d = new Date(Date.UTC(2026, 3, 1 + i));
@@ -212,17 +227,54 @@ export async function GET(request: Request) {
       : {};
 
   const meta = base.meta;
-  const metaTo =
-    meta != null &&
-    typeof meta === "object" &&
-    !Array.isArray(meta) &&
-    "to" in meta
-      ? String((meta as { to: unknown }).to)
+  const metaObj =
+    meta != null && typeof meta === "object" && !Array.isArray(meta)
+      ? (meta as Record<string, unknown>)
       : null;
+  const metaFrom =
+    metaObj && typeof metaObj.from === "string" ? metaObj.from : null;
+  const metaTo =
+    metaObj && typeof metaObj.to === "string" ? metaObj.to : null;
+
+  let kpisPrevious: Record<string, unknown> | null = null;
+  let compareMeta: Record<string, string> | null = null;
+
+  if (metaFrom && metaTo) {
+    const prevBounds = previousPeriodBounds(metaFrom, metaTo);
+    if (prevBounds) {
+      compareMeta = {
+        compareFrom: prevBounds.from,
+        compareTo: prevBounds.to,
+        compareLabel: previousPeriodLabel(prevBounds.from, prevBounds.to),
+      };
+      const prevKpiPayload: Record<string, unknown> = {
+        p_from: prevBounds.from,
+        p_to: prevBounds.to,
+      };
+      if (pKpiProduct != null) prevKpiPayload.p_kpi_product = pKpiProduct;
+
+      const prevRes = await supabasePostgrestRpc<Record<string, unknown>>(
+        supabaseUrl,
+        serviceKey,
+        "get_shopify_dashboard_kpis",
+        prevKpiPayload
+      );
+      if (!prevRes.error && prevRes.data != null) {
+        kpisPrevious = prevRes.data;
+      }
+    }
+  }
 
   return NextResponse.json(
     {
       ...base,
+      ...(kpisPrevious ? { kpisPrevious } : {}),
+      meta: metaObj
+        ? {
+            ...metaObj,
+            ...(compareMeta ?? {}),
+          }
+        : meta,
       lastSyncAt,
     },
     { headers: dashboardHeaders(supabaseUrl, metaTo) }

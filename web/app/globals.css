@@ -709,6 +709,51 @@ a:hover {
   overflow: hidden;
 }
 
+.kpi-card__compare {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 8px;
+  margin-top: 8px;
+  line-height: 1.25;
+}
+
+.kpi-card__delta {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.kpi-card__delta--good {
+  color: #3d6b4f;
+}
+
+.kpi-card__delta--bad {
+  color: #b4534a;
+}
+
+.kpi-card__delta--flat {
+  color: var(--text-muted);
+}
+
+.kpi-card__prev {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.kpi-card__prev-label {
+  font-weight: 600;
+}
+
+.kpi-card--hero .kpi-card__compare {
+  margin-top: 10px;
+}
+
+.kpi-card--hero .kpi-card__prev {
+  font-size: 0.75rem;
+}
+
 .kpi-card__suffix {
   font-size: 0.875rem;
   font-weight: 600;

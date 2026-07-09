@@ -19,6 +19,7 @@ import type { ChartData, ChartOptions } from "chart.js";
 import { Line, Bar, Pie } from "react-chartjs-2";
 import { HeaderBrand, HeaderSectionSelect } from "./components/HeaderNav";
 import { PeriodFilterMenu } from "./components/PeriodFilterMenu";
+import { KpiPeriodCompare } from "./components/KpiPeriodCompare";
 import { formatLastSyncDisplay } from "@/lib/formatLastSync";
 import {
   periodFilterApiQuery,
@@ -100,7 +101,11 @@ type PayloadMeta = {
   from: string;
   to: string;
   month?: string | null;
+  year?: string | null;
   kpi_product?: string;
+  compareFrom?: string;
+  compareTo?: string;
+  compareLabel?: string;
 };
 
 type SkuDailyYtd = {
@@ -144,6 +149,7 @@ type PurchaseIntervalHistogram = {
 type Payload = {
   meta: PayloadMeta;
   kpis: Kpis;
+  kpisPrevious?: Kpis | null;
   dailyRevenue: Daily[];
   topProducts: TopProduct[];
   topCustomers?: TopCustomer[];
@@ -1126,16 +1132,38 @@ export default function DashboardClient() {
                   <div className="kpi-card__value">
                     {formatMoney(Number(data.kpis.revenue), data.kpis.currency)}
                   </div>
+                  <KpiPeriodCompare
+                    current={data.kpis.revenue}
+                    previous={data.kpisPrevious?.revenue}
+                    formatValue={(v) =>
+                      formatMoney(v, data.kpis.currency ?? data.kpisPrevious?.currency ?? null)
+                    }
+                    periodLabel={data.meta.compareLabel}
+                  />
                 </div>
                 <div className="kpi-card kpi-card--hero">
                   <div className="kpi-card__label">Počet objednávok</div>
                   <div className="kpi-card__value">{data.kpis.orders}</div>
+                  <KpiPeriodCompare
+                    current={data.kpis.orders}
+                    previous={data.kpisPrevious?.orders}
+                    formatValue={(v) => String(Math.round(v))}
+                    periodLabel={data.meta.compareLabel}
+                  />
                 </div>
                 <div className="kpi-card kpi-card--hero">
                   <div className="kpi-card__label">AOV</div>
                   <div className="kpi-card__value">
                     {formatMoney(Number(data.kpis.aov), data.kpis.currency)}
                   </div>
+                  <KpiPeriodCompare
+                    current={data.kpis.aov}
+                    previous={data.kpisPrevious?.aov}
+                    formatValue={(v) =>
+                      formatMoney(v, data.kpis.currency ?? data.kpisPrevious?.currency ?? null)
+                    }
+                    periodLabel={data.meta.compareLabel}
+                  />
                 </div>
               </div>
               <div className="kpi-grid kpi-grid--secondary">
@@ -1144,6 +1172,12 @@ export default function DashboardClient() {
                 <div className="kpi-card__value">
                   {formatAvgUnitsPerOrder(data.kpis.avg_units_per_order)}
                 </div>
+                <KpiPeriodCompare
+                  current={data.kpis.avg_units_per_order}
+                  previous={data.kpisPrevious?.avg_units_per_order}
+                  formatValue={(v) => v.toFixed(2).replace(".", ",")}
+                  periodLabel={data.meta.compareLabel}
+                />
               </div>
               <div className="kpi-card">
                 <div className="kpi-card__label">
@@ -1154,6 +1188,12 @@ export default function DashboardClient() {
                     data.kpis.avg_units_per_unique_customer
                   )}
                 </div>
+                <KpiPeriodCompare
+                  current={data.kpis.avg_units_per_unique_customer}
+                  previous={data.kpisPrevious?.avg_units_per_unique_customer}
+                  formatValue={(v) => v.toFixed(2).replace(".", ",")}
+                  periodLabel={data.meta.compareLabel}
+                />
               </div>
               {(period.range === "30d" ||
                 period.range === "90d" ||
@@ -1167,6 +1207,12 @@ export default function DashboardClient() {
                   <div className="kpi-card__value">
                     {formatReturningPct(data.kpis.returning_customers_pct)}
                   </div>
+                  <KpiPeriodCompare
+                    current={data.kpis.returning_customers_pct}
+                    previous={data.kpisPrevious?.returning_customers_pct}
+                    formatValue={(v) => `${v.toFixed(1).replace(".", ",")} %`}
+                    periodLabel={data.meta.compareLabel}
+                  />
                 </div>
               )}
               <div className="kpi-card">
@@ -1178,6 +1224,13 @@ export default function DashboardClient() {
                     data.kpis.avg_days_first_to_second_purchase
                   )}
                 </div>
+                <KpiPeriodCompare
+                  current={data.kpis.avg_days_first_to_second_purchase}
+                  previous={data.kpisPrevious?.avg_days_first_to_second_purchase}
+                  formatValue={(v) => `${Math.round(v)} dní`}
+                  higherIsBetter={false}
+                  periodLabel={data.meta.compareLabel}
+                />
               </div>
               <div className="kpi-card">
                 <div className="kpi-card__label">Priem. LTV / zákazníka</div>
@@ -1191,6 +1244,14 @@ export default function DashboardClient() {
                         data.kpis.currency
                       )}
                 </div>
+                <KpiPeriodCompare
+                  current={data.kpis.avg_customer_ltv}
+                  previous={data.kpisPrevious?.avg_customer_ltv}
+                  formatValue={(v) =>
+                    formatMoney(v, data.kpis.currency ?? data.kpisPrevious?.currency ?? null)
+                  }
+                  periodLabel={data.meta.compareLabel}
+                />
               </div>
               </div>
             </section>
