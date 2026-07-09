@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Chart as ChartJS,
@@ -378,21 +378,17 @@ export default function DashboardClient() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const periodFromUrl = parsePeriodFilter(
-    searchParams.get("range"),
-    searchParams.get("month"),
-    { defaultRange: "365d" }
+  const rangeRaw = searchParams.get("range");
+  const monthRaw = searchParams.get("month");
+  const period = useMemo(
+    () => parsePeriodFilter(rangeRaw, monthRaw, { defaultRange: "365d" }),
+    [rangeRaw, monthRaw]
   );
-  const [period, setPeriod] = useState<PeriodFilter>(periodFromUrl);
   const kpiProductFromUrl = parseKpiProductParam(
     searchParams.get("kpi_product")
   );
   const [kpiProduct, setKpiProduct] =
     useState<KpiProductKey>(kpiProductFromUrl);
-
-  useEffect(() => {
-    setPeriod(periodFromUrl);
-  }, [periodFromUrl]);
 
   useEffect(() => {
     setKpiProduct(kpiProductFromUrl);
@@ -476,32 +472,32 @@ export default function DashboardClient() {
         cache: "no-store",
         headers: { "Cache-Control": "no-cache" },
       };
-      const skuQuery = `?${periodQ}${
-        kpi !== "all"
-          ? `&kpi_product=${encodeURIComponent(kpi)}`
-          : ""
-      }&_=${Date.now()}`;
-      const [mainRes, skuRes] = await Promise.all([
-        fetch(`/api/dashboard${q}`, fetchOpts),
-        fetch(`/api/dashboard/sku-ytd${skuQuery}`, fetchOpts),
-      ]);
+      const mainRes = await fetch(`/api/dashboard${q}`, fetchOpts);
       const mainJson = (await mainRes.json()) as Payload & { error?: string };
       if (!mainRes.ok) {
         setErr(mainJson.error || `HTTP ${mainRes.status}`);
         setData(null);
         return;
       }
-      let skuDailyYtd = mainJson.skuDailyYtd;
+      setData({ ...mainJson, skuDailyYtd: mainJson.skuDailyYtd } as Payload);
+
+      const skuQuery = `?${periodQ}${
+        kpi !== "all"
+          ? `&kpi_product=${encodeURIComponent(kpi)}`
+          : ""
+      }&_=${Date.now()}`;
+      const skuRes = await fetch(`/api/dashboard/sku-ytd${skuQuery}`, fetchOpts);
       if (skuRes.ok) {
         const sj = (await skuRes.json()) as {
           error?: string;
           skuDailyYtd?: SkuDailyYtd;
         };
         if (!sj.error && sj.skuDailyYtd !== undefined) {
-          skuDailyYtd = sj.skuDailyYtd;
+          setData((prev) =>
+            prev ? { ...prev, skuDailyYtd: sj.skuDailyYtd } : prev
+          );
         }
       }
-      setData({ ...mainJson, skuDailyYtd } as Payload);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Fetch failed");
       setData(null);
@@ -512,19 +508,9 @@ export default function DashboardClient() {
 
   useEffect(() => {
     void load(period, kpiProduct);
-  }, [load, period, kpiProduct]);
-
-  useEffect(() => {
-    const onVis = () => {
-      if (document.visibilityState === "visible")
-        void load(period, kpiProduct);
-    };
-    document.addEventListener("visibilitychange", onVis);
-    return () => document.removeEventListener("visibilitychange", onVis);
-  }, [load, period, kpiProduct]);
+  }, [load, period.range, period.month, kpiProduct]);
 
   function onPeriodChange(next: PeriodFilter) {
-    setPeriod(next);
     const params = periodFilterToSearchParams(next, searchParams);
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });

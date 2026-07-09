@@ -153,17 +153,16 @@ export default function MarketingClient() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const periodFromUrl = parsePeriodFilter(
-    searchParams.get("range"),
-    searchParams.get("month"),
-    { defaultRange: "90d" }
+  const rangeRaw = searchParams.get("range");
+  const monthRaw = searchParams.get("month");
+  const period = useMemo(
+    () => parsePeriodFilter(rangeRaw, monthRaw, { defaultRange: "90d" }),
+    [rangeRaw, monthRaw]
   );
-  const [period, setPeriod] = useState<PeriodFilter>(periodFromUrl);
 
   const dimFromUrl = parseDimensionParam(searchParams.get("dim"));
   const [dimension, setDimension] = useState<DimensionKey>(dimFromUrl);
 
-  useEffect(() => setPeriod(periodFromUrl), [periodFromUrl]);
   useEffect(() => setDimension(dimFromUrl), [dimFromUrl]);
 
   const [data, setData] = useState<MarketingPayload | null>(null);
@@ -232,10 +231,9 @@ export default function MarketingClient() {
 
   useEffect(() => {
     void load(period);
-  }, [load, period]);
+  }, [load, period.range, period.month]);
 
   const setPeriodInUrl = (next: PeriodFilter) => {
-    setPeriod(next);
     const params = periodFilterToSearchParams(next, searchParams);
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
