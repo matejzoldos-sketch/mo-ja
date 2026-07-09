@@ -46,6 +46,16 @@ function formatSkShortDate(iso: string): string {
   });
 }
 
+function formatSkDayMonth(iso: string): string {
+  const d = parseYmd(iso);
+  if (!d) return iso;
+  return d.toLocaleDateString("sk-SK", {
+    day: "numeric",
+    month: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 /** Krátky popis predchádzajúceho okna pre scorecards. */
 export function previousPeriodLabel(from: string, to: string): string {
   const fromD = parseYmd(from);
@@ -77,10 +87,10 @@ export function previousPeriodLabel(from: string, to: string): string {
     return label.charAt(0).toUpperCase() + label.slice(1);
   }
   if (sameYear && sameMonth) {
-    return `${fromD.getUTCDate()}. – ${toD.getUTCDate()}. ${formatSkShortDate(to).split(" ").slice(-1)[0]}`;
+    return `${fromD.getUTCDate()}. – ${formatSkShortDate(to)}`;
   }
   if (sameYear) {
-    return `${fromD.getUTCDate()}. ${fromD.getUTCMonth() + 1}. – ${formatSkShortDate(to)}`;
+    return `${formatSkDayMonth(from)} – ${formatSkShortDate(to)}`;
   }
   return `${formatSkShortDate(from)} – ${formatSkShortDate(to)}`;
 }
