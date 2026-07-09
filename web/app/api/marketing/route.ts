@@ -21,7 +21,8 @@ export async function GET(request: Request) {
   const period = resolvePeriodFromSearchParams(url.searchParams, {
     defaultRange: "90d",
   });
-  const { p_range: range, p_month: month } = periodToRpcPayload(period);
+  const { p_range: range, p_month: month, p_year: year } =
+    periodToRpcPayload(period);
 
   if (url.searchParams.get("mock") === "1") {
     return NextResponse.json(
@@ -70,6 +71,7 @@ export async function GET(request: Request) {
       {
         p_range: range,
         ...(month ? { p_month: month } : {}),
+        ...(year ? { p_year: year } : {}),
       }
     );
     if (rpcRes.error) {

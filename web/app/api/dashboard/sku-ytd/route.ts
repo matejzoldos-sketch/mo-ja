@@ -23,7 +23,8 @@ export async function GET(request: Request) {
   const period = resolvePeriodFromSearchParams(url.searchParams, {
     defaultRange: "365d",
   });
-  const { p_range: pRange, p_month: pMonth } = periodToRpcPayload(period);
+  const { p_range: pRange, p_month: pMonth, p_year: pYear } =
+    periodToRpcPayload(period);
   const rawKpi =
     url.searchParams.get("kpi_product")?.toLowerCase().trim() ?? "";
   const kpiProductEarly = ALLOWED_KPI_PRODUCT.has(rawKpi) ? rawKpi : "all";
@@ -81,6 +82,7 @@ export async function GET(request: Request) {
 
   const skuRpcPayload: Record<string, unknown> = { p_range: pRange };
   if (pMonth) skuRpcPayload.p_month = pMonth;
+  if (pYear) skuRpcPayload.p_year = pYear;
   if (pKpiProduct != null) skuRpcPayload.p_kpi_product = pKpiProduct;
 
   const skuRes = await supabasePostgrestRpc<unknown>(

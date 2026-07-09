@@ -144,7 +144,7 @@ export async function GET(request: Request) {
   const period = resolvePeriodFromSearchParams(url.searchParams, {
     defaultRange: "365d",
   });
-  const { p_range: rangeEarly, p_month: monthEarly } =
+  const { p_range: rangeEarly, p_month: monthEarly, p_year: yearEarly } =
     periodToRpcPayload(period);
   const rawKpi =
     url.searchParams.get("kpi_product")?.toLowerCase().trim() ?? "";
@@ -160,6 +160,7 @@ export async function GET(request: Request) {
           ...MOCK_PAYLOAD.meta,
           range: rangeEarly,
           month: monthEarly ?? null,
+          year: yearEarly ?? null,
           kpi_product: kpiProductEarly,
         },
       },
@@ -184,6 +185,7 @@ export async function GET(request: Request) {
 
   const dashRpcPayload: Record<string, unknown> = { p_range: rangeEarly };
   if (monthEarly) dashRpcPayload.p_month = monthEarly;
+  if (yearEarly) dashRpcPayload.p_year = yearEarly;
   if (pKpiProduct != null) dashRpcPayload.p_kpi_product = pKpiProduct;
 
   const [dashRes, lastSyncAt] = await Promise.all([

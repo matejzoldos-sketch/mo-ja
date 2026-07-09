@@ -380,9 +380,10 @@ export default function DashboardClient() {
   const searchParams = useSearchParams();
   const rangeRaw = searchParams.get("range");
   const monthRaw = searchParams.get("month");
+  const yearRaw = searchParams.get("year");
   const period = useMemo(
-    () => parsePeriodFilter(rangeRaw, monthRaw, { defaultRange: "365d" }),
-    [rangeRaw, monthRaw]
+    () => parsePeriodFilter(rangeRaw, monthRaw, yearRaw, { defaultRange: "365d" }),
+    [rangeRaw, monthRaw, yearRaw]
   );
   const kpiProductFromUrl = parseKpiProductParam(
     searchParams.get("kpi_product")
@@ -397,10 +398,13 @@ export default function DashboardClient() {
   useEffect(() => {
     const rangeRaw = searchParams.get("range");
     const monthRaw = searchParams.get("month");
-    if (!periodFilterNeedsUrlNormalize(rangeRaw, monthRaw)) {
+    const yearRaw = searchParams.get("year");
+    if (!periodFilterNeedsUrlNormalize(rangeRaw, monthRaw, yearRaw)) {
       return;
     }
-    const next = parsePeriodFilter(rangeRaw, monthRaw, { defaultRange: "365d" });
+    const next = parsePeriodFilter(rangeRaw, monthRaw, yearRaw, {
+      defaultRange: "365d",
+    });
     const params = periodFilterToSearchParams(next, searchParams);
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
@@ -534,7 +538,7 @@ export default function DashboardClient() {
   const chartPeriodInParens =
     period.range === "365d"
       ? "Nov 2025 - Súčasnosť"
-      : period.range === "month"
+      : period.range === "month" || period.range === "year"
         ? periodFilterLabel(period)
         : periodLabel;
 
@@ -546,7 +550,7 @@ export default function DashboardClient() {
   const skuChartPeriodInParens =
     period.range === "365d"
       ? "Nov 2025 - Súčasnosť"
-      : period.range === "month"
+      : period.range === "month" || period.range === "year"
         ? periodFilterLabel(period)
         : skuChartPeriodLabel;
 
@@ -918,7 +922,11 @@ export default function DashboardClient() {
     const to = data.meta.to.replace(/\s/g, "");
     const kpiSlug = kpiProduct === "all" ? "" : `-${kpiProduct}`;
     const periodSlug =
-      period.range === "month" ? `month-${period.month ?? "current"}` : period.range;
+      period.range === "month"
+        ? `month-${period.month ?? "current"}`
+        : period.range === "year"
+          ? `year-${period.year ?? "current"}`
+          : period.range;
     downloadDashboardMarkdown(
       md,
       `predaj-${periodSlug}${kpiSlug}_${from}_${to}.md`
@@ -968,7 +976,11 @@ export default function DashboardClient() {
       const kpiSlug =
         kpiProduct === "all" ? "" : `-${kpiProduct}`;
       const periodSlug =
-        period.range === "month" ? `month-${period.month ?? "current"}` : period.range;
+        period.range === "month"
+          ? `month-${period.month ?? "current"}`
+          : period.range === "year"
+            ? `year-${period.year ?? "current"}`
+            : period.range;
       pdf.save(`predaj-${periodSlug}${kpiSlug}_${from}_${to}.pdf`);
     } catch (e) {
       console.error(e);
@@ -1146,6 +1158,7 @@ export default function DashboardClient() {
               {(period.range === "30d" ||
                 period.range === "90d" ||
                 period.range === "365d" ||
+                period.range === "year" ||
                 period.range === "month") && (
                 <div className="kpi-card">
                   <div className="kpi-card__label">

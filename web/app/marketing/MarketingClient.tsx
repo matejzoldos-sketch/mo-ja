@@ -155,9 +155,10 @@ export default function MarketingClient() {
 
   const rangeRaw = searchParams.get("range");
   const monthRaw = searchParams.get("month");
+  const yearRaw = searchParams.get("year");
   const period = useMemo(
-    () => parsePeriodFilter(rangeRaw, monthRaw, { defaultRange: "90d" }),
-    [rangeRaw, monthRaw]
+    () => parsePeriodFilter(rangeRaw, monthRaw, yearRaw, { defaultRange: "90d" }),
+    [rangeRaw, monthRaw, yearRaw]
   );
 
   const dimFromUrl = parseDimensionParam(searchParams.get("dim"));
@@ -178,10 +179,13 @@ export default function MarketingClient() {
   useEffect(() => {
     const rangeRaw = searchParams.get("range");
     const monthRaw = searchParams.get("month");
-    if (!periodFilterNeedsUrlNormalize(rangeRaw, monthRaw)) {
+    const yearRaw = searchParams.get("year");
+    if (!periodFilterNeedsUrlNormalize(rangeRaw, monthRaw, yearRaw)) {
       return;
     }
-    const next = parsePeriodFilter(rangeRaw, monthRaw, { defaultRange: "90d" });
+    const next = parsePeriodFilter(rangeRaw, monthRaw, yearRaw, {
+      defaultRange: "90d",
+    });
     const params = periodFilterToSearchParams(next, searchParams);
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
@@ -345,7 +349,11 @@ export default function MarketingClient() {
     });
 
     const periodSlug =
-      period.range === "month" ? `month-${period.month ?? "current"}` : period.range;
+      period.range === "month"
+        ? `month-${period.month ?? "current"}`
+        : period.range === "year"
+          ? `year-${period.year ?? "current"}`
+          : period.range;
     downloadMarketingMarkdown(
       md,
       `marketing-${periodSlug}-${dimension}_${from}_${to}.md`
@@ -397,7 +405,11 @@ export default function MarketingClient() {
       const from = data.meta.from.replace(/\s/g, "");
       const to = data.meta.to.replace(/\s/g, "");
       const periodSlug =
-        period.range === "month" ? `month-${period.month ?? "current"}` : period.range;
+        period.range === "month"
+          ? `month-${period.month ?? "current"}`
+          : period.range === "year"
+            ? `year-${period.year ?? "current"}`
+            : period.range;
       pdf.save(`marketing-${periodSlug}-${dimension}_${from}_${to}.pdf`);
     } catch (e) {
       console.error(e);

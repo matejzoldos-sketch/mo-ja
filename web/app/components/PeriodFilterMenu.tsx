@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  listAvailableYears,
   listAvailableMonths,
   periodFilterLabel,
   periodFiltersEqual,
@@ -29,6 +30,7 @@ export function PeriodFilterMenu({
 }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const years = listAvailableYears();
   const months = listAvailableMonths();
 
   useEffect(() => {
@@ -57,6 +59,11 @@ export function PeriodFilterMenu({
   function pickMonth(ym: string) {
     setOpen(false);
     onChange({ range: "month", month: ym });
+  }
+
+  function pickYear(year: string) {
+    setOpen(false);
+    onChange({ range: "year", year });
   }
 
   return (
@@ -98,6 +105,31 @@ export function PeriodFilterMenu({
                 >
                   {selected ? "✓ " : ""}
                   {ROLLING_RANGE_LABELS[v]}
+                </button>
+              </li>
+            );
+          })}
+          <li className="period-filter__range-separator" role="separator" aria-hidden>
+            Kalendárne roky
+          </li>
+          {years.map((year) => {
+            const candidate: PeriodFilter = { range: "year", year };
+            const selected = periodFiltersEqual(period, candidate);
+            return (
+              <li key={year} role="presentation">
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={selected}
+                  className={
+                    selected
+                      ? "period-filter__range-option is-selected"
+                      : "period-filter__range-option"
+                  }
+                  onClick={() => pickYear(year)}
+                >
+                  {selected ? "✓ " : ""}
+                  {periodFilterLabel(candidate)}
                 </button>
               </li>
             );
