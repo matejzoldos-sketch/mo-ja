@@ -512,7 +512,7 @@ export default function DashboardClient() {
 
   useEffect(() => {
     void load(period, kpiProduct);
-  }, [load, period.range, period.month, kpiProduct]);
+  }, [load, period.range, period.month, period.year, kpiProduct]);
 
   function onPeriodChange(next: PeriodFilter) {
     const params = periodFilterToSearchParams(next, searchParams);

@@ -235,7 +235,7 @@ export default function MarketingClient() {
 
   useEffect(() => {
     void load(period);
-  }, [load, period.range, period.month]);
+  }, [load, period.range, period.month, period.year]);
 
   const setPeriodInUrl = (next: PeriodFilter) => {
     const params = periodFilterToSearchParams(next, searchParams);
