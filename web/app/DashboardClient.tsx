@@ -94,7 +94,11 @@ type RecentOrder = {
 };
 
 /** Filter pre KPI, grafy aj tabuľky predaja (vrátane denných kusov / SKU grafu). */
-type KpiProductKey = "all" | "moja_phase_bez" | "moja_phase_plus";
+type KpiProductKey =
+  | "all"
+  | "moja_phase_bez"
+  | "moja_phase_plus"
+  | "listky";
 
 type PayloadMeta = {
   range: string;
@@ -166,17 +170,25 @@ const KPI_PRODUCT_LABELS: Record<KpiProductKey, string> = {
   all: "Všetky produkty",
   moja_phase_bez: "MOJA Phase bez fytoestrogénov",
   moja_phase_plus: "MOJA Phase+ s fytoestrogénmi",
+  listky: "Lístky",
 };
 
 const KPI_PRODUCT_ORDER: readonly KpiProductKey[] = [
   "all",
   "moja_phase_bez",
   "moja_phase_plus",
+  "listky",
 ];
 
 function parseKpiProductParam(raw: string | null): KpiProductKey {
   const s = (raw || "").toLowerCase().trim();
-  if (s === "moja_phase_bez" || s === "moja_phase_plus") return s;
+  if (
+    s === "moja_phase_bez" ||
+    s === "moja_phase_plus" ||
+    s === "listky"
+  ) {
+    return s;
+  }
   return "all";
 }
 

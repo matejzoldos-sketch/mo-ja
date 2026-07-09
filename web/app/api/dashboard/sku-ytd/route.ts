@@ -9,7 +9,7 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const ALLOWED_KPI_PRODUCT = new Set(["all", "moja_phase_bez", "moja_phase_plus"]);
+const ALLOWED_KPI_PRODUCT = new Set(["all", "moja_phase_bez", "moja_phase_plus", "listky"]);
 
 export async function GET(request: Request) {
   if (!(await isAuthorizedRequest(request))) {
@@ -37,7 +37,9 @@ export async function GET(request: Request) {
         ? ["MOJA Phase bez fytoestrogénov"]
         : kpiProductEarly === "moja_phase_plus"
           ? ["MOJA Phase+ s fytoestrogénmi"]
-          : ["MOJA Phase", "MOJA Phase+", "DUO pack"];
+          : kpiProductEarly === "listky"
+            ? ["Lístok"]
+            : ["MOJA Phase", "MOJA Phase+", "DUO pack"];
     return NextResponse.json(
       {
         skuDailyYtd: {

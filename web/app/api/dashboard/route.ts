@@ -14,7 +14,7 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const ALLOWED_KPI_PRODUCT = new Set(["all", "moja_phase_bez", "moja_phase_plus"]);
+const ALLOWED_KPI_PRODUCT = new Set(["all", "moja_phase_bez", "moja_phase_plus", "listky"]);
 
 /** Prvý segment hostu *.supabase.co — na overenie, že Production volá očakávaný projekt. */
 function supabaseProjectRef(url: string): string | null {

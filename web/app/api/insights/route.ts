@@ -14,7 +14,12 @@ import type {
 export const dynamic = "force-dynamic";
 
 const ALLOWED_RANGE = new Set(["30d", "90d", "365d", "ytd"]);
-const ALLOWED_KPI_PRODUCT = new Set(["all", "moja_phase_bez", "moja_phase_plus"]);
+const ALLOWED_KPI_PRODUCT = new Set([
+  "all",
+  "moja_phase_bez",
+  "moja_phase_plus",
+  "listky",
+]);
 
 function resolveRange(searchParams: URLSearchParams): string {
   const raw = searchParams.get("range")?.toLowerCase().trim() ?? "";
