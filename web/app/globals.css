@@ -459,6 +459,23 @@ a:hover {
   font-weight: 600;
 }
 
+.period-filter__range-list--with-months {
+  max-height: min(70vh, 22rem);
+  overflow-y: auto;
+}
+
+.period-filter__range-separator {
+  margin: 0.35rem 0 0.2rem;
+  padding: 0.35rem 0.75rem 0.15rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(26, 31, 40, 0.45);
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  list-style: none;
+}
+
 .dashboard-export-btn {
   font-family: inherit;
   font-size: 0.8125rem;

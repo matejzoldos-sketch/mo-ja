@@ -2,18 +2,12 @@ import { NextResponse } from "next/server";
 import { isAuthorizedRequest } from "@/lib/dashboardAuth";
 import { jsonNoStoreHeaders } from "@/lib/apiJsonNoStore";
 import { supabasePostgrestRpc } from "@/lib/supabasePostgrestRpc";
+import {
+  periodToRpcPayload,
+  resolvePeriodFromSearchParams,
+} from "@/lib/dashboardPeriodApi";
 
 export const dynamic = "force-dynamic";
-
-const ALLOWED_RANGE = new Set(["30d", "90d", "365d"]);
-
-function resolveRange(searchParams: URLSearchParams): string {
-  const raw = searchParams.get("range")?.toLowerCase().trim() ?? "";
-  if (!raw) return "90d";
-  if (raw === "ytd" || raw === "all") return "365d";
-  if (ALLOWED_RANGE.has(raw)) return raw;
-  return "90d";
-}
 
 export async function GET(request: Request) {
   if (!(await isAuthorizedRequest(request))) {
@@ -24,7 +18,10 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url);
-  const range = resolveRange(url.searchParams);
+  const period = resolvePeriodFromSearchParams(url.searchParams, {
+    defaultRange: "90d",
+  });
+  const { p_range: range, p_month: month } = periodToRpcPayload(period);
 
   if (url.searchParams.get("mock") === "1") {
     return NextResponse.json(
@@ -70,7 +67,10 @@ export async function GET(request: Request) {
       supabaseUrl,
       serviceKey,
       "get_shopify_marketing_dashboard",
-      { p_range: range }
+      {
+        p_range: range,
+        ...(month ? { p_month: month } : {}),
+      }
     );
     if (rpcRes.error) {
       return NextResponse.json(

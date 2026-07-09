@@ -18,7 +18,15 @@ import {
 import type { ChartData, ChartOptions } from "chart.js";
 import { Line, Bar, Pie } from "react-chartjs-2";
 import { HeaderBrand, HeaderSectionSelect } from "./components/HeaderNav";
+import { PeriodFilterMenu } from "./components/PeriodFilterMenu";
 import { formatLastSyncDisplay } from "@/lib/formatLastSync";
+import {
+  periodFilterApiQuery,
+  periodFilterLabel,
+  periodFilterToSearchParams,
+  parsePeriodFilter,
+  type PeriodFilter,
+} from "@/lib/dashboardPeriodFilter";
 import {
   buildDashboardMarkdown,
   downloadDashboardMarkdown,
@@ -83,8 +91,6 @@ type RecentOrder = {
   currency: string | null;
 };
 
-type RangeKey = "365d" | "30d" | "90d";
-
 /** Filter pre KPI, grafy aj tabuľky predaja (vrátane denných kusov / SKU grafu). */
 type KpiProductKey = "all" | "moja_phase_bez" | "moja_phase_plus";
 
@@ -92,12 +98,13 @@ type PayloadMeta = {
   range: string;
   from: string;
   to: string;
+  month?: string | null;
   kpi_product?: string;
 };
 
 type SkuDailyYtd = {
   year: number;
-  /** ytd | 30d | 90d | 365d — z RPC */
+  /** ytd | 30d | 90d | 365d | month — z RPC */
   range?: string;
   from: string;
   to: string;
@@ -148,15 +155,6 @@ type Payload = {
   lastSyncAt?: string | null;
 };
 
-const RANGE_LABELS: Record<RangeKey, string> = {
-  "30d": "Posledných 30 dní",
-  "90d": "Posledných 90 dní",
-  "365d": "Od spustenia (Nov 2025 – Súčasnosť)",
-};
-
-/** Poradie v menu: najprv kratšie rolling okná, nakoniec od spustenia (365d / RPC). */
-const RANGE_ORDER: readonly RangeKey[] = ["30d", "90d", "365d"];
-
 const KPI_PRODUCT_LABELS: Record<KpiProductKey, string> = {
   all: "Všetky produkty",
   moja_phase_bez: "MOJA Phase bez fytoestrogénov",
@@ -173,13 +171,6 @@ function parseKpiProductParam(raw: string | null): KpiProductKey {
   const s = (raw || "").toLowerCase().trim();
   if (s === "moja_phase_bez" || s === "moja_phase_plus") return s;
   return "all";
-}
-
-function parseRangeParam(raw: string | null): RangeKey {
-  const s = (raw || "").toLowerCase().trim();
-  if (s === "ytd") return "365d";
-  if (s === "30d" || s === "90d" || s === "365d") return s;
-  return "365d";
 }
 
 const PRIMARY = "#e4e04a";
@@ -386,8 +377,12 @@ export default function DashboardClient() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const rangeFromUrl = parseRangeParam(searchParams.get("range"));
-  const [range, setRange] = useState<RangeKey>(rangeFromUrl);
+  const periodFromUrl = parsePeriodFilter(
+    searchParams.get("range"),
+    searchParams.get("month"),
+    { defaultRange: "365d" }
+  );
+  const [period, setPeriod] = useState<PeriodFilter>(periodFromUrl);
   const kpiProductFromUrl = parseKpiProductParam(
     searchParams.get("kpi_product")
   );
@@ -395,29 +390,27 @@ export default function DashboardClient() {
     useState<KpiProductKey>(kpiProductFromUrl);
 
   useEffect(() => {
-    setRange(rangeFromUrl);
-  }, [rangeFromUrl]);
+    setPeriod(periodFromUrl);
+  }, [periodFromUrl]);
 
   useEffect(() => {
     setKpiProduct(kpiProductFromUrl);
   }, [kpiProductFromUrl]);
 
   useEffect(() => {
-    const raw = searchParams.get("range");
-    if (!raw) return;
-    const s = raw.toLowerCase().trim();
-    if (s === "ytd") {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("range", "365d");
-      const qs = params.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-      return;
-    }
-    if (s === "30d" || s === "90d" || s === "365d") return;
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete("range");
+    const next = parsePeriodFilter(
+      searchParams.get("range"),
+      searchParams.get("month"),
+      { defaultRange: "365d" }
+    );
+    const params = periodFilterToSearchParams(next, searchParams);
     const qs = params.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    const canonical = qs ? `${pathname}?${qs}` : pathname;
+    const current = searchParams.toString();
+    const currentPath = current ? `${pathname}?${current}` : pathname;
+    if (canonical !== currentPath) {
+      router.replace(canonical, { scroll: false });
+    }
   }, [searchParams, pathname, router]);
 
   useEffect(() => {
@@ -449,30 +442,10 @@ export default function DashboardClient() {
   const [data, setData] = useState<Payload | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [rangeMenuOpen, setRangeMenuOpen] = useState(false);
-  const rangeMenuRef = useRef<HTMLDivElement>(null);
   const [kpiMenuOpen, setKpiMenuOpen] = useState(false);
   const kpiMenuRef = useRef<HTMLDivElement>(null);
   const [pdfExporting, setPdfExporting] = useState(false);
   const pdfExportRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!rangeMenuOpen) return;
-    const close = () => setRangeMenuOpen(false);
-    const onDown = (e: MouseEvent) => {
-      if (rangeMenuRef.current?.contains(e.target as Node)) return;
-      close();
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [rangeMenuOpen]);
 
   useEffect(() => {
     if (!kpiMenuOpen) return;
@@ -492,23 +465,25 @@ export default function DashboardClient() {
     };
   }, [kpiMenuOpen]);
 
-  const load = useCallback(async (r: RangeKey, kpi: KpiProductKey) => {
+  const load = useCallback(async (p: PeriodFilter, kpi: KpiProductKey) => {
     setLoading(true);
     setErr(null);
     try {
+      const periodQ = periodFilterApiQuery(p);
       const kpiQ =
         kpi !== "all"
           ? `&kpi_product=${encodeURIComponent(kpi)}`
           : "";
-      const q = `?range=${encodeURIComponent(r)}${kpiQ}&_=${Date.now()}`;
+      const q = `?${periodQ}${kpiQ}&_=${Date.now()}`;
       const fetchOpts: RequestInit = {
         cache: "no-store",
         headers: { "Cache-Control": "no-cache" },
       };
-      const skuQuery =
+      const skuQuery = `?${periodQ}${
         kpi !== "all"
-          ? `?range=${encodeURIComponent(r)}&kpi_product=${encodeURIComponent(kpi)}&_=${Date.now()}`
-          : `?range=${encodeURIComponent(r)}&_=${Date.now()}`;
+          ? `&kpi_product=${encodeURIComponent(kpi)}`
+          : ""
+      }&_=${Date.now()}`;
       const [mainRes, skuRes] = await Promise.all([
         fetch(`/api/dashboard${q}`, fetchOpts),
         fetch(`/api/dashboard/sku-ytd${skuQuery}`, fetchOpts),
@@ -539,23 +514,21 @@ export default function DashboardClient() {
   }, []);
 
   useEffect(() => {
-    void load(range, kpiProduct);
-  }, [load, range, kpiProduct]);
+    void load(period, kpiProduct);
+  }, [load, period, kpiProduct]);
 
   useEffect(() => {
     const onVis = () => {
       if (document.visibilityState === "visible")
-        void load(range, kpiProduct);
+        void load(period, kpiProduct);
     };
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
-  }, [load, range, kpiProduct]);
+  }, [load, period, kpiProduct]);
 
-  function onRangeChange(next: RangeKey) {
-    setRangeMenuOpen(false);
-    setRange(next);
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("range", next);
+  function onPeriodChange(next: PeriodFilter) {
+    setPeriod(next);
+    const params = periodFilterToSearchParams(next, searchParams);
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }
@@ -574,9 +547,13 @@ export default function DashboardClient() {
     ? `${formatSkDate(data.meta.from)} – ${formatSkDate(data.meta.to)}`
     : "";
 
-  /** V zátvorkách pri grafoch: pri 365d fixný text od spustenia, inak dátumy z meta / SKU RPC. */
+  /** V zátvorkách pri grafoch: pri 365d fixný text od spustenia, pri mesiaci názov mesiaca. */
   const chartPeriodInParens =
-    range === "365d" ? "Nov 2025 - Súčasnosť" : periodLabel;
+    period.range === "365d"
+      ? "Nov 2025 - Súčasnosť"
+      : period.range === "month"
+        ? periodFilterLabel(period)
+        : periodLabel;
 
   const skuChartPeriodLabel =
     data?.skuDailyYtd?.from && data?.skuDailyYtd?.to
@@ -584,12 +561,16 @@ export default function DashboardClient() {
       : "";
 
   const skuChartPeriodInParens =
-    range === "365d" ? "Nov 2025 - Súčasnosť" : skuChartPeriodLabel;
+    period.range === "365d"
+      ? "Nov 2025 - Súčasnosť"
+      : period.range === "month"
+        ? periodFilterLabel(period)
+        : skuChartPeriodLabel;
 
   const lineData = data
     ? (() => {
         const daily =
-          range === "365d"
+          period.range === "365d"
             ? trimLeadingOnly(
                 data.dailyRevenue,
                 (d) => Number(d.revenue) !== 0
@@ -884,7 +865,7 @@ export default function DashboardClient() {
 
   const skuYtdLineData = data?.skuDailyYtd
     ? buildSkuUnitsLineChart(data.skuDailyYtd, {
-        trimLeadingZeros365: range === "365d",
+        trimLeadingZeros365: period.range === "365d",
       })
     : null;
 
@@ -929,8 +910,8 @@ export default function DashboardClient() {
   const downloadDashboardMd = useCallback(() => {
     if (!data) return;
     const md = buildDashboardMarkdown({
-      range,
-      rangeLabel: RANGE_LABELS[range],
+      range: period.range,
+      rangeLabel: periodFilterLabel(period),
       kpiProductLabel: KPI_PRODUCT_LABELS[kpiProduct],
       periodLabel,
       chartPeriodLabel: chartPeriodInParens,
@@ -948,16 +929,18 @@ export default function DashboardClient() {
       purchaseCountDistribution: data.purchaseCountDistribution,
       purchaseIntervalHistogram: data.purchaseIntervalHistogram,
       skuDailyYtd: data.skuDailyYtd,
-      trimLeadingZeroDailyRevenue: range === "365d",
+      trimLeadingZeroDailyRevenue: period.range === "365d",
     });
     const from = data.meta.from.replace(/\s/g, "");
     const to = data.meta.to.replace(/\s/g, "");
     const kpiSlug = kpiProduct === "all" ? "" : `-${kpiProduct}`;
+    const periodSlug =
+      period.range === "month" ? `month-${period.month ?? "current"}` : period.range;
     downloadDashboardMarkdown(
       md,
-      `predaj-${range}${kpiSlug}_${from}_${to}.md`
+      `predaj-${periodSlug}${kpiSlug}_${from}_${to}.md`
     );
-  }, [data, range, kpiProduct, periodLabel, chartPeriodInParens]);
+  }, [data, period, kpiProduct, periodLabel, chartPeriodInParens]);
 
   const downloadDashboardPdf = useCallback(async () => {
     const root = pdfExportRef.current;
@@ -1001,7 +984,9 @@ export default function DashboardClient() {
       const to = data.meta.to.replace(/\s/g, "");
       const kpiSlug =
         kpiProduct === "all" ? "" : `-${kpiProduct}`;
-      pdf.save(`predaj-${range}${kpiSlug}_${from}_${to}.pdf`);
+      const periodSlug =
+        period.range === "month" ? `month-${period.month ?? "current"}` : period.range;
+      pdf.save(`predaj-${periodSlug}${kpiSlug}_${from}_${to}.pdf`);
     } catch (e) {
       console.error(e);
       window.alert(
@@ -1012,7 +997,7 @@ export default function DashboardClient() {
     } finally {
       setPdfExporting(false);
     }
-  }, [data, range, kpiProduct]);
+  }, [data, period, kpiProduct]);
 
   return (
     <>
@@ -1023,50 +1008,7 @@ export default function DashboardClient() {
         <div className="site-toolbar">
           <div className="site-toolbar__filters">
             <HeaderSectionSelect />
-            <div
-              className="period-filter period-filter--range"
-              ref={rangeMenuRef}
-            >
-              <button
-                type="button"
-                className="period-filter__select period-filter__select--range-trigger"
-                aria-expanded={rangeMenuOpen}
-                aria-haspopup="listbox"
-                aria-label="Obdobie"
-                onClick={() => setRangeMenuOpen((o) => !o)}
-              >
-                <span>{RANGE_LABELS[range]}</span>
-                <span className="period-filter__chevron" aria-hidden>
-                  ▼
-                </span>
-              </button>
-              {rangeMenuOpen ? (
-                <ul
-                  className="period-filter__range-list"
-                  role="listbox"
-                  aria-label="Obdobie"
-                >
-                  {RANGE_ORDER.map((v) => (
-                    <li key={v} role="presentation">
-                      <button
-                        type="button"
-                        role="option"
-                        aria-selected={v === range}
-                        className={
-                          v === range
-                            ? "period-filter__range-option is-selected"
-                            : "period-filter__range-option"
-                        }
-                        onClick={() => onRangeChange(v)}
-                      >
-                        {v === range ? "✓ " : ""}
-                        {RANGE_LABELS[v]}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
+            <PeriodFilterMenu period={period} onChange={onPeriodChange} />
             <div
               className="period-filter period-filter--kpi-product"
               ref={kpiMenuRef}
@@ -1218,7 +1160,10 @@ export default function DashboardClient() {
                   )}
                 </div>
               </div>
-              {(range === "30d" || range === "90d" || range === "365d") && (
+              {(period.range === "30d" ||
+                period.range === "90d" ||
+                period.range === "365d" ||
+                period.range === "month") && (
                 <div className="kpi-card">
                   <div className="kpi-card__label">
                     Opakovaní zákazníci (2+ obj.)

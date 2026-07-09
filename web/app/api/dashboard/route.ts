@@ -3,10 +3,13 @@ import { isAuthorizedRequest } from "@/lib/dashboardAuth";
 import { jsonNoStoreHeaders } from "@/lib/apiJsonNoStore";
 import { resolveLastSyncAt } from "@/lib/resolveLastSyncAt";
 import { supabasePostgrestRpc } from "@/lib/supabasePostgrestRpc";
+import {
+  periodToRpcPayload,
+  resolvePeriodFromSearchParams,
+} from "@/lib/dashboardPeriodApi";
 
 export const dynamic = "force-dynamic";
 
-const ALLOWED_RANGE = new Set(["ytd", "30d", "90d", "365d"]);
 const ALLOWED_KPI_PRODUCT = new Set(["all", "moja_phase_bez", "moja_phase_plus"]);
 
 /** Prvý segment hostu *.supabase.co — na overenie, že Production volá očakávaný projekt. */
@@ -138,10 +141,11 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url);
-  const rawRangeEarly = url.searchParams.get("range")?.toLowerCase().trim() ?? "";
-  const normalized =
-    rawRangeEarly === "ytd" ? "365d" : rawRangeEarly;
-  const rangeEarly = ALLOWED_RANGE.has(normalized) ? normalized : "365d";
+  const period = resolvePeriodFromSearchParams(url.searchParams, {
+    defaultRange: "365d",
+  });
+  const { p_range: rangeEarly, p_month: monthEarly } =
+    periodToRpcPayload(period);
   const rawKpi =
     url.searchParams.get("kpi_product")?.toLowerCase().trim() ?? "";
   const kpiProductEarly = ALLOWED_KPI_PRODUCT.has(rawKpi) ? rawKpi : "all";
@@ -155,6 +159,7 @@ export async function GET(request: Request) {
         meta: {
           ...MOCK_PAYLOAD.meta,
           range: rangeEarly,
+          month: monthEarly ?? null,
           kpi_product: kpiProductEarly,
         },
       },
@@ -178,6 +183,7 @@ export async function GET(request: Request) {
   }
 
   const dashRpcPayload: Record<string, unknown> = { p_range: rangeEarly };
+  if (monthEarly) dashRpcPayload.p_month = monthEarly;
   if (pKpiProduct != null) dashRpcPayload.p_kpi_product = pKpiProduct;
 
   const [dashRes, lastSyncAt] = await Promise.all([

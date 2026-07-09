@@ -11,14 +11,21 @@ import {
 import type { ChartData, ChartOptions } from "chart.js";
 import { Pie } from "react-chartjs-2";
 import { HeaderBrand, HeaderSectionSelect } from "../components/HeaderNav";
+import { PeriodFilterMenu } from "../components/PeriodFilterMenu";
 import {
   buildMarketingMarkdown,
   downloadMarketingMarkdown,
 } from "@/lib/marketingMarkdownExport";
+import {
+  periodFilterApiQuery,
+  periodFilterLabel,
+  periodFilterToSearchParams,
+  parsePeriodFilter,
+  type PeriodFilter,
+} from "@/lib/dashboardPeriodFilter";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-type RangeKey = "30d" | "90d" | "365d";
 type DimensionKey = "source" | "medium" | "campaign";
 
 type BreakdownRow = {
@@ -30,7 +37,7 @@ type BreakdownRow = {
 };
 
 type MarketingPayload = {
-  meta: { range: string; from: string; to: string };
+  meta: { range: string; from: string; to: string; month?: string | null };
   kpis: {
     orders: number;
     orders_with_utm: number;
@@ -57,12 +64,6 @@ type MarketingPayload = {
   }[];
 };
 
-const RANGE_LABELS: Record<RangeKey, string> = {
-  "30d": "Posledných 30 dní",
-  "90d": "Posledných 90 dní",
-  "365d": "Od spustenia (Nov 2025 – Súčasnosť)",
-};
-const RANGE_ORDER: readonly RangeKey[] = ["30d", "90d", "365d"];
 
 const DIMENSION_LABELS: Record<DimensionKey, string> = {
   source: "Zdroj (UTM source)",
@@ -84,13 +85,6 @@ const PIE_COLORS = [
 ];
 
 const TEXT = "#1a1f28";
-
-function parseRangeParam(raw: string | null): RangeKey {
-  const s = (raw || "").toLowerCase().trim();
-  if (s === "ytd" || s === "all" || s === "365d") return "365d";
-  if (s === "30d" || s === "90d") return s;
-  return "90d";
-}
 
 function parseDimensionParam(raw: string | null): DimensionKey {
   const s = (raw || "").toLowerCase().trim();
@@ -158,21 +152,23 @@ export default function MarketingClient() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const rangeFromUrl = parseRangeParam(searchParams.get("range"));
-  const [range, setRange] = useState<RangeKey>(rangeFromUrl);
+  const periodFromUrl = parsePeriodFilter(
+    searchParams.get("range"),
+    searchParams.get("month"),
+    { defaultRange: "90d" }
+  );
+  const [period, setPeriod] = useState<PeriodFilter>(periodFromUrl);
 
   const dimFromUrl = parseDimensionParam(searchParams.get("dim"));
   const [dimension, setDimension] = useState<DimensionKey>(dimFromUrl);
 
-  useEffect(() => setRange(rangeFromUrl), [rangeFromUrl]);
+  useEffect(() => setPeriod(periodFromUrl), [periodFromUrl]);
   useEffect(() => setDimension(dimFromUrl), [dimFromUrl]);
 
   const [data, setData] = useState<MarketingPayload | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const [rangeMenuOpen, setRangeMenuOpen] = useState(false);
-  const rangeMenuRef = useRef<HTMLDivElement>(null);
   const [dimMenuOpen, setDimMenuOpen] = useState(false);
   const dimMenuRef = useRef<HTMLDivElement>(null);
 
@@ -180,22 +176,20 @@ export default function MarketingClient() {
   const pdfExportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!rangeMenuOpen) return;
-    const close = () => setRangeMenuOpen(false);
-    const onDown = (e: MouseEvent) => {
-      if (rangeMenuRef.current?.contains(e.target as Node)) return;
-      close();
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [rangeMenuOpen]);
+    const next = parsePeriodFilter(
+      searchParams.get("range"),
+      searchParams.get("month"),
+      { defaultRange: "90d" }
+    );
+    const params = periodFilterToSearchParams(next, searchParams);
+    const qs = params.toString();
+    const canonical = qs ? `${pathname}?${qs}` : pathname;
+    const current = searchParams.toString();
+    const currentPath = current ? `${pathname}?${current}` : pathname;
+    if (canonical !== currentPath) {
+      router.replace(canonical, { scroll: false });
+    }
+  }, [searchParams, pathname, router]);
 
   useEffect(() => {
     if (!dimMenuOpen) return;
@@ -215,11 +209,11 @@ export default function MarketingClient() {
     };
   }, [dimMenuOpen]);
 
-  const load = useCallback(async (r: RangeKey) => {
+  const load = useCallback(async (p: PeriodFilter) => {
     setLoading(true);
     setErr(null);
     try {
-      const q = `?range=${encodeURIComponent(r)}&_=${Date.now()}`;
+      const q = `?${periodFilterApiQuery(p)}&_=${Date.now()}`;
       const res = await fetch(`/api/marketing${q}`, { credentials: "same-origin" });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -240,13 +234,12 @@ export default function MarketingClient() {
   }, []);
 
   useEffect(() => {
-    void load(range);
-  }, [load, range]);
+    void load(period);
+  }, [load, period]);
 
-  const setRangeInUrl = (next: RangeKey) => {
-    setRange(next);
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("range", next);
+  const setPeriodInUrl = (next: PeriodFilter) => {
+    setPeriod(next);
+    const params = periodFilterToSearchParams(next, searchParams);
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   };
@@ -335,7 +328,7 @@ export default function MarketingClient() {
 
   const periodLabel = data?.meta
     ? `${data.meta.from} – ${data.meta.to}`
-    : RANGE_LABELS[range];
+    : periodFilterLabel(period);
 
   const downloadMarketingMd = useCallback(() => {
     if (!data) return;
@@ -344,8 +337,8 @@ export default function MarketingClient() {
     const to = data.meta.to.replace(/\s/g, "");
 
     const md = buildMarketingMarkdown({
-      range,
-      rangeLabel: RANGE_LABELS[range],
+      range: period.range,
+      rangeLabel: periodFilterLabel(period),
       periodLabel,
       dimension,
       dimensionLabel: DIMENSION_LABELS[dimension],
@@ -356,11 +349,13 @@ export default function MarketingClient() {
       currency: data.kpis.currency,
     });
 
+    const periodSlug =
+      period.range === "month" ? `month-${period.month ?? "current"}` : period.range;
     downloadMarketingMarkdown(
       md,
-      `marketing-${range}-${dimension}_${from}_${to}.md`
+      `marketing-${periodSlug}-${dimension}_${from}_${to}.md`
     );
-  }, [data, range, dimension, periodLabel]);
+  }, [data, period, dimension, periodLabel]);
 
   const downloadMarketingPdf = useCallback(async () => {
     const root = pdfExportRef.current;
@@ -406,7 +401,9 @@ export default function MarketingClient() {
 
       const from = data.meta.from.replace(/\s/g, "");
       const to = data.meta.to.replace(/\s/g, "");
-      pdf.save(`marketing-${range}-${dimension}_${from}_${to}.pdf`);
+      const periodSlug =
+        period.range === "month" ? `month-${period.month ?? "current"}` : period.range;
+      pdf.save(`marketing-${periodSlug}-${dimension}_${from}_${to}.pdf`);
     } catch (e) {
       console.error(e);
       window.alert(
@@ -417,7 +414,7 @@ export default function MarketingClient() {
     } finally {
       setPdfExporting(false);
     }
-  }, [data, range, dimension]);
+  }, [data, period, dimension]);
 
   return (
     <>
@@ -430,50 +427,7 @@ export default function MarketingClient() {
         </div>
         <div className="site-toolbar">
           <div className="site-toolbar__filters">
-            <div className="period-filter period-filter--range" ref={rangeMenuRef}>
-              <button
-                type="button"
-                className="period-filter__select period-filter__select--range-trigger"
-                aria-expanded={rangeMenuOpen}
-                aria-haspopup="listbox"
-                aria-label="Obdobie"
-                onClick={() => setRangeMenuOpen((o) => !o)}
-              >
-                <span>{RANGE_LABELS[range]}</span>
-                <span className="period-filter__chevron" aria-hidden>
-                  ▼
-                </span>
-              </button>
-              {rangeMenuOpen ? (
-                <ul
-                  className="period-filter__range-list"
-                  role="listbox"
-                  aria-label="Obdobie"
-                >
-                  {RANGE_ORDER.map((v) => (
-                    <li key={v} role="presentation">
-                      <button
-                        type="button"
-                        role="option"
-                        aria-selected={v === range}
-                        className={
-                          v === range
-                            ? "period-filter__range-option is-selected"
-                            : "period-filter__range-option"
-                        }
-                        onClick={() => {
-                          setRangeInUrl(v);
-                          setRangeMenuOpen(false);
-                        }}
-                      >
-                        {v === range ? "✓ " : ""}
-                        {RANGE_LABELS[v]}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
+            <PeriodFilterMenu period={period} onChange={setPeriodInUrl} />
             <div className="period-filter period-filter--kpi-product" ref={dimMenuRef}>
               <button
                 type="button"

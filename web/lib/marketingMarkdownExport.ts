@@ -1,4 +1,6 @@
-export type MarketingRangeKey = "30d" | "90d" | "365d";
+import type { DashboardRangeKey } from "@/lib/dashboardPeriodFilter";
+
+export type MarketingRangeKey = DashboardRangeKey;
 
 export type MarketingDimensionKey = "source" | "medium" | "campaign";
 
