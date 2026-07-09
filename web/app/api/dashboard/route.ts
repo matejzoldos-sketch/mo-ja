@@ -7,11 +7,6 @@ import {
   periodToRpcPayload,
   resolvePeriodFromSearchParams,
 } from "@/lib/dashboardPeriodApi";
-import {
-  previousPeriodBounds,
-  previousPeriodLabel,
-} from "@/lib/dashboardPeriodCompare";
-
 export const dynamic = "force-dynamic";
 
 const ALLOWED_KPI_PRODUCT = new Set(["all", "moja_phase_bez", "moja_phase_plus", "listky"]);
@@ -207,7 +202,7 @@ export async function GET(request: Request) {
     supabasePostgrestRpc<Record<string, unknown>>(
       supabaseUrl,
       serviceKey,
-      "get_shopify_dashboard_mvp",
+      "get_shopify_dashboard_summary",
       dashRpcPayload
     ),
     resolveLastSyncAt(supabaseUrl, serviceKey),
@@ -236,45 +231,10 @@ export async function GET(request: Request) {
   const metaTo =
     metaObj && typeof metaObj.to === "string" ? metaObj.to : null;
 
-  let kpisPrevious: Record<string, unknown> | null = null;
-  let compareMeta: Record<string, string> | null = null;
-
-  if (metaFrom && metaTo) {
-    const prevBounds = previousPeriodBounds(metaFrom, metaTo);
-    if (prevBounds) {
-      compareMeta = {
-        compareFrom: prevBounds.from,
-        compareTo: prevBounds.to,
-        compareLabel: previousPeriodLabel(prevBounds.from, prevBounds.to),
-      };
-      const prevKpiPayload: Record<string, unknown> = {
-        p_from: prevBounds.from,
-        p_to: prevBounds.to,
-      };
-      if (pKpiProduct != null) prevKpiPayload.p_kpi_product = pKpiProduct;
-
-      const prevRes = await supabasePostgrestRpc<Record<string, unknown>>(
-        supabaseUrl,
-        serviceKey,
-        "get_shopify_dashboard_kpis",
-        prevKpiPayload
-      );
-      if (!prevRes.error && prevRes.data != null) {
-        kpisPrevious = prevRes.data;
-      }
-    }
-  }
-
   return NextResponse.json(
     {
       ...base,
-      ...(kpisPrevious ? { kpisPrevious } : {}),
-      meta: metaObj
-        ? {
-            ...metaObj,
-            ...(compareMeta ?? {}),
-          }
-        : meta,
+      meta,
       lastSyncAt,
     },
     { headers: dashboardHeaders(supabaseUrl, metaTo) }

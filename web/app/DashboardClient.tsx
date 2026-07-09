@@ -166,6 +166,24 @@ type Payload = {
   lastSyncAt?: string | null;
 };
 
+type AnalyticsPayload = Pick<
+  Payload,
+  | "topCustomers"
+  | "monthlyNewVsReturning"
+  | "purchaseCountDistribution"
+  | "purchaseIntervalHistogram"
+>;
+
+type ComparePayload = {
+  kpisPrevious?: Kpis | null;
+  compareMeta?: {
+    compareFrom?: string;
+    compareTo?: string;
+    compareLabel?: string;
+  } | null;
+  error?: string;
+};
+
 const KPI_PRODUCT_LABELS: Record<KpiProductKey, string> = {
   all: "Všetky produkty",
   moja_phase_bez: "MOJA Phase bez fytoestrogénov",
@@ -502,6 +520,63 @@ export default function DashboardClient() {
         return;
       }
       setData({ ...mainJson, skuDailyYtd: mainJson.skuDailyYtd } as Payload);
+
+      const compareQuery = `?${periodQ}${
+        kpi !== "all" ? `&kpi_product=${encodeURIComponent(kpi)}` : ""
+      }&_=${Date.now()}`;
+      void fetch(`/api/dashboard/compare${compareQuery}`, fetchOpts)
+        .then(async (res) => {
+          if (!res.ok) return null;
+          return (await res.json()) as ComparePayload;
+        })
+        .then((compareJson) => {
+          if (!compareJson || compareJson.error) return;
+          setData((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  ...(compareJson.kpisPrevious
+                    ? { kpisPrevious: compareJson.kpisPrevious }
+                    : {}),
+                  meta: {
+                    ...prev.meta,
+                    ...(compareJson.compareMeta ?? {}),
+                  },
+                }
+              : prev
+          );
+        })
+        .catch(() => {
+          // Compare is secondary; don't block dashboard rendering on it.
+        });
+
+      const analyticsQuery = `?${periodQ}${
+        kpi !== "all" ? `&kpi_product=${encodeURIComponent(kpi)}` : ""
+      }&_=${Date.now()}`;
+      void fetch(`/api/dashboard/analytics${analyticsQuery}`, fetchOpts)
+        .then(async (res) => {
+          if (!res.ok) return null;
+          return (await res.json()) as AnalyticsPayload & { error?: string };
+        })
+        .then((analyticsJson) => {
+          if (!analyticsJson || analyticsJson.error) return;
+          setData((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  topCustomers: analyticsJson.topCustomers,
+                  monthlyNewVsReturning: analyticsJson.monthlyNewVsReturning,
+                  purchaseCountDistribution:
+                    analyticsJson.purchaseCountDistribution,
+                  purchaseIntervalHistogram:
+                    analyticsJson.purchaseIntervalHistogram,
+                }
+              : prev
+          );
+        })
+        .catch(() => {
+          // Keep the main dashboard responsive even when heavy analytics time out.
+        });
 
       const skuQuery = `?${periodQ}${
         kpi !== "all"
