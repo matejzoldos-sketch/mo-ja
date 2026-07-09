@@ -210,7 +210,7 @@ export async function GET(request: Request) {
 
   if (dashRes.error) {
     return NextResponse.json(
-      { error: dashRes.error },
+      { error: `[dashboard-summary] ${dashRes.error}` },
       { status: 500, headers: dashboardHeaders(supabaseUrl, null) }
     );
   }

@@ -96,7 +96,7 @@ export async function GET(request: Request) {
 
   if (skuRes.error) {
     return NextResponse.json(
-      { error: skuRes.error },
+      { error: `[dashboard-sku] ${skuRes.error}` },
       { status: 500, headers: jsonNoStoreHeaders }
     );
   }

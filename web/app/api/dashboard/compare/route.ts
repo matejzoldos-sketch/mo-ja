@@ -65,7 +65,7 @@ export async function GET(request: Request) {
   );
   if (summaryRes.error || !summaryRes.data) {
     return NextResponse.json(
-      { error: summaryRes.error || "Summary RPC failed" },
+      { error: `[dashboard-compare:summary] ${summaryRes.error || "Summary RPC failed"}` },
       { status: 500, headers: jsonNoStoreHeaders }
     );
   }
@@ -103,7 +103,7 @@ export async function GET(request: Request) {
   );
   if (prevRes.error) {
     return NextResponse.json(
-      { error: prevRes.error },
+      { error: `[dashboard-compare:kpis] ${prevRes.error}` },
       { status: 500, headers: jsonNoStoreHeaders }
     );
   }

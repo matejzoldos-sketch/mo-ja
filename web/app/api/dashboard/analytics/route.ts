@@ -84,7 +84,7 @@ export async function GET(request: Request) {
 
   if (res.error) {
     return NextResponse.json(
-      { error: res.error },
+      { error: `[dashboard-analytics] ${res.error}` },
       { status: 500, headers: jsonNoStoreHeaders }
     );
   }
