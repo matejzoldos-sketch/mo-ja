@@ -122,6 +122,30 @@ export function periodFiltersEqual(a: PeriodFilter, b: PeriodFilter): boolean {
   return true;
 }
 
+/** True when range/month query params should be rewritten (ytd, stray month, invalid range). */
+export function periodFilterNeedsUrlNormalize(
+  rangeRaw: string | null,
+  monthRaw: string | null
+): boolean {
+  const rangeNorm = (rangeRaw || "").toLowerCase().trim();
+  const month = isValidMonthYm(monthRaw) ? monthRaw.trim() : undefined;
+
+  if (rangeNorm === "ytd" || rangeNorm === "all") return true;
+  if (month && rangeNorm !== "month") return true;
+  if (rangeNorm === "month" && !month) return true;
+  if (
+    rangeNorm &&
+    rangeNorm !== "30d" &&
+    rangeNorm !== "90d" &&
+    rangeNorm !== "365d" &&
+    rangeNorm !== "month"
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 export function periodFilterLabel(period: PeriodFilter): string {
   if (period.range === "month") {
     return formatMonthLabelSk(period.month ?? currentYm());

@@ -19,6 +19,7 @@ import {
 import {
   periodFilterApiQuery,
   periodFilterLabel,
+  periodFilterNeedsUrlNormalize,
   periodFilterToSearchParams,
   parsePeriodFilter,
   type PeriodFilter,
@@ -176,19 +177,15 @@ export default function MarketingClient() {
   const pdfExportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const next = parsePeriodFilter(
-      searchParams.get("range"),
-      searchParams.get("month"),
-      { defaultRange: "90d" }
-    );
+    const rangeRaw = searchParams.get("range");
+    const monthRaw = searchParams.get("month");
+    if (!periodFilterNeedsUrlNormalize(rangeRaw, monthRaw)) {
+      return;
+    }
+    const next = parsePeriodFilter(rangeRaw, monthRaw, { defaultRange: "90d" });
     const params = periodFilterToSearchParams(next, searchParams);
     const qs = params.toString();
-    const canonical = qs ? `${pathname}?${qs}` : pathname;
-    const current = searchParams.toString();
-    const currentPath = current ? `${pathname}?${current}` : pathname;
-    if (canonical !== currentPath) {
-      router.replace(canonical, { scroll: false });
-    }
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }, [searchParams, pathname, router]);
 
   useEffect(() => {
