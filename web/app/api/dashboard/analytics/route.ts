@@ -38,6 +38,18 @@ export async function GET(request: Request) {
   if (url.searchParams.get("mock") === "1") {
     return NextResponse.json(
       {
+        kpis: {
+          revenue: 12450.5,
+          orders: 120,
+          aov: 103.75,
+          currency: "EUR",
+          avg_units_per_order: 2.15,
+          pct_orders_multi_sku: 28.4,
+          returning_customers_pct: 42.5,
+          avg_customer_ltv: 312.45,
+          avg_units_per_unique_customer: 4.62,
+          avg_days_first_to_second_purchase: 38.5,
+        },
         topCustomers: [
           { customer_id: 70111223344, orders: 12, revenue: 890.5, currency: "EUR" },
         ],
@@ -96,6 +108,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json(
     {
+      kpis: base.kpis,
       topCustomers: base.topCustomers ?? [],
       monthlyNewVsReturning: base.monthlyNewVsReturning,
       purchaseCountDistribution: base.purchaseCountDistribution,

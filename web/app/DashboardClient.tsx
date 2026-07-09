@@ -168,6 +168,7 @@ type Payload = {
 
 type AnalyticsPayload = Pick<
   Payload,
+  | "kpis"
   | "topCustomers"
   | "monthlyNewVsReturning"
   | "purchaseCountDistribution"
@@ -564,6 +565,14 @@ export default function DashboardClient() {
             prev
               ? {
                   ...prev,
+                  ...(analyticsJson.kpis
+                    ? {
+                        kpis: {
+                          ...prev.kpis,
+                          ...analyticsJson.kpis,
+                        },
+                      }
+                    : {}),
                   topCustomers: analyticsJson.topCustomers,
                   monthlyNewVsReturning: analyticsJson.monthlyNewVsReturning,
                   purchaseCountDistribution:
