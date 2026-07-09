@@ -451,7 +451,14 @@ export default function DashboardClient() {
     const raw = searchParams.get("kpi_product");
     if (!raw) return;
     const s = raw.toLowerCase().trim();
-    if (!(s === "moja_phase_bez" || s === "moja_phase_plus" || s === "all")) {
+    if (
+      !(
+        s === "moja_phase_bez" ||
+        s === "moja_phase_plus" ||
+        s === "listky" ||
+        s === "all"
+      )
+    ) {
       const params = new URLSearchParams(searchParams.toString());
       params.delete("kpi_product");
       const qs = params.toString();
