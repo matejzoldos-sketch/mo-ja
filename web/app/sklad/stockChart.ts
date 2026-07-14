@@ -92,7 +92,7 @@ function buildProductGroups(s: StockChartYtd): ProductGroup[] {
     byLabel.set(label, list);
   }
   const groups: ProductGroup[] = [];
-  for (const [label, skus] of byLabel) {
+  for (const [label, skus] of Array.from(byLabel.entries())) {
     groups.push({
       label,
       skus,

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import InsightyClient from "./InsightyClient";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "MO–JA insighty",
@@ -7,6 +7,6 @@ export const metadata: Metadata = {
 };
 
 export default function InsightyPage() {
-  return <InsightyClient />;
+  redirect("/");
 }
 
