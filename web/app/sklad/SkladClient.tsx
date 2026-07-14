@@ -242,8 +242,8 @@ export default function SkladClient() {
                 {stockChartYtd?.year ?? new Date().getFullYear()})
               </h2>
               <p className="chart-card__subtitle">
-                Každý produkt má vlastnú os Y — menšie zmeny sú čitateľnejšie ako pri jednom
-                spoločnom grafe.
+                Jeden graf na produkt — aliasy SKU (napr. PHASE / MOJA Phase) sa sčítajú.
+                Každý produkt má vlastnú os Y, aby boli menšie zmeny čitateľné.
               </p>
               {stockSkuPanels?.length ? (
                 <div className="sku-ytd-panels">

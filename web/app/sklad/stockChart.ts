@@ -23,6 +23,86 @@ function displayTitleForSkuSeries(
   return t || skuKey;
 }
 
+/** Kanonický kľúč produktu — zlučuje aliasy SKU (PHASE / MOJA Phase*). */
+function productGroupKey(s: StockChartYtd, skuKey: string): string {
+  return displayTitleForSkuSeries(s, skuKey);
+}
+
+function buildByDayForSku(
+  s: StockChartYtd,
+  sku: string
+): Map<string, number> {
+  const byDay = new Map<string, number>();
+  for (const p of s.points) {
+    if (p.sku === sku) byDay.set(p.date, Number(p.stock));
+  }
+  return byDay;
+}
+
+function lastTotalStockForSkus(skus: string[], s: StockChartYtd): number {
+  const lastBySku = new Map<string, { date: string; stock: number }>();
+  for (const p of s.points) {
+    if (!skus.includes(p.sku)) continue;
+    const prev = lastBySku.get(p.sku);
+    if (!prev || p.date >= prev.date) {
+      lastBySku.set(p.sku, { date: p.date, stock: Number(p.stock) });
+    }
+  }
+  let sum = 0;
+  for (const sku of skus) {
+    sum += lastBySku.get(sku)?.stock ?? 0;
+  }
+  return sum;
+}
+
+function combinedStockSeries(
+  days: string[],
+  skus: string[],
+  s: StockChartYtd
+): (number | null)[] {
+  const perSku = skus.map((sku) =>
+    forwardFillStock(days, buildByDayForSku(s, sku))
+  );
+  return days.map((_, i) => {
+    let sum = 0;
+    let seen = false;
+    for (const series of perSku) {
+      const v = series[i];
+      if (v !== null) {
+        sum += v;
+        seen = true;
+      }
+    }
+    return seen ? sum : null;
+  });
+}
+
+type ProductGroup = {
+  label: string;
+  skus: string[];
+  lastQty: number;
+};
+
+function buildProductGroups(s: StockChartYtd): ProductGroup[] {
+  const byLabel = new Map<string, string[]>();
+  for (const sku of s.skuOrder) {
+    const label = productGroupKey(s, sku);
+    const list = byLabel.get(label) ?? [];
+    if (!list.includes(sku)) list.push(sku);
+    byLabel.set(label, list);
+  }
+  const groups: ProductGroup[] = [];
+  for (const [label, skus] of byLabel) {
+    groups.push({
+      label,
+      skus,
+      lastQty: lastTotalStockForSkus(skus, s),
+    });
+  }
+  groups.sort((a, b) => b.lastQty - a.lastQty);
+  return groups;
+}
+
 /** Sklad chart: first useful snapshots from ~7 Apr — clamp if RPC still returns Jan 1 / 1 Apr. */
 function effectiveChartFromIso(s: StockChartYtd): string {
   const y = s.year ?? new Date().getFullYear();
@@ -78,20 +158,16 @@ export function buildStockHistoryChart(
   const fromIso = effectiveChartFromIso(s);
   const days = enumerateInclusiveDays(fromIso, s.to);
   if (days.length === 0) return null;
-  const n = s.skuOrder.length;
+  const groups = buildProductGroups(s);
+  const n = groups.length;
   const datasets: ChartData<"line">["datasets"] = [];
-  for (let i = 0; i < s.skuOrder.length; i++) {
-    const sku = s.skuOrder[i];
-    const rawLabel = displayTitleForSkuSeries(s, sku);
+  for (let i = 0; i < groups.length; i++) {
+    const { label: rawLabel, skus } = groups[i];
     const label = rawLabel.length > 40 ? `${rawLabel.slice(0, 38)}…` : rawLabel;
-    const byDay = new Map<string, number>();
-    for (const p of s.points) {
-      if (p.sku === sku) byDay.set(p.date, Number(p.stock));
-    }
     const color = skuLineColor(i, n);
     datasets.push({
       label,
-      data: forwardFillStock(days, byDay),
+      data: combinedStockSeries(days, skus, s),
       borderColor: color,
       backgroundColor: "transparent",
       fill: false,
@@ -205,7 +281,7 @@ export type StockSkuPanel = {
   options: ChartOptions<"line">;
 };
 
-/** One chart per SKU, each with its own Y scale (small moves stay visible vs one shared axis). */
+/** One chart per product (canonical label), SKU aliasy sa sčítajú; vlastná os Y na panel. */
 export function buildStockSkuPanels(
   s: StockChartYtd | undefined
 ): StockSkuPanel[] | null {
@@ -213,23 +289,19 @@ export function buildStockSkuPanels(
   const fromIso = effectiveChartFromIso(s);
   const days = enumerateInclusiveDays(fromIso, s.to);
   if (days.length === 0) return null;
-  const n = s.skuOrder.length;
+  const groups = buildProductGroups(s);
+  const n = groups.length;
   const panels: StockSkuPanel[] = [];
   for (let i = 0; i < n; i++) {
-    const sku = s.skuOrder[i];
-    const rawLabel = displayTitleForSkuSeries(s, sku);
+    const { label: rawLabel, skus } = groups[i];
     const label = rawLabel.length > 40 ? `${rawLabel.slice(0, 38)}…` : rawLabel;
-    const byDay = new Map<string, number>();
-    for (const p of s.points) {
-      if (p.sku === sku) byDay.set(p.date, Number(p.stock));
-    }
     const color = skuLineColor(i, n);
     const data: ChartData<"line"> = {
       labels: days,
       datasets: [
         {
           label: "Ks na sklade",
-          data: forwardFillStock(days, byDay),
+          data: combinedStockSeries(days, skus, s),
           borderColor: color,
           backgroundColor: "transparent",
           fill: false,
