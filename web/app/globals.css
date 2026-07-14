@@ -1315,6 +1315,27 @@ td code {
   cursor: not-allowed;
 }
 
+.cashflow-num--pos {
+  color: var(--success, hsl(152, 55%, 42%));
+}
+
+.cashflow-num--neg {
+  color: var(--error, hsl(0, 55%, 50%));
+}
+
+.kpi-card__value.cashflow-num--pos,
+.kpi-card__value.cashflow-num--neg {
+  color: inherit;
+}
+
+.kpi-card--hero .kpi-card__value.cashflow-num--pos {
+  color: hsl(152, 45%, 32%);
+}
+
+.kpi-card--hero .kpi-card__value.cashflow-num--neg {
+  color: hsl(0, 50%, 42%);
+}
+
 /* PDF export: biele pozadie bez sticky header tieňa */
 @media print {
   .site-header {

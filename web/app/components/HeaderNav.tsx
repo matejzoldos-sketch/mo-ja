@@ -2,25 +2,46 @@
 
 import { usePathname, useRouter } from "next/navigation";
 
+export type DashboardSection =
+  | "predaj"
+  | "cashflow"
+  | "sklad"
+  | "insighty"
+  | "marketing";
+
+const SECTIONS: {
+  id: DashboardSection;
+  label: string;
+  path: string;
+  subtitle: string;
+}[] = [
+  { id: "predaj", label: "Predaj", path: "/", subtitle: "Predaj" },
+  { id: "cashflow", label: "Cash flow", path: "/cashflow", subtitle: "Cash flow" },
+  { id: "sklad", label: "Sklad", path: "/sklad", subtitle: "Sklad" },
+  { id: "insighty", label: "Insighty", path: "/insighty", subtitle: "Insighty" },
+  { id: "marketing", label: "Marketing", path: "/marketing", subtitle: "Marketing" },
+];
+
+function sectionFromPathname(pathname: string): DashboardSection {
+  if (pathname === "/cashflow") return "cashflow";
+  if (pathname === "/sklad") return "sklad";
+  if (pathname === "/insighty") return "insighty";
+  if (pathname === "/marketing") return "marketing";
+  return "predaj";
+}
+
 export function HeaderBrand() {
   const pathname = usePathname();
-  const section =
-    pathname === "/sklad"
-      ? "Sklad"
-      : pathname === "/insighty"
-        ? "Insighty"
-        : pathname === "/marketing"
-          ? "Marketing"
-          : pathname === "/"
-            ? "Predaj"
-            : "Prehľad";
+  const section = sectionFromPathname(pathname);
+  const subtitle =
+    SECTIONS.find((s) => s.id === section)?.subtitle ?? "Prehľad";
 
   return (
     <div className="header-brand">
       <span className="header-brand__mark" aria-hidden />
       <div className="header-brand__text">
         <span className="header-brand__title">MO–JA</span>
-        <span className="header-brand__subtitle">{section}</span>
+        <span className="header-brand__subtitle">{subtitle}</span>
       </div>
     </div>
   );
@@ -29,96 +50,45 @@ export function HeaderBrand() {
 export function HeaderSectionSelect() {
   const pathname = usePathname();
   const router = useRouter();
-  const section =
-    pathname === "/sklad"
-      ? "sklad"
-      : pathname === "/insighty"
-        ? "insighty"
-        : pathname === "/marketing"
-          ? "marketing"
-          : "predaj";
+  const section = sectionFromPathname(pathname);
 
-  const go = (v: "predaj" | "sklad" | "insighty" | "marketing") => {
-    router.push(
-      v === "sklad"
-        ? "/sklad"
-        : v === "insighty"
-          ? "/insighty"
-          : v === "marketing"
-            ? "/marketing"
-            : "/"
-    );
+  const go = (id: DashboardSection) => {
+    const target = SECTIONS.find((s) => s.id === id);
+    router.push(target?.path ?? "/");
   };
 
   return (
     <div className="header-section-switch" role="navigation" aria-label="Menu">
       <div className="header-section-switch__segmented" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={section === "predaj"}
-          className={
-            section === "predaj"
-              ? "header-section-switch__btn is-active"
-              : "header-section-switch__btn"
-          }
-          onClick={() => go("predaj")}
-        >
-          Predaj
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={section === "sklad"}
-          className={
-            section === "sklad"
-              ? "header-section-switch__btn is-active"
-              : "header-section-switch__btn"
-          }
-          onClick={() => go("sklad")}
-        >
-          Sklad
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={section === "insighty"}
-          className={
-            section === "insighty"
-              ? "header-section-switch__btn is-active"
-              : "header-section-switch__btn"
-          }
-          onClick={() => go("insighty")}
-        >
-          Insighty
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={section === "marketing"}
-          className={
-            section === "marketing"
-              ? "header-section-switch__btn is-active"
-              : "header-section-switch__btn"
-          }
-          onClick={() => go("marketing")}
-        >
-          Marketing
-        </button>
+        {SECTIONS.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            role="tab"
+            aria-selected={section === s.id}
+            className={
+              section === s.id
+                ? "header-section-switch__btn is-active"
+                : "header-section-switch__btn"
+            }
+            onClick={() => go(s.id)}
+          >
+            {s.label}
+          </button>
+        ))}
       </div>
 
       <select
         className="period-filter__select header-section-switch__select"
         value={section}
-        onChange={(e) =>
-          go(e.target.value as "predaj" | "sklad" | "insighty" | "marketing")
-        }
+        onChange={(e) => go(e.target.value as DashboardSection)}
         aria-label="Sekcia"
       >
-        <option value="predaj">Predaj</option>
-        <option value="sklad">Sklad</option>
-        <option value="insighty">Insighty</option>
-        <option value="marketing">Marketing</option>
+        {SECTIONS.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.label}
+          </option>
+        ))}
       </select>
     </div>
   );
