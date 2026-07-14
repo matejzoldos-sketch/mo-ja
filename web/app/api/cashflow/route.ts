@@ -18,6 +18,11 @@ type BalanceRow = {
 type TxRow = {
   booking_date?: unknown;
   amount?: unknown;
+  creditor_name?: unknown;
+  debtor_name?: unknown;
+  creditor_iban?: unknown;
+  debtor_iban?: unknown;
+  remittance_info?: unknown;
 };
 
 export async function GET(request: Request) {
@@ -50,7 +55,7 @@ export async function GET(request: Request) {
     supabasePostgrestGet<TxRow[]>(
       supabaseUrl,
       serviceKey,
-      `tatra_transactions?select=booking_date,amount&account_iban=eq.${encodeURIComponent(accountKey)}&booking_date=gte.${periodStart}&order=booking_date.asc&limit=5000`
+      `tatra_transactions?select=booking_date,amount,creditor_name,debtor_name,creditor_iban,debtor_iban,remittance_info&account_iban=eq.${encodeURIComponent(accountKey)}&booking_date=gte.${periodStart}&order=booking_date.asc&limit=5000`
     ),
   ]);
 
@@ -87,6 +92,14 @@ export async function GET(request: Request) {
     .map((row) => ({
       booking_date: String(row.booking_date ?? ""),
       amount: Number(row.amount),
+      creditor_name:
+        typeof row.creditor_name === "string" ? row.creditor_name : null,
+      debtor_name: typeof row.debtor_name === "string" ? row.debtor_name : null,
+      creditor_iban:
+        typeof row.creditor_iban === "string" ? row.creditor_iban : null,
+      debtor_iban: typeof row.debtor_iban === "string" ? row.debtor_iban : null,
+      remittance_info:
+        typeof row.remittance_info === "string" ? row.remittance_info : null,
     }))
     .filter((row) => row.booking_date && Number.isFinite(row.amount));
 
@@ -111,5 +124,6 @@ export async function GET(request: Request) {
       transactionCount: transactions.length,
     },
     months: rows,
+    transactions,
   });
 }

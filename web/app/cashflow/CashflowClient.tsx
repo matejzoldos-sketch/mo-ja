@@ -1,10 +1,29 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Chart as ChartJS,
+  ArcElement,
+  Tooltip,
+  Legend,
+} from "chart.js";
+import type { ChartData, ChartOptions } from "chart.js";
+import { Pie } from "react-chartjs-2";
 import { HeaderBrand, HeaderSectionSelect } from "../components/HeaderNav";
 import { formatLastSyncDisplay } from "@/lib/formatLastSync";
+import {
+  aggregatePieSlices,
+  CASHFLOW_PIE_COLORS,
+  chartPeriodLabel,
+  monthKeyFromRow,
+  type CashflowEnrichedTx,
+} from "@/lib/cashflowPie";
+
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 type MonthRow = {
+  year: number;
+  month: number;
   label: string;
   isPartial: boolean;
   opening: number;
@@ -29,7 +48,10 @@ type CashflowPayload = {
     transactionCount: number;
   };
   months: MonthRow[];
+  transactions?: CashflowEnrichedTx[];
 };
+
+const TEXT = "#1a1f28";
 
 function formatMoney(n: number, currency: string): string {
   return new Intl.NumberFormat("sk-SK", {
@@ -46,10 +68,33 @@ function netClass(n: number): string {
   return "cashflow-num";
 }
 
+function buildPieChartData(
+  slices: ReturnType<typeof aggregatePieSlices>
+): ChartData<"pie"> | null {
+  if (!slices.length) return null;
+  return {
+    labels: slices.map((s) =>
+      s.label.length > 32 ? `${s.label.slice(0, 30)}…` : s.label
+    ),
+    datasets: [
+      {
+        data: slices.map((s) => s.total),
+        backgroundColor: slices.map(
+          (_, i) => CASHFLOW_PIE_COLORS[i % CASHFLOW_PIE_COLORS.length]
+        ),
+        borderColor: TEXT,
+        borderWidth: 1,
+      },
+    ],
+  };
+}
+
 export default function CashflowClient() {
   const [data, setData] = useState<CashflowPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [creditMonth, setCreditMonth] = useState("");
+  const [debitMonth, setDebitMonth] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -76,6 +121,74 @@ export default function CashflowClient() {
   }, [load]);
 
   const currency = data?.meta.currency ?? "EUR";
+  const transactions = data?.transactions ?? [];
+
+  const monthOptions = useMemo(
+    () =>
+      (data?.months ?? []).map((m) => ({
+        value: monthKeyFromRow(m.year, m.month),
+        label: m.label.replace("*", " (prebieha)"),
+      })),
+    [data?.months]
+  );
+
+  const creditSlices = useMemo(
+    () => aggregatePieSlices(transactions, "credit", creditMonth),
+    [transactions, creditMonth]
+  );
+  const debitSlices = useMemo(
+    () => aggregatePieSlices(transactions, "debit", debitMonth),
+    [transactions, debitMonth]
+  );
+
+  const creditPieData = useMemo(
+    () => buildPieChartData(creditSlices),
+    [creditSlices]
+  );
+  const debitPieData = useMemo(
+    () => buildPieChartData(debitSlices),
+    [debitSlices]
+  );
+
+  const pieOptions = useCallback(
+    (
+      slices: ReturnType<typeof aggregatePieSlices>
+    ): ChartOptions<"pie"> => ({
+      responsive: true,
+      maintainAspectRatio: true,
+      aspectRatio: 1.15,
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: {
+            color: TEXT,
+            font: { family: "Manrope, sans-serif", size: 11 },
+            padding: 10,
+            boxWidth: 12,
+          },
+        },
+        tooltip: {
+          callbacks: {
+            label(ctx) {
+              const slice = slices[ctx.dataIndex];
+              if (!slice) return "";
+              const total = slices.reduce((s, r) => s + r.total, 0);
+              const pct =
+                total > 0
+                  ? ((slice.total / total) * 100).toFixed(1)
+                  : "0";
+              return [
+                slice.label,
+                `${formatMoney(slice.total, currency)} (${pct} %)`,
+                `${slice.count} ${slice.count === 1 ? "pohyb" : slice.count < 5 ? "pohyby" : "pohybov"}`,
+              ];
+            },
+          },
+        },
+      },
+    }),
+    [currency]
+  );
 
   return (
     <>
@@ -186,6 +299,88 @@ export default function CashflowClient() {
                 </table>
               </div>
             </section>
+
+            <div className="charts-row charts-row--cashflow-pies">
+              <section className="chart-card chart-card--cashflow-pie">
+                <div className="chart-card__head chart-card__head--filter">
+                  <div>
+                    <h2>Príjmy podľa protistrany</h2>
+                    <p className="chart-card__subtitle">
+                      {chartPeriodLabel(creditMonth)}
+                    </p>
+                  </div>
+                  <div className="period-filter">
+                    <label className="period-filter__label" htmlFor="cashflow-credit-month">
+                      Mesiac
+                    </label>
+                    <select
+                      id="cashflow-credit-month"
+                      className="period-filter__select"
+                      value={creditMonth}
+                      onChange={(e) => setCreditMonth(e.target.value)}
+                    >
+                      <option value="">Všetky mesiace</option>
+                      {monthOptions.map((m) => (
+                        <option key={m.value} value={m.value}>
+                          {m.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {creditPieData ? (
+                  <div className="cashflow-pie-wrap">
+                    <Pie
+                      data={creditPieData}
+                      options={pieOptions(creditSlices)}
+                    />
+                  </div>
+                ) : (
+                  <p className="msg">Žiadne príjmy v zvolenom období.</p>
+                )}
+              </section>
+
+              <section className="chart-card chart-card--cashflow-pie">
+                <div className="chart-card__head chart-card__head--filter">
+                  <div>
+                    <h2>Výdavky podľa protistrany</h2>
+                    <p className="chart-card__subtitle">
+                      {chartPeriodLabel(debitMonth)}
+                    </p>
+                  </div>
+                  <div className="period-filter">
+                    <label className="period-filter__label" htmlFor="cashflow-debit-month">
+                      Mesiac
+                    </label>
+                    <select
+                      id="cashflow-debit-month"
+                      className="period-filter__select"
+                      value={debitMonth}
+                      onChange={(e) => setDebitMonth(e.target.value)}
+                    >
+                      <option value="">Všetky mesiace</option>
+                      {monthOptions.map((m) => (
+                        <option key={m.value} value={m.value}>
+                          {m.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {debitPieData ? (
+                  <div className="cashflow-pie-wrap">
+                    <Pie data={debitPieData} options={pieOptions(debitSlices)} />
+                  </div>
+                ) : (
+                  <p className="msg">Žiadne výdavky v zvolenom období.</p>
+                )}
+              </section>
+            </div>
+
+            <p className="chart-card__subtitle cashflow-pie-note">
+              Zoskupenie podľa mena protistrany z banky (bez mapovania kategórií).
+              Pohyby bez mena sa zobrazia ako Neuvedené alebo podľa textu platby.
+            </p>
           </>
         ) : null}
       </main>

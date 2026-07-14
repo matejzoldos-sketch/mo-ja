@@ -1336,6 +1336,46 @@ td code {
   color: hsl(0, 50%, 42%);
 }
 
+.charts-row--cashflow-pies {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+@media (min-width: 960px) {
+  .charts-row--cashflow-pies {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.chart-card__head--filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.chart-card__head--filter h2 {
+  margin: 0;
+}
+
+.cashflow-pie-wrap {
+  max-width: min(380px, 100%);
+  margin: 0 auto;
+  min-width: 0;
+}
+
+.chart-card--cashflow-pie {
+  overflow: hidden;
+}
+
+.cashflow-pie-note {
+  margin-top: 4px;
+}
+
 /* PDF export: biele pozadie bez sticky header tieňa */
 @media print {
   .site-header {
