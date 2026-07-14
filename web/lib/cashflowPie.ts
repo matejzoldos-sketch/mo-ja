@@ -16,6 +16,87 @@ export type CashflowPieSlice = {
 
 const TOP_N = 8;
 
+/** Známe aliasy — kľúč = normalizované meno, hodnota = zobrazený názov. */
+const PERSON_DISPLAY_ALIASES: Record<string, string> = {
+  "peter|skutil": "Peter Škutil",
+};
+
+const COMPANY_MARKERS =
+  /\b(s\.?\s*r\.?\s*o\.?|a\.?\s*s\.?|spol\.?|k\.?\s*s\.?|v\.?\s*o\.?\s*s\.?|gmbh|inc\.?|ltd\.?)\b/i;
+
+function stripDiacritics(s: string): string {
+  const map: Record<string, string> = {
+    á: "a",
+    ä: "a",
+    č: "c",
+    ď: "d",
+    é: "e",
+    í: "i",
+    ĺ: "l",
+    ľ: "l",
+    ň: "n",
+    ó: "o",
+    ô: "o",
+    ö: "o",
+    ŕ: "r",
+    š: "s",
+    ť: "t",
+    ú: "u",
+    ü: "u",
+    ý: "y",
+    ž: "z",
+  };
+  return s
+    .split("")
+    .map((ch) => map[ch] ?? map[ch.toLowerCase()] ?? ch)
+    .join("");
+}
+
+function normalizePersonNameKey(label: string): string | null {
+  const trimmed = label.trim();
+  if (!trimmed || trimmed === "Neuvedené") return null;
+  if (/^SK\d/i.test(trimmed)) return null;
+  if (COMPANY_MARKERS.test(trimmed)) return null;
+  if (trimmed.length > 48) return null;
+
+  let s = trimmed.replace(
+    /^(Mgr\.|Bc\.|Ing\.|MUDr\.|JUDr\.|PhDr\.|RNDr\.)\s+/gi,
+    ""
+  );
+  s = stripDiacritics(s.toLowerCase());
+  const tokens = s
+    .split(/[\s,.-]+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length > 1);
+  if (tokens.length < 2 || tokens.length > 4) return null;
+  return tokens.sort().join("|");
+}
+
+function groupKeyForLabel(label: string): string {
+  return normalizePersonNameKey(label) ?? label;
+}
+
+function displayLabelForGroup(
+  groupKey: string,
+  labelCounts: Map<string, number>
+): string {
+  const alias = PERSON_DISPLAY_ALIASES[groupKey];
+  if (alias) return alias;
+
+  let best = groupKey;
+  let bestCount = -1;
+  for (const [label, count] of Array.from(labelCounts.entries())) {
+    if (
+      count > bestCount ||
+      (count === bestCount && label.localeCompare(best, "sk") < 0)
+    ) {
+      best = label;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
 const MONTH_SK = [
   "Január",
   "Február",
@@ -68,7 +149,10 @@ export function aggregatePieSlices(
   direction: "credit" | "debit",
   monthKey: string
 ): CashflowPieSlice[] {
-  const byLabel = new Map<string, { total: number; count: number }>();
+  const byGroup = new Map<
+    string,
+    { total: number; count: number; labelCounts: Map<string, number> }
+  >();
 
   for (const tx of txns) {
     const isCredit = tx.amount > 0;
@@ -78,17 +162,30 @@ export function aggregatePieSlices(
       const mk = tx.booking_date.slice(0, 7);
       if (mk !== monthKey) continue;
     }
-    const label = txnCounterpartyLabel(tx);
+    const rawLabel = txnCounterpartyLabel(tx);
+    const groupKey = groupKeyForLabel(rawLabel);
     const abs = Math.abs(tx.amount);
     if (!Number.isFinite(abs) || abs <= 0) continue;
-    const bucket = byLabel.get(label) ?? { total: 0, count: 0 };
+    const bucket = byGroup.get(groupKey) ?? {
+      total: 0,
+      count: 0,
+      labelCounts: new Map<string, number>(),
+    };
     bucket.total += abs;
     bucket.count += 1;
-    byLabel.set(label, bucket);
+    bucket.labelCounts.set(
+      rawLabel,
+      (bucket.labelCounts.get(rawLabel) ?? 0) + 1
+    );
+    byGroup.set(groupKey, bucket);
   }
 
-  const sorted = Array.from(byLabel.entries())
-    .map(([label, v]) => ({ label, total: v.total, count: v.count }))
+  const sorted = Array.from(byGroup.entries())
+    .map(([groupKey, v]) => ({
+      label: displayLabelForGroup(groupKey, v.labelCounts),
+      total: v.total,
+      count: v.count,
+    }))
     .filter((r) => r.total > 0)
     .sort((a, b) => b.total - a.total);
 

@@ -14,7 +14,6 @@ import { formatLastSyncDisplay } from "@/lib/formatLastSync";
 import {
   aggregatePieSlices,
   CASHFLOW_PIE_COLORS,
-  chartPeriodLabel,
   monthKeyFromRow,
   type CashflowEnrichedTx,
 } from "@/lib/cashflowPie";
@@ -303,13 +302,8 @@ export default function CashflowClient() {
             <div className="charts-row charts-row--cashflow-pies">
               <section className="chart-card chart-card--cashflow-pie">
                 <div className="chart-card__head chart-card__head--filter">
-                  <div>
-                    <h2>Príjmy podľa protistrany</h2>
-                    <p className="chart-card__subtitle">
-                      {chartPeriodLabel(creditMonth)}
-                    </p>
-                  </div>
-                  <div className="period-filter">
+                  <h2>Príjmy podľa protistrany</h2>
+                  <div className="period-filter period-filter--cashflow-month">
                     <label className="period-filter__label" htmlFor="cashflow-credit-month">
                       Mesiac
                     </label>
@@ -342,13 +336,8 @@ export default function CashflowClient() {
 
               <section className="chart-card chart-card--cashflow-pie">
                 <div className="chart-card__head chart-card__head--filter">
-                  <div>
-                    <h2>Výdavky podľa protistrany</h2>
-                    <p className="chart-card__subtitle">
-                      {chartPeriodLabel(debitMonth)}
-                    </p>
-                  </div>
-                  <div className="period-filter">
+                  <h2>Výdavky podľa protistrany</h2>
+                  <div className="period-filter period-filter--cashflow-month">
                     <label className="period-filter__label" htmlFor="cashflow-debit-month">
                       Mesiac
                     </label>
@@ -378,8 +367,8 @@ export default function CashflowClient() {
             </div>
 
             <p className="chart-card__subtitle cashflow-pie-note">
-              Zoskupenie podľa mena protistrany z banky (bez mapovania kategórií).
-              Pohyby bez mena sa zobrazia ako Neuvedené alebo podľa textu platby.
+              Zoskupenie podľa protistrany z banky. Varianty mien (napr. Peter Škutil /
+              Peter Skutil) sa zlučujú; firmy a IBAN ostávajú samostatne.
             </p>
           </>
         ) : null}

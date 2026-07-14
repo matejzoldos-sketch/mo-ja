@@ -1350,16 +1350,37 @@ td code {
 }
 
 .chart-card__head--filter {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 12px;
+  align-items: center;
+  margin-bottom: 16px;
 }
 
 .chart-card__head--filter h2 {
   margin: 0;
+  line-height: 1.35;
+}
+
+.chart-card--cashflow-pie .period-filter--cashflow-month {
+  flex-shrink: 0;
+  justify-self: end;
+}
+
+@media (max-width: 1100px) {
+  .charts-row--cashflow-pies .chart-card__head--filter {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-card--cashflow-pie .period-filter--cashflow-month {
+    justify-self: stretch;
+    width: 100%;
+  }
+
+  .chart-card--cashflow-pie .period-filter--cashflow-month .period-filter__select {
+    flex: 1;
+    min-width: 0;
+  }
 }
 
 .cashflow-pie-wrap {
