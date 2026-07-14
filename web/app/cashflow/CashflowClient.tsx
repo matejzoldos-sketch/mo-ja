@@ -79,8 +79,8 @@ export default function CashflowClient() {
 
   return (
     <>
-      <header className="site-header">
-        <div className="site-header__brand-row">
+      <header className="site-header site-header--sklad">
+        <div className="site-header__inner">
           <HeaderBrand />
           <div className="site-toolbar__filters site-toolbar__filters--under-brand">
             <HeaderSectionSelect />
