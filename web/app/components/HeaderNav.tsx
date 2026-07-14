@@ -22,6 +22,11 @@ const SECTIONS: {
   { id: "marketing", label: "Marketing", path: "/marketing", subtitle: "Marketing" },
 ];
 
+/** Dočasne skryté v hlavnom menu — stránka /insighty ostáva dostupná priamo. */
+const HIDDEN_NAV_SECTIONS = new Set<DashboardSection>(["insighty"]);
+
+const NAV_SECTIONS = SECTIONS.filter((s) => !HIDDEN_NAV_SECTIONS.has(s.id));
+
 function sectionFromPathname(pathname: string): DashboardSection {
   if (pathname === "/cashflow") return "cashflow";
   if (pathname === "/sklad") return "sklad";
@@ -60,7 +65,7 @@ export function HeaderSectionSelect() {
   return (
     <div className="header-section-switch" role="navigation" aria-label="Menu">
       <div className="header-section-switch__segmented" role="tablist">
-        {SECTIONS.map((s) => (
+        {NAV_SECTIONS.map((s) => (
           <button
             key={s.id}
             type="button"
@@ -84,7 +89,7 @@ export function HeaderSectionSelect() {
         onChange={(e) => go(e.target.value as DashboardSection)}
         aria-label="Sekcia"
       >
-        {SECTIONS.map((s) => (
+        {NAV_SECTIONS.map((s) => (
           <option key={s.id} value={s.id}>
             {s.label}
           </option>

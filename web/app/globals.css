@@ -158,10 +158,10 @@ a:hover {
 
 .header-section-switch__segmented {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: stretch;
   width: 100%;
-  max-width: 680px;
+  max-width: 560px;
   border: 1px solid var(--border-strong);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
