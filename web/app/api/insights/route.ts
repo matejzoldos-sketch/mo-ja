@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { isAuthorizedRequest } from "@/lib/dashboardAuth";
 import { jsonNoStoreHeaders } from "@/lib/apiJsonNoStore";
+import { formatRpcError } from "@/lib/formatRpcError";
 import { supabasePostgrestRpc } from "@/lib/supabasePostgrestRpc";
 import { evaluateInsights } from "@/lib/insights/evaluate";
 import type {
+  DashboardKpis,
   DashboardPayload,
   InsightsResponse,
   InventoryRow,
@@ -33,6 +35,27 @@ function resolveKpiProduct(searchParams: URLSearchParams): string {
   if (!raw) return "all";
   if (ALLOWED_KPI_PRODUCT.has(raw)) return raw;
   return "all";
+}
+
+function mergeKpis(base: DashboardKpis, extra: Record<string, unknown>): DashboardKpis {
+  const pickNum = (key: keyof DashboardKpis) => {
+    const v = extra[key];
+    if (v == null) return base[key];
+    const n = typeof v === "number" ? v : Number(v);
+    return Number.isFinite(n) ? n : base[key];
+  };
+  return {
+    ...base,
+    returning_customers_pct: pickNum("returning_customers_pct") as number | null | undefined,
+    avg_days_first_to_second_purchase: pickNum(
+      "avg_days_first_to_second_purchase"
+    ) as number | null | undefined,
+    avg_customer_ltv: pickNum("avg_customer_ltv") as number | null | undefined,
+    avg_units_per_unique_customer: pickNum(
+      "avg_units_per_unique_customer"
+    ) as number | null | undefined,
+    avg_units_per_order: pickNum("avg_units_per_order") as number | null | undefined,
+  };
 }
 
 export async function GET(request: Request) {
@@ -94,8 +117,8 @@ export async function GET(request: Request) {
     );
   }
 
-  const dashRpcPayload: Record<string, unknown> = { p_range: range };
-  if (pKpi != null) dashRpcPayload.p_kpi_product = pKpi;
+  const summaryPayload: Record<string, unknown> = { p_range: range };
+  if (pKpi != null) summaryPayload.p_kpi_product = pKpi;
   const skuRpcPayload: Record<string, unknown> = { p_range: range };
   if (pKpi != null) skuRpcPayload.p_kpi_product = pKpi;
   const marketingRpcPayload: Record<string, unknown> = { p_range: range };
@@ -104,8 +127,8 @@ export async function GET(request: Request) {
     supabasePostgrestRpc<unknown>(
       supabaseUrl,
       serviceKey,
-      "get_shopify_dashboard_mvp",
-      dashRpcPayload
+      "get_shopify_dashboard_summary",
+      summaryPayload
     ),
     supabasePostgrestRpc<unknown>(
       supabaseUrl,
@@ -129,25 +152,25 @@ export async function GET(request: Request) {
 
   if (dashRes.error) {
     return NextResponse.json(
-      { error: dashRes.error },
+      { error: formatRpcError(dashRes.error, "insights-summary") },
       { status: 500, headers: jsonNoStoreHeaders }
     );
   }
   if (skuRes.error) {
     return NextResponse.json(
-      { error: skuRes.error },
+      { error: formatRpcError(skuRes.error, "insights-sku") },
       { status: 500, headers: jsonNoStoreHeaders }
     );
   }
   if (invRes.error) {
     return NextResponse.json(
-      { error: invRes.error },
+      { error: formatRpcError(invRes.error, "insights-inventory") },
       { status: 500, headers: jsonNoStoreHeaders }
     );
   }
   if (marketingRes.error) {
     return NextResponse.json(
-      { error: marketingRes.error },
+      { error: formatRpcError(marketingRes.error, "insights-marketing") },
       { status: 500, headers: jsonNoStoreHeaders }
     );
   }
@@ -163,6 +186,28 @@ export async function GET(request: Request) {
       { error: "Neočekávaný formát odpovede z dashboard RPC." },
       { status: 500, headers: jsonNoStoreHeaders }
     );
+  }
+
+  const from = String(dashboard.meta.from ?? "").slice(0, 10);
+  const to = String(dashboard.meta.to ?? "").slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(from) && /^\d{4}-\d{2}-\d{2}$/.test(to)) {
+    const kpiPayload: Record<string, unknown> = { p_from: from, p_to: to };
+    if (pKpi != null) kpiPayload.p_kpi_product = pKpi;
+    const kpiRes = await supabasePostgrestRpc<Record<string, unknown>>(
+      supabaseUrl,
+      serviceKey,
+      "get_shopify_dashboard_kpis",
+      kpiPayload
+    );
+    if (kpiRes.error) {
+      return NextResponse.json(
+        { error: formatRpcError(kpiRes.error, "insights-kpis") },
+        { status: 500, headers: jsonNoStoreHeaders }
+      );
+    }
+    if (kpiRes.data && typeof kpiRes.data === "object") {
+      dashboard.kpis = mergeKpis(dashboard.kpis, kpiRes.data);
+    }
   }
 
   const skuDailyYtd =
@@ -204,4 +249,3 @@ export async function GET(request: Request) {
 
   return NextResponse.json(out, { headers: jsonNoStoreHeaders });
 }
-
