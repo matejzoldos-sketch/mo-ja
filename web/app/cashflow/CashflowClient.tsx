@@ -17,6 +17,7 @@ import {
   monthKeyFromRow,
   type CashflowEnrichedTx,
 } from "@/lib/cashflowPie";
+import CashflowTxnTable from "./CashflowTxnTable";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -370,6 +371,12 @@ export default function CashflowClient() {
               Zoskupenie podľa protistrany z banky. Varianty mien (napr. Peter Škutil /
               Peter Skutil) sa zlučujú; firmy a IBAN ostávajú samostatne.
             </p>
+
+            <CashflowTxnTable
+              transactions={transactions}
+              currency={currency}
+              monthOptions={monthOptions}
+            />
           </>
         ) : null}
       </main>

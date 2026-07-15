@@ -1397,6 +1397,84 @@ td code {
   margin-top: 4px;
 }
 
+.cashflow-txn-table {
+  margin-top: 18px;
+}
+
+.cashflow-txn-table__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.cashflow-txn-table__head h2 {
+  margin: 0 0 4px;
+}
+
+.data-table--filterable .data-table__filter-row th {
+  padding-top: 0;
+  padding-bottom: 10px;
+  vertical-align: top;
+  background: var(--surface-muted, #f8f9fb);
+  border-bottom: 1px solid var(--border);
+}
+
+.data-table__filter-input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 6px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-dark);
+}
+
+.data-table__filter-input--num {
+  text-align: right;
+}
+
+.data-table__filter-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(228, 224, 74, 0.35);
+}
+
+.cashflow-dir {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.cashflow-dir--credit {
+  background: hsl(152 45% 92%);
+  color: hsl(152 45% 28%);
+}
+
+.cashflow-dir--debit {
+  background: hsl(0 45% 94%);
+  color: hsl(0 45% 38%);
+}
+
+.cashflow-txn-note {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
 /* PDF export: biele pozadie bez sticky header tieňa */
 @media print {
   .site-header {

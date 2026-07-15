@@ -144,6 +144,14 @@ export function txnCounterpartyLabel(tx: CashflowEnrichedTx): string {
   return "Neuvedené";
 }
 
+/** Zobrazená protistrana — zlučené varianty mien (Peter Škutil / Skutil). */
+export function displayCounterparty(tx: CashflowEnrichedTx): string {
+  const raw = txnCounterpartyLabel(tx);
+  const groupKey = groupKeyForLabel(raw);
+  if (groupKey === raw) return raw;
+  return displayLabelForGroup(groupKey, new Map([[raw, 1]]));
+}
+
 export function aggregatePieSlices(
   txns: CashflowEnrichedTx[],
   direction: "credit" | "debit",
