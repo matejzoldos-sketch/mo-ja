@@ -101,7 +101,12 @@ export async function GET(request: Request) {
       remittance_info:
         typeof row.remittance_info === "string" ? row.remittance_info : null,
     }))
-    .filter((row) => row.booking_date && Number.isFinite(row.amount));
+    .filter(
+      (row) =>
+        row.booking_date &&
+        Number.isFinite(row.amount) &&
+        row.amount !== 0
+    );
 
   const { rows, openingAtPeriodStart, ytdNet } = buildCashflowMonths(
     balance,
