@@ -82,8 +82,9 @@ function buildPieChartData(
         backgroundColor: slices.map(
           (_, i) => CASHFLOW_PIE_COLORS[i % CASHFLOW_PIE_COLORS.length]
         ),
-        borderColor: TEXT,
-        borderWidth: 1,
+        borderWidth: 0,
+        borderColor: "transparent",
+        hoverBorderWidth: 0,
       },
     ],
   };
@@ -157,6 +158,13 @@ export default function CashflowClient() {
       responsive: true,
       maintainAspectRatio: true,
       aspectRatio: 1.15,
+      elements: {
+        arc: {
+          borderWidth: 0,
+          borderColor: "transparent",
+          hoverBorderWidth: 0,
+        },
+      },
       plugins: {
         legend: {
           position: "bottom",
@@ -300,12 +308,6 @@ export default function CashflowClient() {
               </div>
             </section>
 
-            <CashflowTxnTable
-              transactions={transactions}
-              currency={currency}
-              monthOptions={monthOptions}
-            />
-
             <div className="charts-row charts-row--cashflow-pies">
               <section className="chart-card chart-card--cashflow-pie">
                 <div className="chart-card__head chart-card__head--filter">
@@ -372,6 +374,12 @@ export default function CashflowClient() {
                 )}
               </section>
             </div>
+
+            <CashflowTxnTable
+              transactions={transactions}
+              currency={currency}
+              monthOptions={monthOptions}
+            />
           </>
         ) : null}
       </main>
