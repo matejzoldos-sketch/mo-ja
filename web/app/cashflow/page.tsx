@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import CashflowClient from "./CashflowClient";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "MO–JA cash flow",
   description: "Mesačný prehľad príjmov a výdavkov z Tatra banky",

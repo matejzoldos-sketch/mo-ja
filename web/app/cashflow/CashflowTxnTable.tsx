@@ -76,7 +76,8 @@ export default function CashflowTxnTable({
         <div>
           <h2 id="cashflow-txn-title">Pohyby na účte</h2>
           <p className="chart-card__subtitle">
-            Zobrazených {filteredRows.length} z {allRows.length} pohybov
+            Všetky transakcie s kategóriou · filtre v hlavičke stĺpcov ·{" "}
+            zobrazených {filteredRows.length} z {allRows.length}
             {filteredSum !== 0
               ? ` · súčet ${formatMoney(filteredSum, currency)}`
               : ""}

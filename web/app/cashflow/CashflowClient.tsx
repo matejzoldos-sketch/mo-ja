@@ -300,6 +300,12 @@ export default function CashflowClient() {
               </div>
             </section>
 
+            <CashflowTxnTable
+              transactions={transactions}
+              currency={currency}
+              monthOptions={monthOptions}
+            />
+
             <div className="charts-row charts-row--cashflow-pies">
               <section className="chart-card chart-card--cashflow-pie">
                 <div className="chart-card__head chart-card__head--filter">
@@ -366,17 +372,6 @@ export default function CashflowClient() {
                 )}
               </section>
             </div>
-
-            <p className="chart-card__subtitle cashflow-pie-note">
-              Zoskupenie podľa protistrany z banky. Varianty mien (napr. Peter Škutil /
-              Peter Skutil) sa zlučujú; firmy a IBAN ostávajú samostatne.
-            </p>
-
-            <CashflowTxnTable
-              transactions={transactions}
-              currency={currency}
-              monthOptions={monthOptions}
-            />
           </>
         ) : null}
       </main>
