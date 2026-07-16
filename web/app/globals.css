@@ -1510,7 +1510,11 @@ td code {
 }
 
 .cashflow-txn-table__head h2 {
-  margin: 0 0 4px;
+  margin: 0 0 6px;
+}
+
+.cashflow-txn-table__head .chart-card__subtitle {
+  margin: 0;
 }
 
 .data-table--filterable .data-table__filter-row th {
