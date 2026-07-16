@@ -104,6 +104,25 @@ const MOCK_PAYLOAD = {
       { bucket: 6, label: "121+ dní", count: 2 },
     ],
   },
+  orderTimeHeatmap: {
+    timezone: "Europe/Bratislava",
+    days: ["Po", "Ut", "St", "Št", "Pi", "So", "Ne"],
+    hours: Array.from({ length: 24 }, (_, i) => i),
+    maxOrders: 9,
+    cells: Array.from({ length: 7 * 24 }, (_, idx) => {
+      const dow = Math.floor(idx / 24) + 1;
+      const hour = idx % 24;
+      const peak =
+        dow >= 1 && dow <= 5 && hour >= 8 && hour <= 11
+          ? 6 + ((hour + dow) % 4)
+          : dow >= 1 && dow <= 5 && hour >= 18 && hour <= 21
+            ? 3 + (hour % 3)
+            : dow >= 6 && hour >= 9 && hour <= 12
+              ? 2 + (hour % 2)
+              : 0;
+      return { dow, hour, orders: peak };
+    }),
+  },
   recentOrders: [1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010].map(
     (id, i) => {
       const day = 20 - Math.floor(i / 2);
@@ -198,11 +217,17 @@ export async function GET(request: Request) {
   if (yearEarly) dashRpcPayload.p_year = yearEarly;
   if (pKpiProduct != null) dashRpcPayload.p_kpi_product = pKpiProduct;
 
-  const [dashRes, lastSyncAt] = await Promise.all([
+  const [dashRes, heatmapRes, lastSyncAt] = await Promise.all([
     supabasePostgrestRpc<Record<string, unknown>>(
       supabaseUrl,
       serviceKey,
       "get_shopify_dashboard_summary",
+      dashRpcPayload
+    ),
+    supabasePostgrestRpc<Record<string, unknown>>(
+      supabaseUrl,
+      serviceKey,
+      "get_shopify_order_time_heatmap",
       dashRpcPayload
     ),
     resolveLastSyncAt(supabaseUrl, serviceKey),
@@ -211,6 +236,13 @@ export async function GET(request: Request) {
   if (dashRes.error) {
     return NextResponse.json(
       { error: `[dashboard-summary] ${dashRes.error}` },
+      { status: 500, headers: dashboardHeaders(supabaseUrl, null) }
+    );
+  }
+
+  if (heatmapRes.error) {
+    return NextResponse.json(
+      { error: `[dashboard-order-time-heatmap] ${heatmapRes.error}` },
       { status: 500, headers: dashboardHeaders(supabaseUrl, null) }
     );
   }
@@ -235,6 +267,7 @@ export async function GET(request: Request) {
     {
       ...base,
       meta,
+      orderTimeHeatmap: heatmapRes.data,
       lastSyncAt,
     },
     { headers: dashboardHeaders(supabaseUrl, metaTo) }

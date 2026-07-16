@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Chart as ChartJS,
@@ -150,6 +150,20 @@ type PurchaseIntervalHistogram = {
   buckets: PurchaseIntervalBucket[];
 };
 
+type OrderTimeHeatmapCell = {
+  dow: number;
+  hour: number;
+  orders: number;
+};
+
+type OrderTimeHeatmap = {
+  timezone: string;
+  days: string[];
+  hours: number[];
+  maxOrders: number;
+  cells: OrderTimeHeatmapCell[];
+};
+
 type Payload = {
   meta: PayloadMeta;
   kpis: Kpis;
@@ -161,6 +175,7 @@ type Payload = {
   monthlyNewVsReturning?: MonthlyNewVsReturning;
   purchaseCountDistribution?: PurchaseCountBucket[];
   purchaseIntervalHistogram?: PurchaseIntervalHistogram;
+  orderTimeHeatmap?: OrderTimeHeatmap;
   skuDailyYtd?: SkuDailyYtd;
   /** ISO čas posledného úspešného behu sync_shopify (shopify_sync_state.full_sync) */
   lastSyncAt?: string | null;
@@ -355,6 +370,15 @@ function skuLineColor(i: number, total: number): string {
   const step = total > 0 ? 360 / total : 0;
   const h = Math.round((i * step) % 360);
   return `hsl(${h} 42% 38%)`;
+}
+
+function heatmapCellColor(value: number, max: number): string {
+  if (!Number.isFinite(value) || value <= 0 || max <= 0) {
+    return "rgba(107, 127, 98, 0.08)";
+  }
+  const ratio = Math.min(value / max, 1);
+  const alpha = 0.16 + ratio * 0.74;
+  return `rgba(107, 127, 98, ${alpha.toFixed(3)})`;
 }
 
 function buildSkuUnitsLineChart(
@@ -1003,6 +1027,22 @@ export default function DashboardClient() {
     },
   };
 
+  const orderTimeHeatmap = data?.orderTimeHeatmap;
+  const orderTimeHeatmapRows =
+    orderTimeHeatmap?.days?.map((label, idx) => {
+      const dow = idx + 1;
+      const rowCells = orderTimeHeatmap.hours.map((hour) => {
+        const match = orderTimeHeatmap.cells.find(
+          (cell) => cell.dow === dow && cell.hour === hour
+        );
+        return {
+          hour,
+          orders: Number(match?.orders ?? 0),
+        };
+      });
+      return { dow, label, cells: rowCells };
+    }) ?? [];
+
   const downloadDashboardMd = useCallback(() => {
     if (!data) return;
     const md = buildDashboardMarkdown({
@@ -1465,6 +1505,58 @@ export default function DashboardClient() {
                     data={purchaseIntervalBarData}
                     options={purchaseIntervalBarOptions}
                   />
+                </div>
+              </section>
+            ) : null}
+
+            {orderTimeHeatmap && orderTimeHeatmapRows.length > 0 ? (
+              <section className="chart-card chart-card--order-time-heatmap">
+                <h2>
+                  Kedy prichádzajú objednávky
+                  {chartPeriodInParens ? ` (${chartPeriodInParens})` : ""}
+                </h2>
+                <p className="chart-card__subtitle">
+                  Heatmap podľa lokálneho času zákazky ({orderTimeHeatmap.timezone}).
+                  Tmavšie pole = viac objednávok v daný deň a hodinu.
+                </p>
+                <div className="order-time-heatmap" role="img" aria-label="Heatmap času objednávok podľa dňa a hodiny">
+                  <div className="order-time-heatmap__corner" aria-hidden />
+                  {orderTimeHeatmap.hours.map((hour) => (
+                    <div key={`head-${hour}`} className="order-time-heatmap__hour">
+                      {String(hour).padStart(2, "0")}
+                    </div>
+                  ))}
+                  {orderTimeHeatmapRows.map((row) => (
+                    <Fragment key={`row-${row.dow}`}>
+                      <div className="order-time-heatmap__day">{row.label}</div>
+                      {row.cells.map((cell) => (
+                        <div
+                          key={`cell-${row.dow}-${cell.hour}`}
+                          className="order-time-heatmap__cell"
+                          style={{
+                            backgroundColor: heatmapCellColor(
+                              cell.orders,
+                              Number(orderTimeHeatmap.maxOrders ?? 0)
+                            ),
+                          }}
+                          title={`${row.label} ${String(cell.hour).padStart(2, "0")}:00 - ${String(cell.hour).padStart(2, "0")}:59: ${cell.orders} obj.`}
+                          aria-label={`${row.label} ${String(cell.hour).padStart(2, "0")}:00: ${cell.orders} objednávok`}
+                        >
+                          {cell.orders > 0 ? cell.orders : ""}
+                        </div>
+                      ))}
+                    </Fragment>
+                  ))}
+                </div>
+                <div className="order-time-heatmap__legend" aria-hidden>
+                  <span>Menej</span>
+                  <span className="order-time-heatmap__legend-scale">
+                    <span style={{ background: heatmapCellColor(0, Number(orderTimeHeatmap.maxOrders ?? 0)) }} />
+                    <span style={{ background: heatmapCellColor(Math.max(1, Math.round(Number(orderTimeHeatmap.maxOrders ?? 0) * 0.33)), Number(orderTimeHeatmap.maxOrders ?? 0)) }} />
+                    <span style={{ background: heatmapCellColor(Math.max(1, Math.round(Number(orderTimeHeatmap.maxOrders ?? 0) * 0.66)), Number(orderTimeHeatmap.maxOrders ?? 0)) }} />
+                    <span style={{ background: heatmapCellColor(Number(orderTimeHeatmap.maxOrders ?? 0), Number(orderTimeHeatmap.maxOrders ?? 0)) }} />
+                  </span>
+                  <span>Viac</span>
                 </div>
               </section>
             ) : null}
