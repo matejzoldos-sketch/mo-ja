@@ -275,8 +275,9 @@ export default function MarketingClient() {
           backgroundColor: chartRows.map(
             (_, i) => PIE_COLORS[i % PIE_COLORS.length]
           ),
-          borderColor: TEXT,
-          borderWidth: 1,
+          borderWidth: 0,
+          borderColor: "transparent",
+          hoverBorderWidth: 0,
         },
       ],
     };
@@ -296,6 +297,13 @@ export default function MarketingClient() {
       responsive: true,
       maintainAspectRatio: true,
       aspectRatio: compactCharts ? 1 : 1.15,
+      elements: {
+        arc: {
+          borderWidth: 0,
+          borderColor: "transparent",
+          hoverBorderWidth: 0,
+        },
+      },
       plugins: {
         legend: {
           display: !compactCharts,
