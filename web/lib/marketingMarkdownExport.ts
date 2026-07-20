@@ -202,9 +202,9 @@ export function buildMarketingMarkdown(input: MarketingMarkdownInput): string {
     if (firstDays.length > 0) {
       lines.push("## Férové porovnanie — prvých N dní od štartu");
       lines.push("");
-      const daysSet = [...new Set(firstDays.map((r) => r.first_days))].sort(
-        (a, b) => a - b
-      );
+      const daysSet = Array.from(
+        new Set(firstDays.map((r) => r.first_days))
+      ).sort((a, b) => a - b);
       for (const days of daysSet) {
         const rows = firstDays.filter((r) => r.first_days === days);
         lines.push(`### Prvých ${days} dní`);
