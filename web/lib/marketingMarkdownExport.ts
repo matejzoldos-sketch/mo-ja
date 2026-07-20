@@ -2,7 +2,7 @@ import type { DashboardRangeKey } from "@/lib/dashboardPeriodFilter";
 
 export type MarketingRangeKey = DashboardRangeKey;
 
-export type MarketingDimensionKey = "source" | "medium" | "campaign";
+export type MarketingDimensionKey = "source" | "medium" | "campaign" | "agency";
 
 export type MarketingBreakdownRow = {
   label: string;
@@ -10,6 +10,8 @@ export type MarketingBreakdownRow = {
   revenue: number;
   pct_orders: number;
   pct_revenue: number;
+  spend_eur?: number | null;
+  roas?: number | null;
 };
 
 export type MarketingRecentOrder = {
@@ -115,18 +117,35 @@ export function buildMarketingMarkdown(input: MarketingMarkdownInput): string {
   if (input.breakdownRows.length > 0) {
     lines.push(`## Podiel tržieb podľa ${input.dimensionLabel}`);
     lines.push("");
-    lines.push(
-      mdTable(
-        ["Kanál", "Obj.", "Tržby", "% obj.", "% tržby"],
-        input.breakdownRows.map((r) => [
-          r.label,
-          r.orders,
-          formatMoney(Number(r.revenue), input.currency),
-          formatPct(r.pct_orders),
-          formatPct(r.pct_revenue),
-        ])
-      )
-    );
+    if (input.dimension === "agency") {
+      lines.push(
+        mdTable(
+          ["Kanál", "Obj.", "Tržby", "Spend", "ROAS", "% obj.", "% tržby"],
+          input.breakdownRows.map((r) => [
+            r.label,
+            r.orders,
+            formatMoney(Number(r.revenue), input.currency),
+            r.spend_eur != null ? formatMoney(Number(r.spend_eur), input.currency) : "—",
+            r.roas != null ? `${Number(r.roas).toFixed(2)}×` : "—",
+            formatPct(r.pct_orders),
+            formatPct(r.pct_revenue),
+          ])
+        )
+      );
+    } else {
+      lines.push(
+        mdTable(
+          ["Kanál", "Obj.", "Tržby", "% obj.", "% tržby"],
+          input.breakdownRows.map((r) => [
+            r.label,
+            r.orders,
+            formatMoney(Number(r.revenue), input.currency),
+            formatPct(r.pct_orders),
+            formatPct(r.pct_revenue),
+          ])
+        )
+      );
+    }
     lines.push("");
   }
 

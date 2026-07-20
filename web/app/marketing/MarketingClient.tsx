@@ -27,7 +27,7 @@ import {
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-type DimensionKey = "source" | "medium" | "campaign";
+type DimensionKey = "source" | "medium" | "campaign" | "agency";
 
 type BreakdownRow = {
   label: string;
@@ -35,6 +35,8 @@ type BreakdownRow = {
   revenue: number;
   pct_orders: number;
   pct_revenue: number;
+  spend_eur?: number | null;
+  roas?: number | null;
 };
 
 type MarketingPayload = {
@@ -50,6 +52,7 @@ type MarketingPayload = {
   bySource: BreakdownRow[];
   byMedium: BreakdownRow[];
   byCampaign: BreakdownRow[];
+  byAgency: BreakdownRow[];
   recentOrders: {
     id: number;
     name: string;
@@ -70,6 +73,7 @@ const DIMENSION_LABELS: Record<DimensionKey, string> = {
   source: "Zdroj (UTM source)",
   medium: "Medium (UTM medium)",
   campaign: "Kampaň (UTM campaign)",
+  agency: "Agentúra (Filip vs (H))",
 };
 
 const PIE_COLORS = [
@@ -89,7 +93,7 @@ const TEXT = "#1a1f28";
 
 function parseDimensionParam(raw: string | null): DimensionKey {
   const s = (raw || "").toLowerCase().trim();
-  if (s === "medium" || s === "campaign") return s;
+  if (s === "medium" || s === "campaign" || s === "agency") return s;
   return "source";
 }
 
@@ -108,6 +112,7 @@ function breakdownForDimension(
 ): BreakdownRow[] {
   if (dim === "medium") return data.byMedium ?? [];
   if (dim === "campaign") return data.byCampaign ?? [];
+  if (dim === "agency") return data.byAgency ?? [];
   return data.bySource ?? [];
 }
 
@@ -142,6 +147,7 @@ function normalizeMarketingPayload(raw: unknown): MarketingPayload | null {
     bySource: asRows(o.bySource),
     byMedium: asRows(o.byMedium),
     byCampaign: asRows(o.byCampaign),
+    byAgency: asRows(o.byAgency),
     recentOrders: Array.isArray(o.recentOrders)
       ? (o.recentOrders as MarketingPayload["recentOrders"])
       : [],
@@ -463,7 +469,7 @@ export default function MarketingClient() {
                   role="listbox"
                   aria-label="Rozmer UTM"
                 >
-                  {(["source", "medium", "campaign"] as const).map((v) => (
+                  {(["source", "medium", "campaign", "agency"] as const).map((v) => (
                     <li key={v} role="presentation">
                       <button
                         type="button"
@@ -582,6 +588,12 @@ export default function MarketingClient() {
                         <th>Kanál</th>
                         <th className="num">Obj.</th>
                         <th className="num">Tržby</th>
+                        {dimension === "agency" ? (
+                          <>
+                            <th className="num">Spend</th>
+                            <th className="num">ROAS</th>
+                          </>
+                        ) : null}
                         <th className="num">% obj.</th>
                         <th className="num">% tržby</th>
                       </tr>
@@ -594,6 +606,18 @@ export default function MarketingClient() {
                           <td className="num">
                             {formatMoney(r.revenue, data.kpis.currency)}
                           </td>
+                          {dimension === "agency" ? (
+                            <>
+                              <td className="num">
+                                {r.spend_eur != null
+                                  ? formatMoney(r.spend_eur, data.kpis.currency)
+                                  : "—"}
+                              </td>
+                              <td className="num">
+                                {r.roas != null ? `${r.roas.toFixed(2)}×` : "—"}
+                              </td>
+                            </>
+                          ) : null}
                           <td className="num">{r.pct_orders} %</td>
                           <td className="num">{r.pct_revenue} %</td>
                         </tr>
