@@ -190,13 +190,12 @@ export function filterCashflowTableRows(
     if (filters.month && row.monthKey !== filters.month) return false;
     if (filters.direction && row.direction !== filters.direction) return false;
     if (!matchesText(row.booking_date, filters.date)) return false;
-    if (
-      !matchesText(row.categoryLabel, filters.category) &&
-      !matchesText(row.category, filters.category)
-    ) {
+    if (filters.category && row.categoryLabel !== filters.category) {
       return false;
     }
-    if (!matchesText(row.counterparty, filters.counterparty)) return false;
+    if (filters.counterparty && row.counterparty !== filters.counterparty) {
+      return false;
+    }
     if (
       !matchesText(String(row.amount), filters.amount) &&
       !matchesText(String(Math.abs(row.amount)), filters.amount)

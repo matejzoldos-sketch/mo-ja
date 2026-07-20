@@ -63,6 +63,20 @@ export default function CashflowTxnTable({
     [filteredRows]
   );
 
+  const categoryOptions = useMemo(() => {
+    const labels = new Set<string>();
+    for (const row of allRows) labels.add(row.categoryLabel);
+    return Array.from(labels).sort((a, b) => a.localeCompare(b, "sk"));
+  }, [allRows]);
+
+  const counterpartyOptions = useMemo(() => {
+    const labels = new Set<string>();
+    for (const row of allRows) {
+      if (row.counterparty) labels.add(row.counterparty);
+    }
+    return Array.from(labels).sort((a, b) => a.localeCompare(b, "sk"));
+  }, [allRows]);
+
   const set = <K extends keyof CashflowTableFilters>(
     key: K,
     value: CashflowTableFilters[K]
@@ -140,24 +154,34 @@ export default function CashflowTxnTable({
                 </select>
               </th>
               <th>
-                <input
-                  type="text"
+                <select
                   className="data-table__filter-input"
-                  placeholder="Filter…"
                   value={filters.category}
                   onChange={(e) => set("category", e.target.value)}
                   aria-label="Filter kategória"
-                />
+                >
+                  <option value="">Všetko</option>
+                  {categoryOptions.map((label) => (
+                    <option key={label} value={label}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
               </th>
               <th>
-                <input
-                  type="text"
+                <select
                   className="data-table__filter-input"
-                  placeholder="Filter…"
                   value={filters.counterparty}
                   onChange={(e) => set("counterparty", e.target.value)}
                   aria-label="Filter protistrana"
-                />
+                >
+                  <option value="">Všetko</option>
+                  {counterpartyOptions.map((label) => (
+                    <option key={label} value={label}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
               </th>
               <th>
                 <input
