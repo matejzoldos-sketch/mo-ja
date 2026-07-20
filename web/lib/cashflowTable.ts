@@ -69,6 +69,7 @@ function haystack(tx: CashflowEnrichedTx, counterparty: string): string {
     tx.creditor_name,
     tx.debtor_name,
     tx.trading_party,
+    tx.additional_info,
     tx.remittance_info,
   ]
     .filter(Boolean)
@@ -91,12 +92,32 @@ export function inferCashflowCategory(
   }
 
   if (
-    counterparty === "Neuvedené" ||
-    (!tx.creditor_name?.trim() && !tx.creditor_iban?.trim())
+    h.includes("transakčná daň") ||
+    h.includes("transakcna dan") ||
+    h.includes("poplatok za balík") ||
+    h.includes("poplatky za transakcie") ||
+    h.includes("premium api") ||
+    h.includes("poplatok za sluzbu")
   ) {
-    if (h.includes("premium api") || h.includes("poplatok")) {
-      return { key: "bank_fee", label: CASHFLOW_CATEGORY_LABELS.bank_fee };
-    }
+    return { key: "bank_fee", label: CASHFLOW_CATEGORY_LABELS.bank_fee };
+  }
+
+  if (
+    h.includes("facebk") ||
+    h.includes("marketing") ||
+    h.includes("facebook") ||
+    h.includes("google ads")
+  ) {
+    return { key: "marketing", label: CASHFLOW_CATEGORY_LABELS.marketing };
+  }
+
+  if (
+    counterparty === "Neuvedené" ||
+    (!tx.creditor_name?.trim() &&
+      !tx.creditor_iban?.trim() &&
+      !tx.trading_party?.trim() &&
+      !tx.additional_info?.trim())
+  ) {
     return {
       key: "card_expense",
       label: CASHFLOW_CATEGORY_LABELS.card_expense,
@@ -119,16 +140,6 @@ export function inferCashflowCategory(
   }
   if (h.includes("poist") || h.includes("dovera") || h.includes("vszp")) {
     return { key: "insurance", label: CASHFLOW_CATEGORY_LABELS.insurance };
-  }
-  if (h.includes("premium api") || h.includes("poplatok za sluzbu")) {
-    return { key: "bank_fee", label: CASHFLOW_CATEGORY_LABELS.bank_fee };
-  }
-  if (
-    h.includes("marketing") ||
-    h.includes("facebook") ||
-    h.includes("google ads")
-  ) {
-    return { key: "marketing", label: CASHFLOW_CATEGORY_LABELS.marketing };
   }
   if (COMPANY_MARKERS.test(counterparty)) {
     return { key: "supplier", label: CASHFLOW_CATEGORY_LABELS.supplier };
@@ -154,7 +165,10 @@ export function buildCashflowTableRows(
         categoryLabel: label,
         counterparty,
         amount: tx.amount,
-        remittance: tx.remittance_info?.trim() || "",
+        remittance:
+          tx.remittance_info?.trim() ||
+          tx.additional_info?.trim() ||
+          "",
       };
     })
     .sort((a, b) => {

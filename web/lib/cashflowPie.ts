@@ -8,6 +8,8 @@ export type CashflowEnrichedTx = {
   remittance_info?: string | null;
   /** Obchodník z kartovej platby (raw_json.tradingPartyIdentification). */
   trading_party?: string | null;
+  /** Doplnkový popis z banky (raw_json.additionalInformation). */
+  additional_info?: string | null;
 };
 
 export type CashflowPieSlice = {
@@ -126,6 +128,14 @@ export const CASHFLOW_PIE_COLORS = [
   "hsl(220 18% 58%)",
 ];
 
+/** Skrátený label pre opakujúce sa bankové popisy (TXA daň atď.). */
+function counterpartyFromAdditionalInfo(info: string): string {
+  const trimmed = info.trim();
+  if (/^transakčná daň\b/i.test(trimmed)) return "Transakčná daň";
+  if (trimmed.length > 48) return `${trimmed.slice(0, 46)}…`;
+  return trimmed;
+}
+
 /** Protistrana z bankových polí (bez counterparty map). */
 export function txnCounterpartyLabel(tx: CashflowEnrichedTx): string {
   if (tx.amount >= 0) {
@@ -145,6 +155,8 @@ export function txnCounterpartyLabel(tx: CashflowEnrichedTx): string {
   if (rem) {
     return rem.length > 48 ? `${rem.slice(0, 46)}…` : rem;
   }
+  const addInfo = tx.additional_info?.trim();
+  if (addInfo) return counterpartyFromAdditionalInfo(addInfo);
   return "Neuvedené";
 }
 

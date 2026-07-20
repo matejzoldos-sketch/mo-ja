@@ -26,12 +26,20 @@ type TxRow = {
   raw_json?: unknown;
 };
 
-function tradingPartyFromRaw(raw: unknown): string | null {
+function stringFromRaw(raw: unknown, key: string): string | null {
   if (!raw || typeof raw !== "object") return null;
-  const value = (raw as Record<string, unknown>).tradingPartyIdentification;
+  const value = (raw as Record<string, unknown>)[key];
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed || null;
+}
+
+function tradingPartyFromRaw(raw: unknown): string | null {
+  return stringFromRaw(raw, "tradingPartyIdentification");
+}
+
+function additionalInfoFromRaw(raw: unknown): string | null {
+  return stringFromRaw(raw, "additionalInformation");
 }
 
 export async function GET(request: Request) {
@@ -98,19 +106,32 @@ export async function GET(request: Request) {
     balRow?.fetched_at != null ? String(balRow.fetched_at) : null;
 
   const transactions = (txRes.data ?? [])
-    .map((row) => ({
-      booking_date: String(row.booking_date ?? ""),
-      amount: Number(row.amount),
-      creditor_name:
-        typeof row.creditor_name === "string" ? row.creditor_name : null,
-      debtor_name: typeof row.debtor_name === "string" ? row.debtor_name : null,
-      creditor_iban:
-        typeof row.creditor_iban === "string" ? row.creditor_iban : null,
-      debtor_iban: typeof row.debtor_iban === "string" ? row.debtor_iban : null,
-      remittance_info:
-        typeof row.remittance_info === "string" ? row.remittance_info : null,
-      trading_party: tradingPartyFromRaw(row.raw_json),
-    }))
+    .map((row) => {
+      const creditorFromRaw = stringFromRaw(row.raw_json, "creditorName");
+      const debtorFromRaw = stringFromRaw(row.raw_json, "debtorName");
+      const creditorName =
+        typeof row.creditor_name === "string" && row.creditor_name.trim()
+          ? row.creditor_name.trim()
+          : creditorFromRaw;
+      const debtorName =
+        typeof row.debtor_name === "string" && row.debtor_name.trim()
+          ? row.debtor_name.trim()
+          : debtorFromRaw;
+
+      return {
+        booking_date: String(row.booking_date ?? ""),
+        amount: Number(row.amount),
+        creditor_name: creditorName,
+        debtor_name: debtorName,
+        creditor_iban:
+          typeof row.creditor_iban === "string" ? row.creditor_iban : null,
+        debtor_iban: typeof row.debtor_iban === "string" ? row.debtor_iban : null,
+        remittance_info:
+          typeof row.remittance_info === "string" ? row.remittance_info : null,
+        trading_party: tradingPartyFromRaw(row.raw_json),
+        additional_info: additionalInfoFromRaw(row.raw_json),
+      };
+    })
     .filter(
       (row) =>
         row.booking_date &&
