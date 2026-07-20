@@ -61,9 +61,22 @@ type AgencyFirstDaysRow = {
   roas: number | null;
 };
 
+type AgencyFromFirstSalesRow = {
+  label: string;
+  first_sales_campaign: string;
+  active_from: string;
+  active_to: string;
+  days_active: number;
+  orders: number;
+  revenue: number;
+  spend_eur: number;
+  roas: number | null;
+};
+
 type AgencyBenchmark = {
   lifetime: AgencyLifetimeRow[];
   firstDays: AgencyFirstDaysRow[];
+  fromFirstSales: AgencyFromFirstSalesRow[];
 };
 
 type MarketingPayload = {
@@ -148,7 +161,7 @@ function formatSkDate(iso: string | null | undefined): string {
 
 function asAgencyBenchmark(raw: unknown): AgencyBenchmark {
   if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
-    return { lifetime: [], firstDays: [] };
+    return { lifetime: [], firstDays: [], fromFirstSales: [] };
   }
   const o = raw as Record<string, unknown>;
   const asLifetime = (v: unknown): AgencyLifetimeRow[] =>
@@ -183,9 +196,27 @@ function asAgencyBenchmark(raw: unknown): AgencyBenchmark {
           };
         })
       : [];
+  const asFromFirstSales = (v: unknown): AgencyFromFirstSalesRow[] =>
+    Array.isArray(v)
+      ? v.map((row) => {
+          const r = row as Record<string, unknown>;
+          return {
+            label: String(r.label ?? ""),
+            first_sales_campaign: String(r.first_sales_campaign ?? ""),
+            active_from: String(r.active_from ?? ""),
+            active_to: String(r.active_to ?? ""),
+            days_active: Number(r.days_active) || 0,
+            orders: Number(r.orders) || 0,
+            revenue: Number(r.revenue) || 0,
+            spend_eur: Number(r.spend_eur) || 0,
+            roas: r.roas == null ? null : Number(r.roas),
+          };
+        })
+      : [];
   return {
     lifetime: asLifetime(o.lifetime),
     firstDays: asFirstDays(o.firstDays),
+    fromFirstSales: asFromFirstSales(o.fromFirstSales),
   };
 }
 
@@ -728,8 +759,59 @@ export default function MarketingClient() {
 
             {dimension === "agency" &&
             (data.agencyBenchmark.lifetime.length > 0 ||
+              data.agencyBenchmark.fromFirstSales.length > 0 ||
               firstDaysBuckets.length > 0) ? (
               <section className="charts-row charts-row--marketing">
+                {data.agencyBenchmark.fromFirstSales.length > 0 ? (
+                  <div className="chart-card">
+                    <h2>Férové porovnanie — od prvej sales kampane</h2>
+                    <p className="chart-card__subtitle">
+                      Od spustenia prvej predajnej kampane (Sales / Konverze), nie od
+                      predpredajného trafficu. Spend zahŕňa všetky kampane agentúry v
+                      tomto období.
+                    </p>
+                    <div className="table-scroll">
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th>Agentúra</th>
+                            <th>Prvá sales kampaň</th>
+                            <th>Obdobie</th>
+                            <th className="num">Dní</th>
+                            <th className="num">Obj.</th>
+                            <th className="num">Tržby</th>
+                            <th className="num">Spend</th>
+                            <th className="num">ROAS</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.agencyBenchmark.fromFirstSales.map((r) => (
+                            <tr key={r.label}>
+                              <td>{r.label}</td>
+                              <td>{r.first_sales_campaign}</td>
+                              <td>
+                                {formatSkDate(r.active_from)} –{" "}
+                                {formatSkDate(r.active_to)}
+                              </td>
+                              <td className="num">{r.days_active}</td>
+                              <td className="num">{r.orders}</td>
+                              <td className="num">
+                                {formatMoney(r.revenue, data.kpis.currency)}
+                              </td>
+                              <td className="num">
+                                {formatMoney(r.spend_eur, data.kpis.currency)}
+                              </td>
+                              <td className="num">
+                                {formatRoas(r.roas, r.revenue)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : null}
+
                 <div className="chart-card">
                   <h2>Férové porovnanie — celé aktívne obdobie</h2>
                   <p className="chart-card__subtitle">
@@ -780,7 +862,8 @@ export default function MarketingClient() {
                     <h2>Férové porovnanie — prvých N dní od štartu</h2>
                     <p className="chart-card__subtitle">
                       Každá agentúra od svojho prvého dňa so spendom (30 / 35 / 60
-                      dní).
+                      dní). U Filipa zahŕňa aj obdobie pred spustením eshopu —
+                      pre férové porovnanie použite tabuľku vyššie.
                     </p>
                     {firstDaysBuckets.map(({ days, agencies }) => (
                       <div key={days} className="marketing-first-days-block">

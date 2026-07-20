@@ -66,9 +66,22 @@ export type AgencyFirstDaysRow = {
   roas: number | null;
 };
 
+export type AgencyFromFirstSalesRow = {
+  label: string;
+  first_sales_campaign: string;
+  active_from: string;
+  active_to: string;
+  days_active: number;
+  orders: number;
+  revenue: number;
+  spend_eur: number;
+  roas: number | null;
+};
+
 export type AgencyBenchmark = {
   lifetime: AgencyLifetimeRow[];
   firstDays: AgencyFirstDaysRow[];
+  fromFirstSales: AgencyFromFirstSalesRow[];
 };
 
 export type MarketingMarkdownInput = {
@@ -178,7 +191,38 @@ export function buildMarketingMarkdown(input: MarketingMarkdownInput): string {
   }
 
   if (input.dimension === "agency" && input.agencyBenchmark) {
-    const { lifetime, firstDays } = input.agencyBenchmark;
+    const { lifetime, firstDays, fromFirstSales } = input.agencyBenchmark;
+    if (fromFirstSales.length > 0) {
+      lines.push("## Férové porovnanie — od prvej sales kampane");
+      lines.push("");
+      lines.push(
+        mdTable(
+          [
+            "Agentúra",
+            "Prvá sales kampaň",
+            "Od",
+            "Do",
+            "Dní",
+            "Obj.",
+            "Tržby",
+            "Spend",
+            "ROAS",
+          ],
+          fromFirstSales.map((r) => [
+            r.label,
+            r.first_sales_campaign,
+            r.active_from,
+            r.active_to,
+            r.days_active,
+            r.orders,
+            formatMoney(Number(r.revenue), input.currency),
+            formatMoney(Number(r.spend_eur), input.currency),
+            r.roas != null ? `${Number(r.roas).toFixed(2)}×` : "—",
+          ])
+        )
+      );
+      lines.push("");
+    }
     if (lifetime.length > 0) {
       lines.push("## Férové porovnanie — celé aktívne obdobie");
       lines.push("");
