@@ -6,6 +6,8 @@ export type CashflowEnrichedTx = {
   creditor_iban?: string | null;
   debtor_iban?: string | null;
   remittance_info?: string | null;
+  /** Obchodník z kartovej platby (raw_json.tradingPartyIdentification). */
+  trading_party?: string | null;
 };
 
 export type CashflowPieSlice = {
@@ -134,6 +136,8 @@ export function txnCounterpartyLabel(tx: CashflowEnrichedTx): string {
   } else {
     const name = tx.creditor_name?.trim();
     if (name) return name;
+    const merchant = tx.trading_party?.trim();
+    if (merchant) return merchant;
     const iban = tx.creditor_iban?.trim();
     if (iban) return iban;
   }

@@ -23,7 +23,16 @@ type TxRow = {
   creditor_iban?: unknown;
   debtor_iban?: unknown;
   remittance_info?: unknown;
+  raw_json?: unknown;
 };
+
+function tradingPartyFromRaw(raw: unknown): string | null {
+  if (!raw || typeof raw !== "object") return null;
+  const value = (raw as Record<string, unknown>).tradingPartyIdentification;
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed || null;
+}
 
 export async function GET(request: Request) {
   if (!(await isAuthorizedRequest(request))) {
@@ -55,7 +64,7 @@ export async function GET(request: Request) {
     supabasePostgrestGet<TxRow[]>(
       supabaseUrl,
       serviceKey,
-      `tatra_transactions?select=booking_date,amount,creditor_name,debtor_name,creditor_iban,debtor_iban,remittance_info&account_iban=eq.${encodeURIComponent(accountKey)}&booking_date=gte.${periodStart}&order=booking_date.asc&limit=5000`
+      `tatra_transactions?select=booking_date,amount,creditor_name,debtor_name,creditor_iban,debtor_iban,remittance_info,raw_json&account_iban=eq.${encodeURIComponent(accountKey)}&booking_date=gte.${periodStart}&order=booking_date.asc&limit=5000`
     ),
   ]);
 
@@ -100,6 +109,7 @@ export async function GET(request: Request) {
       debtor_iban: typeof row.debtor_iban === "string" ? row.debtor_iban : null,
       remittance_info:
         typeof row.remittance_info === "string" ? row.remittance_info : null,
+      trading_party: tradingPartyFromRaw(row.raw_json),
     }))
     .filter(
       (row) =>

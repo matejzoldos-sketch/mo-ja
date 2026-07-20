@@ -68,6 +68,7 @@ function haystack(tx: CashflowEnrichedTx, counterparty: string): string {
     counterparty,
     tx.creditor_name,
     tx.debtor_name,
+    tx.trading_party,
     tx.remittance_info,
   ]
     .filter(Boolean)
