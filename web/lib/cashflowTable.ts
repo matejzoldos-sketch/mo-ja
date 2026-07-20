@@ -2,6 +2,7 @@ import {
   displayCounterparty,
   type CashflowEnrichedTx,
 } from "./cashflowPie";
+import { matchMarketingBucket } from "./cashflowMarketingMap";
 
 export type CashflowCategoryKey =
   | "revenue"
@@ -102,12 +103,12 @@ export function inferCashflowCategory(
     return { key: "bank_fee", label: CASHFLOW_CATEGORY_LABELS.bank_fee };
   }
 
-  if (
-    h.includes("facebk") ||
-    h.includes("marketing") ||
-    h.includes("facebook") ||
-    h.includes("google ads")
-  ) {
+  // Nájom skôr než marketing map (MOF INVEST môže mať IBAN v haystacku).
+  if (h.includes("najom") || h.includes("mof invest")) {
+    return { key: "rent", label: CASHFLOW_CATEGORY_LABELS.rent };
+  }
+
+  if (matchMarketingBucket(tx, counterparty)) {
     return { key: "marketing", label: CASHFLOW_CATEGORY_LABELS.marketing };
   }
 
@@ -126,9 +127,6 @@ export function inferCashflowCategory(
 
   if (h.includes("skutil")) {
     return { key: "payroll", label: CASHFLOW_CATEGORY_LABELS.payroll };
-  }
-  if (h.includes("najom")) {
-    return { key: "rent", label: CASHFLOW_CATEGORY_LABELS.rent };
   }
   if (
     h.includes("danetax") ||

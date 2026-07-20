@@ -1,3 +1,5 @@
+import { matchMarketingBucket } from "./cashflowMarketingMap";
+
 export type CashflowEnrichedTx = {
   booking_date: string;
   amount: number;
@@ -160,9 +162,11 @@ export function txnCounterpartyLabel(tx: CashflowEnrichedTx): string {
   return "Neuvedené";
 }
 
-/** Zobrazená protistrana — zlučené varianty mien (Peter Škutil / Skutil). */
+/** Zobrazená protistrana — marketing map + zlučené varianty mien. */
 export function displayCounterparty(tx: CashflowEnrichedTx): string {
   const raw = txnCounterpartyLabel(tx);
+  const marketing = matchMarketingBucket(tx, raw);
+  if (marketing) return marketing;
   const groupKey = groupKeyForLabel(raw);
   if (groupKey === raw) return raw;
   return displayLabelForGroup(groupKey, new Map([[raw, 1]]));
@@ -187,7 +191,9 @@ export function aggregatePieSlices(
       if (mk !== monthKey) continue;
     }
     const rawLabel = txnCounterpartyLabel(tx);
-    const groupKey = groupKeyForLabel(rawLabel);
+    const marketing = matchMarketingBucket(tx, rawLabel);
+    const groupKey = marketing ?? groupKeyForLabel(rawLabel);
+    const displayRaw = marketing ?? rawLabel;
     const abs = Math.abs(tx.amount);
     if (!Number.isFinite(abs) || abs <= 0) continue;
     const bucket = byGroup.get(groupKey) ?? {
@@ -198,8 +204,8 @@ export function aggregatePieSlices(
     bucket.total += abs;
     bucket.count += 1;
     bucket.labelCounts.set(
-      rawLabel,
-      (bucket.labelCounts.get(rawLabel) ?? 0) + 1
+      displayRaw,
+      (bucket.labelCounts.get(displayRaw) ?? 0) + 1
     );
     byGroup.set(groupKey, bucket);
   }
