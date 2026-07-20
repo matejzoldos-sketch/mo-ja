@@ -44,6 +44,33 @@ export type MarketingPayloadForExport = {
   recentOrders: MarketingRecentOrder[];
 };
 
+export type AgencyLifetimeRow = {
+  label: string;
+  active_from: string;
+  active_to: string;
+  days_active: number;
+  orders: number;
+  revenue: number;
+  spend_eur: number;
+  roas: number | null;
+};
+
+export type AgencyFirstDaysRow = {
+  first_days: number;
+  label: string;
+  window_from: string;
+  window_to: string;
+  orders: number;
+  revenue: number;
+  spend_eur: number;
+  roas: number | null;
+};
+
+export type AgencyBenchmark = {
+  lifetime: AgencyLifetimeRow[];
+  firstDays: AgencyFirstDaysRow[];
+};
+
 export type MarketingMarkdownInput = {
   range: MarketingRangeKey;
   rangeLabel: string;
@@ -54,6 +81,7 @@ export type MarketingMarkdownInput = {
   to: string;
   kpis: MarketingPayloadForExport["kpis"];
   breakdownRows: MarketingBreakdownRow[];
+  agencyBenchmark?: AgencyBenchmark;
   currency: string;
 };
 
@@ -147,6 +175,57 @@ export function buildMarketingMarkdown(input: MarketingMarkdownInput): string {
       );
     }
     lines.push("");
+  }
+
+  if (input.dimension === "agency" && input.agencyBenchmark) {
+    const { lifetime, firstDays } = input.agencyBenchmark;
+    if (lifetime.length > 0) {
+      lines.push("## Férové porovnanie — celé aktívne obdobie");
+      lines.push("");
+      lines.push(
+        mdTable(
+          ["Agentúra", "Od", "Do", "Dní", "Obj.", "Tržby", "Spend", "ROAS"],
+          lifetime.map((r) => [
+            r.label,
+            r.active_from,
+            r.active_to,
+            r.days_active,
+            r.orders,
+            formatMoney(Number(r.revenue), input.currency),
+            formatMoney(Number(r.spend_eur), input.currency),
+            r.roas != null ? `${Number(r.roas).toFixed(2)}×` : "—",
+          ])
+        )
+      );
+      lines.push("");
+    }
+    if (firstDays.length > 0) {
+      lines.push("## Férové porovnanie — prvých N dní od štartu");
+      lines.push("");
+      const daysSet = [...new Set(firstDays.map((r) => r.first_days))].sort(
+        (a, b) => a - b
+      );
+      for (const days of daysSet) {
+        const rows = firstDays.filter((r) => r.first_days === days);
+        lines.push(`### Prvých ${days} dní`);
+        lines.push("");
+        lines.push(
+          mdTable(
+            ["Agentúra", "Od", "Do", "Obj.", "Tržby", "Spend", "ROAS"],
+            rows.map((r) => [
+              r.label,
+              r.window_from,
+              r.window_to,
+              r.orders,
+              formatMoney(Number(r.revenue), input.currency),
+              formatMoney(Number(r.spend_eur), input.currency),
+              r.roas != null ? `${Number(r.roas).toFixed(2)}×` : "—",
+            ])
+          )
+        );
+        lines.push("");
+      }
+    }
   }
 
   lines.push("---");

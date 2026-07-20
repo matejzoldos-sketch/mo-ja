@@ -39,6 +39,33 @@ type BreakdownRow = {
   roas?: number | null;
 };
 
+type AgencyLifetimeRow = {
+  label: string;
+  active_from: string;
+  active_to: string;
+  days_active: number;
+  orders: number;
+  revenue: number;
+  spend_eur: number;
+  roas: number | null;
+};
+
+type AgencyFirstDaysRow = {
+  first_days: number;
+  label: string;
+  window_from: string;
+  window_to: string;
+  orders: number;
+  revenue: number;
+  spend_eur: number;
+  roas: number | null;
+};
+
+type AgencyBenchmark = {
+  lifetime: AgencyLifetimeRow[];
+  firstDays: AgencyFirstDaysRow[];
+};
+
 type MarketingPayload = {
   meta: { range: string; from: string; to: string; month?: string | null };
   kpis: {
@@ -53,6 +80,7 @@ type MarketingPayload = {
   byMedium: BreakdownRow[];
   byCampaign: BreakdownRow[];
   byAgency: BreakdownRow[];
+  agencyBenchmark: AgencyBenchmark;
   recentOrders: {
     id: number;
     name: string;
@@ -106,6 +134,61 @@ function formatMoney(n: number, currency: string | null | undefined): string {
   }).format(n);
 }
 
+function formatRoas(roas: number | null | undefined, revenue: number): string {
+  if (roas == null || (revenue <= 0 && roas === 0)) return "—";
+  return `${roas.toFixed(2)}×`;
+}
+
+function formatSkDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  return `${d}.${m}.${y}`;
+}
+
+function asAgencyBenchmark(raw: unknown): AgencyBenchmark {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+    return { lifetime: [], firstDays: [] };
+  }
+  const o = raw as Record<string, unknown>;
+  const asLifetime = (v: unknown): AgencyLifetimeRow[] =>
+    Array.isArray(v)
+      ? v.map((row) => {
+          const r = row as Record<string, unknown>;
+          return {
+            label: String(r.label ?? ""),
+            active_from: String(r.active_from ?? ""),
+            active_to: String(r.active_to ?? ""),
+            days_active: Number(r.days_active) || 0,
+            orders: Number(r.orders) || 0,
+            revenue: Number(r.revenue) || 0,
+            spend_eur: Number(r.spend_eur) || 0,
+            roas: r.roas == null ? null : Number(r.roas),
+          };
+        })
+      : [];
+  const asFirstDays = (v: unknown): AgencyFirstDaysRow[] =>
+    Array.isArray(v)
+      ? v.map((row) => {
+          const r = row as Record<string, unknown>;
+          return {
+            first_days: Number(r.first_days) || 0,
+            label: String(r.label ?? ""),
+            window_from: String(r.window_from ?? ""),
+            window_to: String(r.window_to ?? ""),
+            orders: Number(r.orders) || 0,
+            revenue: Number(r.revenue) || 0,
+            spend_eur: Number(r.spend_eur) || 0,
+            roas: r.roas == null ? null : Number(r.roas),
+          };
+        })
+      : [];
+  return {
+    lifetime: asLifetime(o.lifetime),
+    firstDays: asFirstDays(o.firstDays),
+  };
+}
+
 function breakdownForDimension(
   data: MarketingPayload,
   dim: DimensionKey
@@ -148,6 +231,7 @@ function normalizeMarketingPayload(raw: unknown): MarketingPayload | null {
     byMedium: asRows(o.byMedium),
     byCampaign: asRows(o.byCampaign),
     byAgency: asRows(o.byAgency),
+    agencyBenchmark: asAgencyBenchmark(o.agencyBenchmark),
     recentOrders: Array.isArray(o.recentOrders)
       ? (o.recentOrders as MarketingPayload["recentOrders"])
       : [],
@@ -263,6 +347,19 @@ export default function MarketingClient() {
     [data, dimension]
   );
 
+  const firstDaysBuckets = useMemo(() => {
+    if (!data?.agencyBenchmark.firstDays.length) return [];
+    const map = new Map<number, AgencyFirstDaysRow[]>();
+    for (const row of data.agencyBenchmark.firstDays) {
+      const list = map.get(row.first_days) ?? [];
+      list.push(row);
+      map.set(row.first_days, list);
+    }
+    return Array.from(map.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([days, agencies]) => ({ days, agencies }));
+  }, [data]);
+
   const chartRows = useMemo(
     () => rows.filter((r) => Number(r.revenue) > 0),
     [rows]
@@ -359,6 +456,7 @@ export default function MarketingClient() {
       to: data.meta.to,
       kpis: data.kpis,
       breakdownRows,
+      agencyBenchmark: data.agencyBenchmark,
       currency: data.kpis.currency,
     });
 
@@ -614,7 +712,7 @@ export default function MarketingClient() {
                                   : "—"}
                               </td>
                               <td className="num">
-                                {r.roas != null ? `${r.roas.toFixed(2)}×` : "—"}
+                                {formatRoas(r.roas, r.revenue)}
                               </td>
                             </>
                           ) : null}
@@ -627,6 +725,107 @@ export default function MarketingClient() {
                 </div>
               </div>
             </section>
+
+            {dimension === "agency" &&
+            (data.agencyBenchmark.lifetime.length > 0 ||
+              firstDaysBuckets.length > 0) ? (
+              <section className="charts-row charts-row--marketing">
+                <div className="chart-card">
+                  <h2>Férové porovnanie — celé aktívne obdobie</h2>
+                  <p className="chart-card__subtitle">
+                    Od prvého dňa so spendom po posledný deň so spendom (nezávisle od
+                    filtra hore).
+                  </p>
+                  <div className="table-scroll">
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>Agentúra</th>
+                          <th>Obdobie</th>
+                          <th className="num">Dní</th>
+                          <th className="num">Obj.</th>
+                          <th className="num">Tržby</th>
+                          <th className="num">Spend</th>
+                          <th className="num">ROAS</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.agencyBenchmark.lifetime.map((r) => (
+                          <tr key={r.label}>
+                            <td>{r.label}</td>
+                            <td>
+                              {formatSkDate(r.active_from)} –{" "}
+                              {formatSkDate(r.active_to)}
+                            </td>
+                            <td className="num">{r.days_active}</td>
+                            <td className="num">{r.orders}</td>
+                            <td className="num">
+                              {formatMoney(r.revenue, data.kpis.currency)}
+                            </td>
+                            <td className="num">
+                              {formatMoney(r.spend_eur, data.kpis.currency)}
+                            </td>
+                            <td className="num">
+                              {formatRoas(r.roas, r.revenue)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {firstDaysBuckets.length > 0 ? (
+                  <div className="chart-card">
+                    <h2>Férové porovnanie — prvých N dní od štartu</h2>
+                    <p className="chart-card__subtitle">
+                      Každá agentúra od svojho prvého dňa so spendom (30 / 35 / 60
+                      dní).
+                    </p>
+                    {firstDaysBuckets.map(({ days, agencies }) => (
+                      <div key={days} className="marketing-first-days-block">
+                        <h3>Prvých {days} dní</h3>
+                        <div className="table-scroll">
+                          <table className="data-table">
+                            <thead>
+                              <tr>
+                                <th>Agentúra</th>
+                                <th>Okno</th>
+                                <th className="num">Obj.</th>
+                                <th className="num">Tržby</th>
+                                <th className="num">Spend</th>
+                                <th className="num">ROAS</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {agencies.map((r) => (
+                                <tr key={`${days}-${r.label}`}>
+                                  <td>{r.label}</td>
+                                  <td>
+                                    {formatSkDate(r.window_from)} –{" "}
+                                    {formatSkDate(r.window_to)}
+                                  </td>
+                                  <td className="num">{r.orders}</td>
+                                  <td className="num">
+                                    {formatMoney(r.revenue, data.kpis.currency)}
+                                  </td>
+                                  <td className="num">
+                                    {formatMoney(r.spend_eur, data.kpis.currency)}
+                                  </td>
+                                  <td className="num">
+                                    {formatRoas(r.roas, r.revenue)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
           </div>
         ) : null}
       </main>
