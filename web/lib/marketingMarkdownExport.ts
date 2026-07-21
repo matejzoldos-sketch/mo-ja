@@ -299,9 +299,11 @@ export type MerMarkdownInput = {
     aov?: number | null;
     ads_spend: number;
     fees_spend: number;
+    agency_fees_spend?: number;
     total_mkt_spend: number;
     mer: number | null;
     ad_roas: number | null;
+    m_roas?: number | null;
   };
   monthly: {
     month: string;
@@ -310,9 +312,11 @@ export type MerMarkdownInput = {
     aov?: number | null;
     ads_spend: number;
     fees_spend: number;
+    agency_fees_spend?: number;
     total_mkt_spend: number;
     mer: number | null;
     ad_roas: number | null;
+    m_roas?: number | null;
     mom_revenue_pct?: number | null;
     yoy_revenue_pct: number | null;
   }[];
@@ -360,9 +364,14 @@ export function buildMarketingMerMarkdown(input: MerMarkdownInput): string {
         ],
         ["Ads spend", formatMoney(input.kpis.ads_spend, input.currency)],
         ["Fees", formatMoney(input.kpis.fees_spend, input.currency)],
+        [
+          "Fees agentúra",
+          formatMoney(input.kpis.agency_fees_spend ?? 0, input.currency),
+        ],
         ["Total MKT", formatMoney(input.kpis.total_mkt_spend, input.currency)],
         ["MER", formatRatioMd(input.kpis.mer)],
         ["Ad ROAS", formatRatioMd(input.kpis.ad_roas)],
+        ["mROAS", formatRatioMd(input.kpis.m_roas ?? null)],
       ]
     )
   );
@@ -373,7 +382,7 @@ export function buildMarketingMerMarkdown(input: MerMarkdownInput): string {
     lines.push("");
     lines.push(
       mdTable(
-        ["Mesiac", "Revenue", "Orders", "AOV", "Ads", "Fees", "Total MKT", "MER", "Ad ROAS", "MoM Rev", "YoY Rev"],
+        ["Mesiac", "Revenue", "Orders", "AOV", "Ads", "Fees", "Fees agentúra", "Total MKT", "MER", "Ad ROAS", "mROAS", "MoM Rev", "YoY Rev"],
         input.monthly.map((r) => [
           r.month,
           formatMoney(r.revenue, input.currency),
@@ -381,9 +390,11 @@ export function buildMarketingMerMarkdown(input: MerMarkdownInput): string {
           r.aov == null ? "—" : formatMoney(r.aov, input.currency),
           formatMoney(r.ads_spend, input.currency),
           formatMoney(r.fees_spend, input.currency),
+          formatMoney(r.agency_fees_spend ?? 0, input.currency),
           formatMoney(r.total_mkt_spend, input.currency),
           formatRatioMd(r.mer),
           formatRatioMd(r.ad_roas),
+          formatRatioMd(r.m_roas ?? null),
           r.mom_revenue_pct == null
             ? "—"
             : `${r.mom_revenue_pct > 0 ? "+" : ""}${r.mom_revenue_pct} %`,

@@ -25,10 +25,12 @@ type MerKpis = {
   aov: number | null;
   ads_spend: number;
   fees_spend: number;
+  agency_fees_spend?: number;
   total_mkt_spend: number;
   currency: string;
   mer: number | null;
   ad_roas: number | null;
+  m_roas?: number | null;
 };
 
 type MerMonthRow = {
@@ -38,9 +40,11 @@ type MerMonthRow = {
   aov: number | null;
   ads_spend: number;
   fees_spend: number;
+  agency_fees_spend?: number;
   total_mkt_spend: number;
   mer: number | null;
   ad_roas: number | null;
+  m_roas?: number | null;
   mom_revenue_pct: number | null;
   yoy_revenue_pct: number | null;
 };
@@ -347,8 +351,8 @@ export default function MarketingMerPanel({ period }: Props) {
             : null}
         </p>
         <p className="dashboard-meta dashboard-meta--hint">
-          Ads = Meta CSV · Fees = denník (518/5015) · Meta FP v denníku sa nepočíta
-          dvakrát.
+          Ads = Meta CSV · Fees = denník (518/5015) · mROAS = Revenue / (Ads +
+          Fees agentúry: Správa PPC) · Meta FP v denníku sa nepočíta dvakrát.
         </p>
 
         <div className="kpi-grid kpi-grid--marketing-mer">
@@ -449,6 +453,18 @@ export default function MarketingMerPanel({ period }: Props) {
               periodLabel={compareLabel}
             />
           </div>
+          <div className="kpi-card">
+            <span className="kpi-card__label">mROAS</span>
+            <strong className="kpi-card__value">
+              {formatRatio(kpis.m_roas)}
+            </strong>
+            <KpiPeriodCompare
+              current={mom?.m_roas}
+              previous={prev?.m_roas}
+              formatValue={ratioFmt}
+              periodLabel={compareLabel}
+            />
+          </div>
         </div>
 
         {chartData ? (
@@ -472,9 +488,11 @@ export default function MarketingMerPanel({ period }: Props) {
                   <th>AOV</th>
                   <th>Ads</th>
                   <th>Fees</th>
+                  <th title="Správa PPC / agentúra">Fees agentúra</th>
                   <th>Total MKT</th>
                   <th>MER</th>
                   <th>Ad ROAS</th>
+                  <th title="Revenue / (Ads + Fees agentúry)">mROAS</th>
                   <th>MoM Rev</th>
                   <th>YoY Rev</th>
                 </tr>
@@ -490,9 +508,13 @@ export default function MarketingMerPanel({ period }: Props) {
                     </td>
                     <td>{formatMoney(row.ads_spend, currency)}</td>
                     <td>{formatMoney(row.fees_spend, currency)}</td>
+                    <td>
+                      {formatMoney(row.agency_fees_spend ?? 0, currency)}
+                    </td>
                     <td>{formatMoney(row.total_mkt_spend, currency)}</td>
                     <td>{formatRatio(row.mer)}</td>
                     <td>{formatRatio(row.ad_roas)}</td>
+                    <td>{formatRatio(row.m_roas)}</td>
                     <td>
                       {row.mom_revenue_pct == null
                         ? "—"
