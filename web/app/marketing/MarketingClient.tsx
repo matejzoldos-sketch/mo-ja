@@ -24,8 +24,15 @@ import {
   parsePeriodFilter,
   type PeriodFilter,
 } from "@/lib/dashboardPeriodFilter";
+import MarketingMerPanel from "./MarketingMerPanel";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
+
+type MarketingView = "utm" | "mer";
+
+function parseMarketingView(raw: string | null): MarketingView {
+  return raw === "mer" ? "mer" : "utm";
+}
 
 type DimensionKey = "source" | "medium" | "campaign" | "agency";
 
@@ -277,10 +284,15 @@ export default function MarketingClient() {
   const rangeRaw = searchParams.get("range");
   const monthRaw = searchParams.get("month");
   const yearRaw = searchParams.get("year");
-  const period = useMemo(
-    () => parsePeriodFilter(rangeRaw, monthRaw, yearRaw, { defaultRange: "90d" }),
-    [rangeRaw, monthRaw, yearRaw]
-  );
+  const view = parseMarketingView(searchParams.get("view"));
+  const period = useMemo(() => {
+    if (view === "mer" && !rangeRaw && !monthRaw && !yearRaw) {
+      return { range: "year" as const, year: "2026" };
+    }
+    return parsePeriodFilter(rangeRaw, monthRaw, yearRaw, {
+      defaultRange: view === "mer" ? "year" : "90d",
+    });
+  }, [rangeRaw, monthRaw, yearRaw, view]);
 
   const dimFromUrl = parseDimensionParam(searchParams.get("dim"));
   const [dimension, setDimension] = useState<DimensionKey>(dimFromUrl);
@@ -298,6 +310,7 @@ export default function MarketingClient() {
   const pdfExportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (view === "mer") return;
     const rangeRaw = searchParams.get("range");
     const monthRaw = searchParams.get("month");
     const yearRaw = searchParams.get("year");
@@ -310,7 +323,7 @@ export default function MarketingClient() {
     const params = periodFilterToSearchParams(next, searchParams);
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [searchParams, pathname, router]);
+  }, [searchParams, pathname, router, view]);
 
   useEffect(() => {
     if (!dimMenuOpen) return;
@@ -355,11 +368,20 @@ export default function MarketingClient() {
   }, []);
 
   useEffect(() => {
+    if (view !== "utm") return;
     void load(period);
-  }, [load, period.range, period.month, period.year]);
+  }, [load, period.range, period.month, period.year, view]);
 
   const setPeriodInUrl = (next: PeriodFilter) => {
     const params = periodFilterToSearchParams(next, searchParams);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  };
+
+  const setViewInUrl = (next: MarketingView) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === "utm") params.delete("view");
+    else params.set("view", next);
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   };
@@ -577,7 +599,32 @@ export default function MarketingClient() {
         </div>
         <div className="site-toolbar">
           <div className="site-toolbar__filters">
+            <div className="period-filter period-filter--kpi-product">
+              <button
+                type="button"
+                className={
+                  view === "utm"
+                    ? "period-filter__range-option is-selected"
+                    : "period-filter__range-option"
+                }
+                onClick={() => setViewInUrl("utm")}
+              >
+                UTM
+              </button>
+              <button
+                type="button"
+                className={
+                  view === "mer"
+                    ? "period-filter__range-option is-selected"
+                    : "period-filter__range-option"
+                }
+                onClick={() => setViewInUrl("mer")}
+              >
+                MER
+              </button>
+            </div>
             <PeriodFilterMenu period={period} onChange={setPeriodInUrl} />
+            {view === "utm" ? (
             <div className="period-filter period-filter--kpi-product" ref={dimMenuRef}>
               <button
                 type="button"
@@ -622,8 +669,9 @@ export default function MarketingClient() {
                 </ul>
               ) : null}
             </div>
+            ) : null}
           </div>
-          {data && !loading && !err ? (
+          {view === "utm" && data && !loading && !err ? (
             <div className="site-toolbar__actions">
               <button
                 type="button"
@@ -647,6 +695,10 @@ export default function MarketingClient() {
       </header>
 
       <main className="main-wrap">
+        {view === "mer" ? (
+          <MarketingMerPanel period={period} />
+        ) : (
+          <>
         {loading && !data ? (
           <p className="msg">Načítavam marketing…</p>
         ) : null}
@@ -911,6 +963,8 @@ export default function MarketingClient() {
             ) : null}
           </div>
         ) : null}
+          </>
+        )}
       </main>
     </>
   );

@@ -1,5 +1,8 @@
 /**
- * Marketingové mapovanie bankových debetov.
+ * Marketingové mapovanie bankových debetov (fallback; denník 518xxx je presnejší).
+ * Mimo marketingu: Shopify (platform fee), PM (projektový manažment).
+ * AGNW = dizajn manuál → Fees, počíta sa do Total MKT / MER.
+ * IDS Health — zatiaľ mimo (nejasné zaradenie).
  * Overiť neskôr: ASAPRINT / Visuel / Canva / hotely / konferencie.
  */
 
@@ -16,8 +19,7 @@ export type MarketingMatchTx = {
 export type MarketingBucket =
   | "BCreativum"
   | "Bc. Filip Žitňanský"
-  | "Meta agentúra"
-  | "Google agentúra"
+  | "Dizajn manuál"
   | "Meta"
   | "Google Ads"
   | "Mailer"
@@ -57,12 +59,8 @@ const MARKETING_RULES: MatchRule[] = [
     pattern: /žitňansk|zitnansk|sk8511000000002946195397/i,
   },
   {
-    bucket: "Meta agentúra",
-    pattern: /\bagnw\b|sk5009000000005059540928/i,
-  },
-  {
-    bucket: "Google agentúra",
-    pattern: /ids\s*health|sk3809000000000449179450/i,
+    bucket: "Dizajn manuál",
+    pattern: /\bagnw\b|dizajn\s*manu|sk5009000000005059540928/i,
   },
 
   // Overiť neskôr
@@ -81,6 +79,10 @@ const MARKETING_RULES: MatchRule[] = [
     pattern: /\bcanva\b|birne\s*studio/i,
   },
 ];
+
+/** Explicitne mimo marketing MER (aj keď by inak sedeli na iné pravidlo). */
+const NON_MARKETING_EXCLUSIONS =
+  /shopify|web\s*shop|le\s*soft|čechovsk|cechovsk|projektov|ids\s*health|sk3809000000000449179450/i;
 
 function marketingHaystack(tx: MarketingMatchTx, rawLabel: string): string {
   return [
@@ -103,6 +105,7 @@ export function matchMarketingBucket(
 ): MarketingBucket | null {
   if (tx.amount >= 0) return null;
   const hay = marketingHaystack(tx, rawLabel);
+  if (NON_MARKETING_EXCLUSIONS.test(hay)) return null;
   // Výbery / mzdy cez Škutila nepatria do marketingu (ani keď je v poznámke „letaky“).
   if (/skutil|škutil/i.test(hay)) return null;
   for (const rule of MARKETING_RULES) {
