@@ -4,7 +4,7 @@ import MarketingClient from "./MarketingClient";
 
 export const metadata: Metadata = {
   title: "MO–JA marketing",
-  description: "UTM a zdroje objednávok",
+  description: "MER — revenue, ads, fees a marketing efficiency",
 };
 
 export default function MarketingPage() {

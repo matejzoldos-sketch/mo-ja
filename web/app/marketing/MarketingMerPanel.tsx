@@ -1,17 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Chart as ChartJS,
-  registerables,
-} from "chart.js";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Chart as ChartJS, registerables } from "chart.js";
 import type { ChartData, ChartOptions } from "chart.js";
 import { Chart } from "react-chartjs-2";
 import {
   formatMonthLabelSk,
   periodFilterApiQuery,
+  periodFilterLabel,
   type PeriodFilter,
 } from "@/lib/dashboardPeriodFilter";
+import {
+  buildMarketingMerMarkdown,
+  downloadMarketingMarkdown,
+} from "@/lib/marketingMarkdownExport";
 
 ChartJS.register(...registerables);
 
@@ -76,6 +78,8 @@ export default function MarketingMerPanel({ period }: Props) {
   const [data, setData] = useState<MerPayload | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pdfExporting, setPdfExporting] = useState(false);
+  const pdfExportRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async (p: PeriodFilter) => {
     setLoading(true);
@@ -103,6 +107,93 @@ export default function MarketingMerPanel({ period }: Props) {
   }, [load, period.range, period.month, period.year]);
 
   const currency = data?.kpis.currency ?? "EUR";
+
+  const downloadMd = useCallback(() => {
+    if (!data) return;
+    const from = data.meta.from.replace(/\s/g, "");
+    const to = data.meta.to.replace(/\s/g, "");
+    const periodSlug =
+      period.range === "month"
+        ? `month-${period.month ?? "current"}`
+        : period.range === "year"
+          ? `year-${period.year ?? "current"}`
+          : period.range;
+    const md = buildMarketingMerMarkdown({
+      rangeLabel: periodFilterLabel(period),
+      from: data.meta.from,
+      to: data.meta.to,
+      launchFrom: data.meta.launch_from,
+      currency: data.kpis.currency,
+      kpis: data.kpis,
+      monthly: data.monthly,
+      feesBreakdown: data.feesBreakdown,
+      unmappedExpenses: data.unmappedExpenses,
+    });
+    downloadMarketingMarkdown(md, `marketing-mer-${periodSlug}_${from}_${to}.md`);
+  }, [data, period]);
+
+  const downloadPdf = useCallback(async () => {
+    const root = pdfExportRef.current;
+    if (!root || !data) return;
+    setPdfExporting(true);
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+      const canvas = await html2canvas(root, {
+        scale: 1.75,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+        scrollX: 0,
+        scrollY: -window.scrollY,
+        windowWidth: root.scrollWidth,
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const imgW = pageW;
+      const imgH = (canvas.height * imgW) / canvas.width;
+      let heightLeft = imgH;
+      let y = 0;
+
+      pdf.addImage(imgData, "PNG", 0, y, imgW, imgH);
+      heightLeft -= pageH;
+      while (heightLeft > 0) {
+        y = heightLeft - imgH;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 0, y, imgW, imgH);
+        heightLeft -= pageH;
+      }
+
+      const from = data.meta.from.replace(/\s/g, "");
+      const to = data.meta.to.replace(/\s/g, "");
+      const periodSlug =
+        period.range === "month"
+          ? `month-${period.month ?? "current"}`
+          : period.range === "year"
+            ? `year-${period.year ?? "current"}`
+            : period.range;
+      pdf.save(`marketing-mer-${periodSlug}_${from}_${to}.pdf`);
+    } catch (e) {
+      console.error(e);
+      window.alert(
+        e instanceof Error
+          ? e.message
+          : "Export do PDF zlyhal. Skús znova alebo iný prehliadač."
+      );
+    } finally {
+      setPdfExporting(false);
+    }
+  }, [data, period]);
 
   const chartData: ChartData<"bar" | "line"> | null = useMemo(() => {
     if (!data?.monthly.length) return null;
@@ -190,160 +281,181 @@ export default function MarketingMerPanel({ period }: Props) {
 
   return (
     <div className="marketing-mer">
-      <p className="dashboard-meta">
-        {data.meta.from} – {data.meta.to}
-        {data.meta.launch_from
-          ? ` · Mesačný vývoj od ${data.meta.launch_from}`
-          : null}
-      </p>
-      <p className="dashboard-meta dashboard-meta--hint">
-        Ads = Meta CSV · Fees = denník (518/5015) · Meta FP v denníku sa nepočíta
-        dvakrát.
-      </p>
-
-      <div className="kpi-grid kpi-grid--marketing-mer">
-        <div className="kpi-card">
-          <span className="kpi-card__label">Revenue</span>
-          <strong className="kpi-card__value">
-            {formatMoney(kpis.revenue, currency)}
-          </strong>
-        </div>
-        <div className="kpi-card">
-          <span className="kpi-card__label">Ads spend</span>
-          <strong className="kpi-card__value">
-            {formatMoney(kpis.ads_spend, currency)}
-          </strong>
-        </div>
-        <div className="kpi-card">
-          <span className="kpi-card__label">Fees</span>
-          <strong className="kpi-card__value">
-            {formatMoney(kpis.fees_spend, currency)}
-          </strong>
-        </div>
-        <div className="kpi-card">
-          <span className="kpi-card__label">Total MKT</span>
-          <strong className="kpi-card__value">
-            {formatMoney(kpis.total_mkt_spend, currency)}
-          </strong>
-        </div>
-        <div className="kpi-card">
-          <span className="kpi-card__label">MER</span>
-          <strong className="kpi-card__value">{formatRatio(kpis.mer)}</strong>
-        </div>
-        <div className="kpi-card">
-          <span className="kpi-card__label">Ad ROAS</span>
-          <strong className="kpi-card__value">
-            {formatRatio(kpis.ad_roas)}
-          </strong>
-        </div>
+      <div className="site-toolbar__actions" style={{ marginBottom: "0.75rem" }}>
+        <button
+          type="button"
+          className="dashboard-export-btn"
+          onClick={downloadMd}
+        >
+          Stiahnuť MD
+        </button>
+        <button
+          type="button"
+          className="dashboard-export-btn dashboard-export-btn--accent"
+          disabled={pdfExporting}
+          aria-busy={pdfExporting}
+          onClick={() => void downloadPdf()}
+        >
+          {pdfExporting ? "Generujem PDF…" : "Stiahnuť PDF"}
+        </button>
       </div>
 
-      {chartData ? (
-        <section className="dashboard-card" style={{ marginTop: "1.25rem" }}>
-          <h2 className="dashboard-card__title">Mesačný vývoj</h2>
-          <div style={{ height: 320 }}>
-            <Chart type="bar" data={chartData} options={chartOptions} />
-          </div>
-        </section>
-      ) : null}
-
-      <section className="dashboard-card" style={{ marginTop: "1.25rem" }}>
-        <h2 className="dashboard-card__title">Mesačná tabuľka</h2>
-        <div className="table-wrap">
-          <table className="data-table data-table--compact">
-            <thead>
-              <tr>
-                <th>Mesiac</th>
-                <th>Revenue</th>
-                <th>Ads</th>
-                <th>Fees</th>
-                <th>Total MKT</th>
-                <th>MER</th>
-                <th>Ad ROAS</th>
-                <th>YoY Rev</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.monthly.map((row) => (
-                <tr key={row.month}>
-                  <td>{formatMonthLabelSk(`${row.month}-01`)}</td>
-                  <td>{formatMoney(row.revenue, currency)}</td>
-                  <td>{formatMoney(row.ads_spend, currency)}</td>
-                  <td>{formatMoney(row.fees_spend, currency)}</td>
-                  <td>{formatMoney(row.total_mkt_spend, currency)}</td>
-                  <td>{formatRatio(row.mer)}</td>
-                  <td>{formatRatio(row.ad_roas)}</td>
-                  <td>
-                    {row.yoy_revenue_pct == null
-                      ? "—"
-                      : `${row.yoy_revenue_pct > 0 ? "+" : ""}${row.yoy_revenue_pct} %`}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {data.feesBreakdown.length > 0 ? (
-        <section className="dashboard-card" style={{ marginTop: "1.25rem" }}>
-          <h2 className="dashboard-card__title">Fees breakdown (denník)</h2>
-          <div className="table-wrap">
-            <table className="data-table data-table--compact">
-              <thead>
-                <tr>
-                  <th>Dodávateľ</th>
-                  <th>Suma</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.feesBreakdown.map((row) => (
-                  <tr key={row.label}>
-                    <td>{row.label}</td>
-                    <td>{formatMoney(row.amount_eur, currency)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      ) : (
-        <p className="msg" style={{ marginTop: "1rem" }}>
-          Fees z denníka zatiaľ nie sú v databáze — spusti{" "}
-          <code>python3 etl/import_accounting_journal_csv.py</code> po migrácii
-          076.
+      <div className="dashboard-pdf-root" ref={pdfExportRef}>
+        <p className="dashboard-meta">
+          {data.meta.from} – {data.meta.to}
+          {data.meta.launch_from
+            ? ` · Mesačný vývoj od ${data.meta.launch_from}`
+            : null}
         </p>
-      )}
+        <p className="dashboard-meta dashboard-meta--hint">
+          Ads = Meta CSV · Fees = denník (518/5015) · Meta FP v denníku sa nepočíta
+          dvakrát.
+        </p>
 
-      {data.unmappedExpenses.length > 0 ? (
+        <div className="kpi-grid kpi-grid--marketing-mer">
+          <div className="kpi-card">
+            <span className="kpi-card__label">Revenue</span>
+            <strong className="kpi-card__value">
+              {formatMoney(kpis.revenue, currency)}
+            </strong>
+          </div>
+          <div className="kpi-card">
+            <span className="kpi-card__label">Ads spend</span>
+            <strong className="kpi-card__value">
+              {formatMoney(kpis.ads_spend, currency)}
+            </strong>
+          </div>
+          <div className="kpi-card">
+            <span className="kpi-card__label">Fees</span>
+            <strong className="kpi-card__value">
+              {formatMoney(kpis.fees_spend, currency)}
+            </strong>
+          </div>
+          <div className="kpi-card">
+            <span className="kpi-card__label">Total MKT</span>
+            <strong className="kpi-card__value">
+              {formatMoney(kpis.total_mkt_spend, currency)}
+            </strong>
+          </div>
+          <div className="kpi-card">
+            <span className="kpi-card__label">MER</span>
+            <strong className="kpi-card__value">{formatRatio(kpis.mer)}</strong>
+          </div>
+          <div className="kpi-card">
+            <span className="kpi-card__label">Ad ROAS</span>
+            <strong className="kpi-card__value">
+              {formatRatio(kpis.ad_roas)}
+            </strong>
+          </div>
+        </div>
+
+        {chartData ? (
+          <section className="dashboard-card" style={{ marginTop: "1.25rem" }}>
+            <h2 className="dashboard-card__title">Mesačný vývoj</h2>
+            <div style={{ height: 320 }}>
+              <Chart type="bar" data={chartData} options={chartOptions} />
+            </div>
+          </section>
+        ) : null}
+
         <section className="dashboard-card" style={{ marginTop: "1.25rem" }}>
-          <h2 className="dashboard-card__title">
-            Nemapované náklady (na overenie s klientom)
-          </h2>
+          <h2 className="dashboard-card__title">Mesačná tabuľka</h2>
           <div className="table-wrap">
             <table className="data-table data-table--compact">
               <thead>
                 <tr>
-                  <th>Dodávateľ</th>
-                  <th>Text</th>
-                  <th>Účet</th>
-                  <th>Suma</th>
+                  <th>Mesiac</th>
+                  <th>Revenue</th>
+                  <th>Ads</th>
+                  <th>Fees</th>
+                  <th>Total MKT</th>
+                  <th>MER</th>
+                  <th>Ad ROAS</th>
+                  <th>YoY Rev</th>
                 </tr>
               </thead>
               <tbody>
-                {data.unmappedExpenses.map((row, i) => (
-                  <tr key={`${row.label}-${i}`}>
-                    <td>{row.label}</td>
-                    <td>{row.line_text}</td>
-                    <td>{row.debit_account}</td>
-                    <td>{formatMoney(row.amount_eur, currency)}</td>
+                {data.monthly.map((row) => (
+                  <tr key={row.month}>
+                    <td>{formatMonthLabelSk(`${row.month}-01`)}</td>
+                    <td>{formatMoney(row.revenue, currency)}</td>
+                    <td>{formatMoney(row.ads_spend, currency)}</td>
+                    <td>{formatMoney(row.fees_spend, currency)}</td>
+                    <td>{formatMoney(row.total_mkt_spend, currency)}</td>
+                    <td>{formatRatio(row.mer)}</td>
+                    <td>{formatRatio(row.ad_roas)}</td>
+                    <td>
+                      {row.yoy_revenue_pct == null
+                        ? "—"
+                        : `${row.yoy_revenue_pct > 0 ? "+" : ""}${row.yoy_revenue_pct} %`}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         </section>
-      ) : null}
+
+        {data.feesBreakdown.length > 0 ? (
+          <section className="dashboard-card" style={{ marginTop: "1.25rem" }}>
+            <h2 className="dashboard-card__title">Fees breakdown (denník)</h2>
+            <div className="table-wrap">
+              <table className="data-table data-table--compact">
+                <thead>
+                  <tr>
+                    <th>Dodávateľ</th>
+                    <th>Suma</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.feesBreakdown.map((row) => (
+                    <tr key={row.label}>
+                      <td>{row.label}</td>
+                      <td>{formatMoney(row.amount_eur, currency)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ) : (
+          <p className="msg" style={{ marginTop: "1rem" }}>
+            Fees z denníka zatiaľ nie sú v databáze — spusti{" "}
+            <code>python3 etl/import_accounting_journal_csv.py</code> po migrácii
+            076.
+          </p>
+        )}
+
+        {data.unmappedExpenses.length > 0 ? (
+          <section className="dashboard-card" style={{ marginTop: "1.25rem" }}>
+            <h2 className="dashboard-card__title">
+              Nemapované náklady (na overenie s klientom)
+            </h2>
+            <div className="table-wrap">
+              <table className="data-table data-table--compact">
+                <thead>
+                  <tr>
+                    <th>Dodávateľ</th>
+                    <th>Text</th>
+                    <th>Účet</th>
+                    <th>Suma</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.unmappedExpenses.map((row, i) => (
+                    <tr key={`${row.label}-${i}`}>
+                      <td>{row.label}</td>
+                      <td>{row.line_text}</td>
+                      <td>{row.debit_account}</td>
+                      <td>{formatMoney(row.amount_eur, currency)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ) : null}
+      </div>
     </div>
   );
 }

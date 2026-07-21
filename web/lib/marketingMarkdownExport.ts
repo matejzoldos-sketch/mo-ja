@@ -287,3 +287,132 @@ export function downloadMarketingMarkdown(content: string, filename: string): vo
   URL.revokeObjectURL(url);
 }
 
+export type MerMarkdownInput = {
+  rangeLabel: string;
+  from: string;
+  to: string;
+  launchFrom?: string | null;
+  currency: string;
+  kpis: {
+    revenue: number;
+    ads_spend: number;
+    fees_spend: number;
+    total_mkt_spend: number;
+    mer: number | null;
+    ad_roas: number | null;
+  };
+  monthly: {
+    month: string;
+    revenue: number;
+    ads_spend: number;
+    fees_spend: number;
+    total_mkt_spend: number;
+    mer: number | null;
+    ad_roas: number | null;
+    yoy_revenue_pct: number | null;
+  }[];
+  feesBreakdown: { label: string; amount_eur: number }[];
+  unmappedExpenses: {
+    label: string;
+    line_text: string;
+    debit_account: string;
+    amount_eur: number;
+  }[];
+};
+
+function formatRatioMd(n: number | null | undefined): string {
+  if (n == null) return "—";
+  return `${Number(n).toFixed(2)}×`;
+}
+
+export function buildMarketingMerMarkdown(input: MerMarkdownInput): string {
+  const lines: string[] = [];
+  lines.push("# MO–JA Marketing MER");
+  lines.push("");
+  lines.push(`**Obdobie:** ${input.rangeLabel} (${input.from} – ${input.to})`);
+  if (input.launchFrom) {
+    lines.push(`**Mesačný vývoj od:** ${input.launchFrom}`);
+  }
+  lines.push("");
+  lines.push(
+    "_Ads = Meta CSV · Fees = účtovný denník (518/5015) · Meta FP v denníku sa nepočíta dvakrát._"
+  );
+  lines.push("");
+
+  lines.push("## KPI");
+  lines.push("");
+  lines.push(
+    mdTable(
+      ["Metrika", "Hodnota"],
+      [
+        ["Revenue", formatMoney(input.kpis.revenue, input.currency)],
+        ["Ads spend", formatMoney(input.kpis.ads_spend, input.currency)],
+        ["Fees", formatMoney(input.kpis.fees_spend, input.currency)],
+        ["Total MKT", formatMoney(input.kpis.total_mkt_spend, input.currency)],
+        ["MER", formatRatioMd(input.kpis.mer)],
+        ["Ad ROAS", formatRatioMd(input.kpis.ad_roas)],
+      ]
+    )
+  );
+  lines.push("");
+
+  if (input.monthly.length > 0) {
+    lines.push("## Mesačná tabuľka");
+    lines.push("");
+    lines.push(
+      mdTable(
+        ["Mesiac", "Revenue", "Ads", "Fees", "Total MKT", "MER", "Ad ROAS", "YoY Rev"],
+        input.monthly.map((r) => [
+          r.month,
+          formatMoney(r.revenue, input.currency),
+          formatMoney(r.ads_spend, input.currency),
+          formatMoney(r.fees_spend, input.currency),
+          formatMoney(r.total_mkt_spend, input.currency),
+          formatRatioMd(r.mer),
+          formatRatioMd(r.ad_roas),
+          r.yoy_revenue_pct == null
+            ? "—"
+            : `${r.yoy_revenue_pct > 0 ? "+" : ""}${r.yoy_revenue_pct} %`,
+        ])
+      )
+    );
+    lines.push("");
+  }
+
+  if (input.feesBreakdown.length > 0) {
+    lines.push("## Fees breakdown (denník)");
+    lines.push("");
+    lines.push(
+      mdTable(
+        ["Dodávateľ", "Suma"],
+        input.feesBreakdown.map((r) => [
+          r.label,
+          formatMoney(r.amount_eur, input.currency),
+        ])
+      )
+    );
+    lines.push("");
+  }
+
+  if (input.unmappedExpenses.length > 0) {
+    lines.push("## Nemapované náklady (na overenie)");
+    lines.push("");
+    lines.push(
+      mdTable(
+        ["Dodávateľ", "Text", "Účet", "Suma"],
+        input.unmappedExpenses.map((r) => [
+          r.label,
+          r.line_text,
+          r.debit_account,
+          formatMoney(r.amount_eur, input.currency),
+        ])
+      )
+    );
+    lines.push("");
+  }
+
+  lines.push("---");
+  lines.push(`_Export: ${new Date().toLocaleString("sk-SK")} · MER_`);
+  return lines.join("\n");
+}
+
