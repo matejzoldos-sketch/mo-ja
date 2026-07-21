@@ -108,7 +108,9 @@ def line_hash_for(
     line_text: str,
     partner_name: Optional[str],
     company_name: Optional[str],
+    source_row: int,
 ) -> str:
+    # source_row: rovnaké FP riadky (napr. Meta 60 €) musia byť unikátne
     key = "|".join(
         [
             entry_date,
@@ -119,6 +121,7 @@ def line_hash_for(
             line_text,
             partner_name or "",
             company_name or "",
+            str(source_row),
         ]
     )
     return hashlib.sha256(key.encode("utf-8")).hexdigest()[:32]
@@ -164,6 +167,7 @@ def parse_csv_rows(path: Path) -> List[JournalRow]:
                         text,
                         partner,
                         company,
+                        row_num,
                     ),
                     entry_date=entry_date,
                     month_num=month_num,
@@ -232,13 +236,24 @@ def summarize_marketing(rows: List[JournalRow]) -> None:
 
 
 def upsert_supabase(rows: List[JournalRow], batch_size: int = 500) -> None:
-    url = os.environ.get("SUPABASE_URL")
-    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_KEY")
+    url = (os.environ.get("SUPABASE_URL") or "").strip()
+    key = (
+        os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_KEY") or ""
+    ).strip()
     if not url or not key:
         raise SystemExit("Chýba SUPABASE_URL alebo SUPABASE_SERVICE_ROLE_KEY v .env")
 
     sb = create_client(url, key)
     now = datetime.now(timezone.utc).isoformat()
+
+    # Dedup podľa line_hash (PostgREST ON CONFLICT neznesie duplicity v jednom batchi)
+    by_hash = {r.line_hash: r for r in rows}
+    if len(by_hash) < len(rows):
+        log.warning(
+            "Deduplikácia: %s → %s unikátnych line_hash",
+            len(rows),
+            len(by_hash),
+        )
 
     payload = [
         {
@@ -255,7 +270,7 @@ def upsert_supabase(rows: List[JournalRow], batch_size: int = 500) -> None:
             "source_row": r.source_row,
             "imported_at": now,
         }
-        for r in rows
+        for r in by_hash.values()
     ]
 
     for i in range(0, len(payload), batch_size):

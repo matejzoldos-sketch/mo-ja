@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS public.accounting_journal_lines (
   line_text text NOT NULL DEFAULT '',
   debit_account text NOT NULL,
   credit_account text NOT NULL,
-  amount_eur numeric NOT NULL CHECK (amount_eur >= 0),
+  amount_eur numeric NOT NULL,
   company_name text,
   partner_name text,
   source_row integer,
