@@ -10,6 +10,8 @@ import {
   periodFilterLabel,
   type PeriodFilter,
 } from "@/lib/dashboardPeriodFilter";
+import { previousPeriodLabel } from "@/lib/dashboardPeriodCompare";
+import { KpiPeriodCompare } from "../components/KpiPeriodCompare";
 import {
   buildMarketingMerMarkdown,
   downloadMarketingMarkdown,
@@ -35,6 +37,7 @@ type MerMonthRow = {
   total_mkt_spend: number;
   mer: number | null;
   ad_roas: number | null;
+  mom_revenue_pct: number | null;
   yoy_revenue_pct: number | null;
 };
 
@@ -45,8 +48,13 @@ type MerPayload = {
     to: string;
     launch_from?: string;
     journal_note?: string;
+    compareFrom?: string;
+    compareTo?: string;
+    compareKind?: string;
+    compareLabel?: string;
   };
   kpis: MerKpis;
+  kpisPrevious?: MerKpis | null;
   monthly: MerMonthRow[];
   feesBreakdown: { label: string; amount_eur: number }[];
   unmappedExpenses: {
@@ -107,6 +115,21 @@ export default function MarketingMerPanel({ period }: Props) {
   }, [load, period.range, period.month, period.year]);
 
   const currency = data?.kpis.currency ?? "EUR";
+  const prev = data?.kpisPrevious ?? null;
+  const compareLabel = useMemo(() => {
+    if (!data?.meta.compareFrom || !data?.meta.compareTo) {
+      return data?.meta.compareLabel ?? data?.meta.compareKind ?? "MoM";
+    }
+    const kind = data.meta.compareKind ?? "MoM";
+    const detail = previousPeriodLabel(data.meta.compareFrom, data.meta.compareTo);
+    return `${kind} · ${detail}`;
+  }, [data]);
+
+  const moneyFmt = useCallback(
+    (v: number) => formatMoney(v, currency),
+    [currency]
+  );
+  const ratioFmt = useCallback((v: number) => formatRatio(v), []);
 
   const downloadMd = useCallback(() => {
     if (!data) return;
@@ -324,34 +347,73 @@ export default function MarketingMerPanel({ period }: Props) {
             <strong className="kpi-card__value">
               {formatMoney(kpis.revenue, currency)}
             </strong>
+            <KpiPeriodCompare
+              current={kpis.revenue}
+              previous={prev?.revenue}
+              formatValue={moneyFmt}
+              periodLabel={compareLabel}
+            />
           </div>
           <div className="kpi-card">
             <span className="kpi-card__label">Ads spend</span>
             <strong className="kpi-card__value">
               {formatMoney(kpis.ads_spend, currency)}
             </strong>
+            <KpiPeriodCompare
+              current={kpis.ads_spend}
+              previous={prev?.ads_spend}
+              formatValue={moneyFmt}
+              higherIsBetter={false}
+              periodLabel={compareLabel}
+            />
           </div>
           <div className="kpi-card">
             <span className="kpi-card__label">Fees</span>
             <strong className="kpi-card__value">
               {formatMoney(kpis.fees_spend, currency)}
             </strong>
+            <KpiPeriodCompare
+              current={kpis.fees_spend}
+              previous={prev?.fees_spend}
+              formatValue={moneyFmt}
+              higherIsBetter={false}
+              periodLabel={compareLabel}
+            />
           </div>
           <div className="kpi-card">
             <span className="kpi-card__label">Total MKT</span>
             <strong className="kpi-card__value">
               {formatMoney(kpis.total_mkt_spend, currency)}
             </strong>
+            <KpiPeriodCompare
+              current={kpis.total_mkt_spend}
+              previous={prev?.total_mkt_spend}
+              formatValue={moneyFmt}
+              higherIsBetter={false}
+              periodLabel={compareLabel}
+            />
           </div>
           <div className="kpi-card">
             <span className="kpi-card__label">MER</span>
             <strong className="kpi-card__value">{formatRatio(kpis.mer)}</strong>
+            <KpiPeriodCompare
+              current={kpis.mer}
+              previous={prev?.mer}
+              formatValue={ratioFmt}
+              periodLabel={compareLabel}
+            />
           </div>
           <div className="kpi-card">
             <span className="kpi-card__label">Ad ROAS</span>
             <strong className="kpi-card__value">
               {formatRatio(kpis.ad_roas)}
             </strong>
+            <KpiPeriodCompare
+              current={kpis.ad_roas}
+              previous={prev?.ad_roas}
+              formatValue={ratioFmt}
+              periodLabel={compareLabel}
+            />
           </div>
         </div>
 
@@ -375,28 +437,34 @@ export default function MarketingMerPanel({ period }: Props) {
                   <th>Ads</th>
                   <th>Fees</th>
                   <th>Total MKT</th>
-                  <th>MER</th>
-                  <th>Ad ROAS</th>
-                  <th>YoY Rev</th>
+                <th>MER</th>
+                <th>Ad ROAS</th>
+                <th>MoM Rev</th>
+                <th>YoY Rev</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.monthly.map((row) => (
+                <tr key={row.month}>
+                  <td>{formatMonthLabelSk(`${row.month}-01`)}</td>
+                  <td>{formatMoney(row.revenue, currency)}</td>
+                  <td>{formatMoney(row.ads_spend, currency)}</td>
+                  <td>{formatMoney(row.fees_spend, currency)}</td>
+                  <td>{formatMoney(row.total_mkt_spend, currency)}</td>
+                  <td>{formatRatio(row.mer)}</td>
+                  <td>{formatRatio(row.ad_roas)}</td>
+                  <td>
+                    {row.mom_revenue_pct == null
+                      ? "—"
+                      : `${row.mom_revenue_pct > 0 ? "+" : ""}${row.mom_revenue_pct} %`}
+                  </td>
+                  <td>
+                    {row.yoy_revenue_pct == null
+                      ? "—"
+                      : `${row.yoy_revenue_pct > 0 ? "+" : ""}${row.yoy_revenue_pct} %`}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {data.monthly.map((row) => (
-                  <tr key={row.month}>
-                    <td>{formatMonthLabelSk(`${row.month}-01`)}</td>
-                    <td>{formatMoney(row.revenue, currency)}</td>
-                    <td>{formatMoney(row.ads_spend, currency)}</td>
-                    <td>{formatMoney(row.fees_spend, currency)}</td>
-                    <td>{formatMoney(row.total_mkt_spend, currency)}</td>
-                    <td>{formatRatio(row.mer)}</td>
-                    <td>{formatRatio(row.ad_roas)}</td>
-                    <td>
-                      {row.yoy_revenue_pct == null
-                        ? "—"
-                        : `${row.yoy_revenue_pct > 0 ? "+" : ""}${row.yoy_revenue_pct} %`}
-                    </td>
-                  </tr>
-                ))}
+              ))}
               </tbody>
             </table>
           </div>

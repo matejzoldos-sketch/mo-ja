@@ -309,6 +309,7 @@ export type MerMarkdownInput = {
     total_mkt_spend: number;
     mer: number | null;
     ad_roas: number | null;
+    mom_revenue_pct?: number | null;
     yoy_revenue_pct: number | null;
   }[];
   feesBreakdown: { label: string; amount_eur: number }[];
@@ -361,7 +362,7 @@ export function buildMarketingMerMarkdown(input: MerMarkdownInput): string {
     lines.push("");
     lines.push(
       mdTable(
-        ["Mesiac", "Revenue", "Ads", "Fees", "Total MKT", "MER", "Ad ROAS", "YoY Rev"],
+        ["Mesiac", "Revenue", "Ads", "Fees", "Total MKT", "MER", "Ad ROAS", "MoM Rev", "YoY Rev"],
         input.monthly.map((r) => [
           r.month,
           formatMoney(r.revenue, input.currency),
@@ -370,6 +371,9 @@ export function buildMarketingMerMarkdown(input: MerMarkdownInput): string {
           formatMoney(r.total_mkt_spend, input.currency),
           formatRatioMd(r.mer),
           formatRatioMd(r.ad_roas),
+          r.mom_revenue_pct == null
+            ? "—"
+            : `${r.mom_revenue_pct > 0 ? "+" : ""}${r.mom_revenue_pct} %`,
           r.yoy_revenue_pct == null
             ? "—"
             : `${r.yoy_revenue_pct > 0 ? "+" : ""}${r.yoy_revenue_pct} %`,
