@@ -21,6 +21,8 @@ ChartJS.register(...registerables);
 
 type MerKpis = {
   revenue: number;
+  orders: number;
+  aov: number | null;
   ads_spend: number;
   fees_spend: number;
   total_mkt_spend: number;
@@ -32,6 +34,8 @@ type MerKpis = {
 type MerMonthRow = {
   month: string;
   revenue: number;
+  orders: number;
+  aov: number | null;
   ads_spend: number;
   fees_spend: number;
   total_mkt_spend: number;
@@ -52,8 +56,12 @@ type MerPayload = {
     compareTo?: string;
     compareKind?: string;
     compareLabel?: string;
+    momFrom?: string;
+    momTo?: string;
   };
   kpis: MerKpis;
+  /** Focus month KPIs for MoM delta (vs kpisPrevious). */
+  kpisMom?: MerKpis | null;
   kpisPrevious?: MerKpis | null;
   monthly: MerMonthRow[];
   feesBreakdown: { label: string; amount_eur: number }[];
@@ -115,14 +123,15 @@ export default function MarketingMerPanel({ period }: Props) {
   }, [load, period.range, period.month, period.year]);
 
   const currency = data?.kpis.currency ?? "EUR";
+  /** MoM delta uses focus month vs previous month (not YoY period totals). */
+  const mom = data?.kpisMom ?? data?.kpis ?? null;
   const prev = data?.kpisPrevious ?? null;
   const compareLabel = useMemo(() => {
     if (!data?.meta.compareFrom || !data?.meta.compareTo) {
       return data?.meta.compareLabel ?? data?.meta.compareKind ?? "MoM";
     }
-    const kind = data.meta.compareKind ?? "MoM";
     const detail = previousPeriodLabel(data.meta.compareFrom, data.meta.compareTo);
-    return `${kind} · ${detail}`;
+    return `MoM · ${detail}`;
   }, [data]);
 
   const moneyFmt = useCallback(
@@ -130,6 +139,7 @@ export default function MarketingMerPanel({ period }: Props) {
     [currency]
   );
   const ratioFmt = useCallback((v: number) => formatRatio(v), []);
+  const intFmt = useCallback((v: number) => String(Math.round(v)), []);
 
   const downloadMd = useCallback(() => {
     if (!data) return;
@@ -348,8 +358,32 @@ export default function MarketingMerPanel({ period }: Props) {
               {formatMoney(kpis.revenue, currency)}
             </strong>
             <KpiPeriodCompare
-              current={kpis.revenue}
+              current={mom?.revenue}
               previous={prev?.revenue}
+              formatValue={moneyFmt}
+              periodLabel={compareLabel}
+            />
+          </div>
+          <div className="kpi-card">
+            <span className="kpi-card__label">Orders</span>
+            <strong className="kpi-card__value">
+              {(kpis.orders ?? 0).toLocaleString("sk-SK")}
+            </strong>
+            <KpiPeriodCompare
+              current={mom?.orders}
+              previous={prev?.orders}
+              formatValue={intFmt}
+              periodLabel={compareLabel}
+            />
+          </div>
+          <div className="kpi-card">
+            <span className="kpi-card__label">AOV</span>
+            <strong className="kpi-card__value">
+              {kpis.aov == null ? "—" : formatMoney(kpis.aov, currency)}
+            </strong>
+            <KpiPeriodCompare
+              current={mom?.aov}
+              previous={prev?.aov}
               formatValue={moneyFmt}
               periodLabel={compareLabel}
             />
@@ -360,7 +394,7 @@ export default function MarketingMerPanel({ period }: Props) {
               {formatMoney(kpis.ads_spend, currency)}
             </strong>
             <KpiPeriodCompare
-              current={kpis.ads_spend}
+              current={mom?.ads_spend}
               previous={prev?.ads_spend}
               formatValue={moneyFmt}
               higherIsBetter={false}
@@ -373,7 +407,7 @@ export default function MarketingMerPanel({ period }: Props) {
               {formatMoney(kpis.fees_spend, currency)}
             </strong>
             <KpiPeriodCompare
-              current={kpis.fees_spend}
+              current={mom?.fees_spend}
               previous={prev?.fees_spend}
               formatValue={moneyFmt}
               higherIsBetter={false}
@@ -386,7 +420,7 @@ export default function MarketingMerPanel({ period }: Props) {
               {formatMoney(kpis.total_mkt_spend, currency)}
             </strong>
             <KpiPeriodCompare
-              current={kpis.total_mkt_spend}
+              current={mom?.total_mkt_spend}
               previous={prev?.total_mkt_spend}
               formatValue={moneyFmt}
               higherIsBetter={false}
@@ -397,7 +431,7 @@ export default function MarketingMerPanel({ period }: Props) {
             <span className="kpi-card__label">MER</span>
             <strong className="kpi-card__value">{formatRatio(kpis.mer)}</strong>
             <KpiPeriodCompare
-              current={kpis.mer}
+              current={mom?.mer}
               previous={prev?.mer}
               formatValue={ratioFmt}
               periodLabel={compareLabel}
@@ -409,7 +443,7 @@ export default function MarketingMerPanel({ period }: Props) {
               {formatRatio(kpis.ad_roas)}
             </strong>
             <KpiPeriodCompare
-              current={kpis.ad_roas}
+              current={mom?.ad_roas}
               previous={prev?.ad_roas}
               formatValue={ratioFmt}
               periodLabel={compareLabel}
@@ -434,37 +468,43 @@ export default function MarketingMerPanel({ period }: Props) {
                 <tr>
                   <th>Mesiac</th>
                   <th>Revenue</th>
+                  <th>Orders</th>
+                  <th>AOV</th>
                   <th>Ads</th>
                   <th>Fees</th>
                   <th>Total MKT</th>
-                <th>MER</th>
-                <th>Ad ROAS</th>
-                <th>MoM Rev</th>
-                <th>YoY Rev</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.monthly.map((row) => (
-                <tr key={row.month}>
-                  <td>{formatMonthLabelSk(`${row.month}-01`)}</td>
-                  <td>{formatMoney(row.revenue, currency)}</td>
-                  <td>{formatMoney(row.ads_spend, currency)}</td>
-                  <td>{formatMoney(row.fees_spend, currency)}</td>
-                  <td>{formatMoney(row.total_mkt_spend, currency)}</td>
-                  <td>{formatRatio(row.mer)}</td>
-                  <td>{formatRatio(row.ad_roas)}</td>
-                  <td>
-                    {row.mom_revenue_pct == null
-                      ? "—"
-                      : `${row.mom_revenue_pct > 0 ? "+" : ""}${row.mom_revenue_pct} %`}
-                  </td>
-                  <td>
-                    {row.yoy_revenue_pct == null
-                      ? "—"
-                      : `${row.yoy_revenue_pct > 0 ? "+" : ""}${row.yoy_revenue_pct} %`}
-                  </td>
+                  <th>MER</th>
+                  <th>Ad ROAS</th>
+                  <th>MoM Rev</th>
+                  <th>YoY Rev</th>
                 </tr>
-              ))}
+              </thead>
+              <tbody>
+                {data.monthly.map((row) => (
+                  <tr key={row.month}>
+                    <td>{formatMonthLabelSk(`${row.month}-01`)}</td>
+                    <td>{formatMoney(row.revenue, currency)}</td>
+                    <td>{(row.orders ?? 0).toLocaleString("sk-SK")}</td>
+                    <td>
+                      {row.aov == null ? "—" : formatMoney(row.aov, currency)}
+                    </td>
+                    <td>{formatMoney(row.ads_spend, currency)}</td>
+                    <td>{formatMoney(row.fees_spend, currency)}</td>
+                    <td>{formatMoney(row.total_mkt_spend, currency)}</td>
+                    <td>{formatRatio(row.mer)}</td>
+                    <td>{formatRatio(row.ad_roas)}</td>
+                    <td>
+                      {row.mom_revenue_pct == null
+                        ? "—"
+                        : `${row.mom_revenue_pct > 0 ? "+" : ""}${row.mom_revenue_pct} %`}
+                    </td>
+                    <td>
+                      {row.yoy_revenue_pct == null
+                        ? "—"
+                        : `${row.yoy_revenue_pct > 0 ? "+" : ""}${row.yoy_revenue_pct} %`}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

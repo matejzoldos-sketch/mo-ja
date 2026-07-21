@@ -295,6 +295,8 @@ export type MerMarkdownInput = {
   currency: string;
   kpis: {
     revenue: number;
+    orders?: number;
+    aov?: number | null;
     ads_spend: number;
     fees_spend: number;
     total_mkt_spend: number;
@@ -304,6 +306,8 @@ export type MerMarkdownInput = {
   monthly: {
     month: string;
     revenue: number;
+    orders?: number;
+    aov?: number | null;
     ads_spend: number;
     fees_spend: number;
     total_mkt_spend: number;
@@ -347,6 +351,13 @@ export function buildMarketingMerMarkdown(input: MerMarkdownInput): string {
       ["Metrika", "Hodnota"],
       [
         ["Revenue", formatMoney(input.kpis.revenue, input.currency)],
+        ["Orders", input.kpis.orders ?? "—"],
+        [
+          "AOV",
+          input.kpis.aov == null
+            ? "—"
+            : formatMoney(input.kpis.aov, input.currency),
+        ],
         ["Ads spend", formatMoney(input.kpis.ads_spend, input.currency)],
         ["Fees", formatMoney(input.kpis.fees_spend, input.currency)],
         ["Total MKT", formatMoney(input.kpis.total_mkt_spend, input.currency)],
@@ -362,10 +373,12 @@ export function buildMarketingMerMarkdown(input: MerMarkdownInput): string {
     lines.push("");
     lines.push(
       mdTable(
-        ["Mesiac", "Revenue", "Ads", "Fees", "Total MKT", "MER", "Ad ROAS", "MoM Rev", "YoY Rev"],
+        ["Mesiac", "Revenue", "Orders", "AOV", "Ads", "Fees", "Total MKT", "MER", "Ad ROAS", "MoM Rev", "YoY Rev"],
         input.monthly.map((r) => [
           r.month,
           formatMoney(r.revenue, input.currency),
+          r.orders ?? "—",
+          r.aov == null ? "—" : formatMoney(r.aov, input.currency),
           formatMoney(r.ads_spend, input.currency),
           formatMoney(r.fees_spend, input.currency),
           formatMoney(r.total_mkt_spend, input.currency),
