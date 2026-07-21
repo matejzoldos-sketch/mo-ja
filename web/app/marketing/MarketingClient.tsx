@@ -31,14 +31,21 @@ export default function MarketingClient() {
   }, [rangeRaw, monthRaw, yearRaw]);
 
   useEffect(() => {
-    if (!periodFilterNeedsUrlNormalize(rangeRaw, monthRaw, yearRaw)) {
-      return;
-    }
+    const view = searchParams.get("view");
+    const dim = searchParams.get("dim");
+    const needsNormalize = periodFilterNeedsUrlNormalize(
+      rangeRaw,
+      monthRaw,
+      yearRaw
+    );
+    if (!needsNormalize && !view && !dim) return;
+
     const next = parsePeriodFilter(rangeRaw, monthRaw, yearRaw, {
       defaultRange: "year",
     });
     const params = periodFilterToSearchParams(next, searchParams);
-    // Keep default year=2026 when empty
+    params.delete("view");
+    params.delete("dim");
     if (!rangeRaw && !monthRaw && !yearRaw) {
       params.set("range", "year");
       params.set("year", "2026");

@@ -281,7 +281,10 @@ export default function MarketingMerPanel({ period }: Props) {
 
   return (
     <div className="marketing-mer">
-      <div className="site-toolbar__actions" style={{ marginBottom: "0.75rem" }}>
+      <div
+        className="site-toolbar__actions"
+        style={{ marginBottom: "0.75rem" }}
+      >
         <button
           type="button"
           className="dashboard-export-btn"
@@ -301,6 +304,9 @@ export default function MarketingMerPanel({ period }: Props) {
       </div>
 
       <div className="dashboard-pdf-root" ref={pdfExportRef}>
+        <h1 className="dashboard-card__title" style={{ marginBottom: "0.5rem" }}>
+          MER — Marketing efficiency
+        </h1>
         <p className="dashboard-meta">
           {data.meta.from} – {data.meta.to}
           {data.meta.launch_from
