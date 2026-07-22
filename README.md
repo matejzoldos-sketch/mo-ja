@@ -1,150 +1,142 @@
-# mo-ja — Shopify → Supabase
+# mo-ja — Shopify → Supabase → dashboard
 
-Synchronizácia **objednávok**, **riadkov**, **lokácií** a **skladových zásob** z Shopify Admin API do Postgres (Supabase).
+Analytický stack pre e-shop **MO–JA**: sync objednávok a skladu zo Shopify, cashflow z Tatra banky a Next.js dashboard (Predaj, Sklad, Cash flow, Marketing / MER) na Vercel.
+
+Repo: [github.com/matejzoldos-sketch/mo-ja](https://github.com/matejzoldos-sketch/mo-ja)
 
 ## Požiadavky
 
-- Shopify **Admin API** prístup so scopes: `read_inventory`, `read_locations`, **`read_products`** (bez neho často chýba `variant` / `inventoryItem` na riadkoch objednávok → Sklad nevie spájať predaj so skladom) a **`read_all_orders`** (pre YTD — bez neho ~**posledných 60 dní** objednávok). Alternatíva `read_orders` len s kratšou históriou.
-- **KPI „vracajúci sa“** nepotrebuje **`read_customers`**: sync ťahá **`email`** z objednávky (`read_orders`). Do DB ide aj stĺpec **`customer_email`** (migrácia `017`). Voliteľne môžeš v app pridať **`read_customers`** a do GraphQL vrátiť `customer { id }` — potom sa doplní aj **`customer_id`** (presnejšie zlučovanie ako len email). Meno zákazníka (`displayName`) sync defaultne neťahá.
+- Python **3.12** (CI aj lokálne odporúčané)
+- Shopify **Admin API** so scopes: `read_inventory`, `read_locations`, **`read_products`** (bez neho Sklad nevie spájať predaj so skladom) a **`read_all_orders`** (pre YTD; bez neho ~posledných 60 dní). Alternatíva `read_orders` = kratšia história.
+- KPI „vracajúci sa“ nepotrebuje `read_customers` — sync berie `email` z objednávky (`customer_email`). Voliteľne `read_customers` + GraphQL `customer { id }` → `customer_id`.
+- Supabase projekt `kqsmsegcqdhuhiofxyuu` — pred sync/webom `supabase db push` (migrácie `001`–`080`).
 
-### Od 1. 1. 2026 (Dev Dashboard)
+### Shopify auth (od 1. 1. 2026)
 
-Shopify už **nepovoľuje nové** „legacy“ custom appky v admine s jednorazovým **Reveal** tokenom. Nové appky vznikajú v **[Dev Dashboard](https://dev.shopify.com/dashboard/)**; autentifikácia je **Client ID + Client secret** a skript si cez [client credentials grant](https://shopify.dev/docs/apps/build/dev-dashboard/get-api-access-tokens) vyžiada krátkodobý `access_token` (nemusí začínať `shpat_`).
+Nové appky: [Dev Dashboard](https://dev.shopify.com/dashboard/) → **Client ID + Client secret** (client credentials grant). V `.env` / Secrets: `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET`, `SHOPIFY_STORE`. `SHOPIFY_ACCESS_TOKEN` môže byť prázdny.
 
-V `.env` / GitHub Secrets nastav **`SHOPIFY_CLIENT_ID`** a **`SHOPIFY_CLIENT_SECRET`** z Dev Dashboard → appka → **Settings** (a **`SHOPIFY_STORE`**). **`SHOPIFY_ACCESS_TOKEN`** môže byť prázdny — ak sú vyplnené Client ID aj secret, skript ich použije namiesto neho.
+Legacy custom app: stačí `SHOPIFY_ACCESS_TOKEN` (Reveal v Develop apps).
 
-Staršie obchody s existujúcou legacy appkou môžu naďalej používať len **`SHOPIFY_ACCESS_TOKEN`**.
-- Supabase projekt; migrácie `001` (+ `002` pre dashboard) spustiť pred prvým syncom / pred webom.
-
-## Nastavenie
-
-1. Skopíruj `.env.example` na `.env` a doplň hodnoty (tokeny neukladaj do gitu).
-
-2. V [Supabase SQL Editor](https://supabase.com/dashboard) spusti `001_shopify_core.sql` a potom `002_dashboard_mvp.sql`, alebo:
-
-   ```bash
-   supabase link --project-ref kqsmsegcqdhuhiofxyuu
-   supabase db push
-   ```
-
-3. Lokálne:
-
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate
-   pip install -r requirements.txt
-   python sync_shopify.py
-   ```
-
-## Použitie `sync_shopify.py`
-
-| Príkaz | Popis |
-|--------|--------|
-| `python sync_shopify.py` | Predvolené: objednávky s `created_at` od 1. 1. **aktuálneho roka** + lokácie + sklad (zhoda s YTD v dashboarde) |
-| `python sync_shopify.py --days 7` | Len objednávky s `updated_at` ≥ dnes − N dní (rýchly inkrementálny beh) |
-| `python sync_shopify.py --ytd` | Objednávky s `created_at` ≥ 1. január **aktuálneho roka** |
-| `python sync_shopify.py --ytd --ytd-year 2026` | Rovnaké pre konkrétny rok |
-| `python sync_shopify.py --from 2026-01-01` | `updated_at` ≥ dátum |
-| `python sync_shopify.py --orders-only` | Bez inventory |
-| `python sync_shopify.py --inventory-only` | Len lokácie + sklad (lokácie sa stiahnu vždy kvôli FK) |
-
-## GitHub Actions
-
-V repozitári nastav **Secrets**:
-
-- `SHOPIFY_STORE`
-- **Buď** `SHOPIFY_CLIENT_ID` + `SHOPIFY_CLIENT_SECRET` (Dev Dashboard, od 2026), **alebo** `SHOPIFY_ACCESS_TOKEN` (legacy custom app)
-- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
-- voliteľne `SHOPIFY_API_VERSION`
-
-Workflow: každý deň o **00:00 UTC** (približne **02:00** Bratislava v CEST) beh **`--ytd`** (objednávky vytvorené od 1. 1., aby YTD metriky v Sklade sedeli s dátami v DB). GitHub môže naplánovaný beh oneskoriť o desiatky minút; čas v hlavičke je **koniec** behu — pri dlhom YTD synce preto môže vyzerať „okolo 10:00“, aj keď štart bol skôr. Manuálne `workflow_dispatch`: **`ytd`** = rovnaké; **`daily`** = rýchly beh len `updated_at` za posledných 14 dní.
-
-### Shopify 401 / „Invalid API key or access token“
-
-1. **`SHOPIFY_ACCESS_TOKEN`** musí byť **Admin API access token** z **obchodného adminu**: **Settings → Apps and sales channels → Develop apps → [appka] → API credentials → Reveal** (až po **Install app**). Prefix môže byť napr. **`shpat_`**, **`shpca_`**, **`shpss_`**, **`shpua_`** (závisí od typu appky) — ide o **celý** reťazec z Reveal.  
-   **Nie** Client secret, **nie** „API secret key“ z Partner Dashboardu, **nie** API key z karty Configuration.
-
-2. **`SHOPIFY_STORE`** = len handle (napr. `yttmhc-p0`), nie celá URL. **Musí to byť ten istý obchod**, v ktorom si vygeneroval token (iný handle → **401** aj pri správnom `shpss_` / `shpat_`).
-
-3. Po spustení Actions v logu skontroluj **`Token prefix OK`**. Ak áno a predsa **401**, skontroluj znova bod 2, pridaj GitHub secret **`SHOPIFY_API_VERSION`** = `2026-01` (alebo aktuálnu verziu z [Shopify API versioning](https://shopify.dev/docs/api/usage/versioning)), prípadne v appke **znova Reveal** tokenu po reinstall.
-
-4. Rýchly test v termináli (lokálne, token nezdieľaj):
-
-   ```bash
-   export SHOPIFY_STORE=tvoj-handle
-   export SHOPIFY_ACCESS_TOKEN='shpat_...'
-   curl -sS -w "\nHTTP %{http_code}\n" \
-     -H "Content-Type: application/json" \
-     -H "X-Shopify-Access-Token: $SHOPIFY_ACCESS_TOKEN" \
-     -d '{"query":"{ shop { name } }"}' \
-     "https://${SHOPIFY_STORE}.myshopify.com/admin/api/2026-01/graphql.json"
-   ```
-
-   Očakávané: HTTP **200** a JSON s `data.shop.name`. Ak **401**, token alebo store nesedí.
-
-5. Ak appku máš **len v Partner Dashboard** a nie v **Develop apps** v tom obchode, statický `shpat_` token tam nemusí existovať — potrebuješ **OAuth access token** po inštalácii na daný obchod, alebo zjednodušiť: vytvor **Develop apps** priamo v obchode a použi ten **Admin API access token**.
-
-### Tatra banka sync
-
-Pred prvým behom spusti migrácie **`051`–`054`** (`tatra_transactions`, `tatra_account_balances`, pohľad `tatra_cashflow_dashboard`):
+## Setup
 
 ```bash
+cp .env.example .env
 supabase link --project-ref kqsmsegcqdhuhiofxyuu
 supabase db push
+
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python sync_shopify.py
 ```
 
-alebo SQL súbory v [Supabase SQL Editor](https://supabase.com/dashboard).
+Root `.env`: Shopify + Supabase + Tatra (`TATRA_*`). Web: `web/.env.example` → `.env.local` (`SUPABASE_*`, voliteľne `DASHBOARD_PASSWORD`).
 
-**GitHub Secrets** (okrem Shopify a Supabase):
+## Štruktúra
 
-- `TATRA_CLIENT_ID`, `TATRA_CLIENT_SECRET` — **vlastná** Tatra appka mo-ja (iná firma = iné credentials než ZITA; rovnaký typ produktu a nastavenie v dev portáli)
-- voliteľne `TATRA_REFRESH_TOKEN` — ak je nastavený, sync ho použije namiesto `client_credentials`
+| Cesta | Účel |
+|-------|------|
+| `sync_shopify.py` | Hlavný Shopify → Supabase sync |
+| `etl/sync_tatra.py` | Tatra AIS → Supabase |
+| `etl/import_meta_ads_csv.py` | Meta Ads CSV → MER |
+| `etl/import_accounting_journal_csv.py` | Účtovný denník → MER |
+| `scripts/tatra_*.py` | OAuth / auth check |
+| `supabase/migrations/` | SQL (Shopify, Tatra, marketing, …) |
+| `web/` | Next.js 14 dashboard (Vercel Root Directory = `web`) |
+| `docs/` | OAuth callback, insights design, ukážkové CSV |
 
-V TB Business **mo-ja** musí byť aktivovaný súhlas AIS (FAC_BBTB) pre **túto** appku (client_id z dev portálu mo-ja). Rovnaký postup ako pri inej firme so Premium API — nie kopírovanie secretov, ale rovnaký typ bankového súhlasu.
-
-Workflow **Tatra banka sync**: denne **00:30 UTC** (pol hodiny po Shopify), alebo manuálne **Actions → Tatra banka sync → Run workflow**.
-
-```bash
-python scripts/tatra_check_auth.py          # len token + accounts, bez DB
-python etl/sync_tatra.py --days 7 --dry-run
-python etl/sync_tatra.py --days 45
-```
-
-**Jednorazový OAuth refresh token** (ak secret chýba alebo banka zmenila súhlas):
-
-1. Nasadiť `docs/tatra-oauth-callback/` na HTTPS (GitHub Pages z `/docs` alebo Vercel) a v Tatra dev portáli zaregistrovať presne tú istú Redirect URL.
-2. `python scripts/tatra_oauth_pkce.py authorize --client-id … --redirect-uri 'https://…/tatra-oauth-callback/'`
-3. Po prihlásení v banke: `python scripts/tatra_oauth_pkce.py exchange --code '…' --client-id … --client-secret … --redirect-uri '…'`
-4. `refresh_token` z výstupu → GitHub Secret `TATRA_REFRESH_TOKEN` (a `.env` lokálne).
-
-## Dashboard (Next.js na Vercel)
-
-Priečinok [`web/`](web/): KPI, grafy (Chart.js), tabuľka posledných objednávok. Dáta z RPC `get_shopify_dashboard_mvp()` v Supabase.
+## Dashboard (Next.js)
 
 ```bash
 cd web
 cp .env.example .env.local
-# doplň SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY
-npm install
-npm run dev
+npm install && npm run dev
 ```
 
-- **Ukážkové dáta bez DB:** v UI tlačidlo „Ukážkové dáta“ alebo `GET /api/dashboard?mock=1` (aj mock vyžaduje prihlásenie, ak je zapnuté heslo).
-- **Vercel:** Root Directory = `web`; rovnaké env ako v `.env.example`.
-- **Zamknutie dashboardu:** nastav **`DASHBOARD_PASSWORD`** (silné heslo). Potom `/` a `/sklad` presmerujú na `/login`; po zadaní hesla sa nastaví httpOnly cookie (30 dní). API `/api/dashboard` a `/api/inventory` akceptujú buď túto cookie, alebo hlavičku `Authorization: Bearer <rovnaké heslo>` (napr. skripty). Spätne kompatibilné: ak máš len **`DASHBOARD_TOKEN`**, správa sa ako heslo (rovnaké správanie). Ak nie je ani heslo ani token, aplikácia ostáva otvorená ako doteraz.
-- **Nečinnosť:** po **30 minútach** bez aktivity (myš, klávesnica, scroll, dotyk) sa zavolá odhlásenie a presmeruje na `/login`. Nastav **`NEXT_PUBLIC_DASHBOARD_IDLE_MINUTES`** (minimum 5, maximum 1440), ak chceš inú hodnotu — po zmene treba znova build / redeploy.
+| Route | Modul |
+|-------|--------|
+| `/` | Predaj — KPI, grafy, objednávky (`get_shopify_dashboard_mvp`) |
+| `/sklad` | Inventár zo Shopify |
+| `/cashflow` | Tatra banka |
+| `/marketing` | MER (revenue, ads, fees, mROAS) |
+| `/login` | Heslo (`DASHBOARD_PASSWORD`) |
 
-Po migráciách **`015`–`018`** spusti znova **`python sync_shopify.py --ytd`**, aby sa doplnili **`customer_id`** (ak máš v odpovedi `customer` z GraphQL) a **`customer_email`** z poľa **`email`**.
+`/insighty` je WIP (redirect na `/`) — návrh v `docs/insights-dashboard-design.md`.
 
-**KPI „Vracajúci sa“** (RPC, **`017`** + **`018`**): rovnaký „zákazník“ = **`customer_id`** alebo **normalizovaný email** (stĺpec / `raw_json`). **YTD:** % zákazníkov s **aspoň 2** paid-ish objednávkami **v tom kalendárnom roku**. **30d / 90d:** v RPC stále % s objednávkou **pred** oknom — na webe sa táto karta **nezobrazuje** (len výber YTD). Objednávky bez ID aj bez emailu sa nepočítajú.
+- Mock bez DB: tlačidlo „Ukážkové dáta“ alebo `?mock=1`.
+- Idle logout: default 30 min (`NEXT_PUBLIC_DASHBOARD_IDLE_MINUTES`).
+- Vercel: Root Directory = `web`, rovnaké env ako `web/.env.example`.
 
-## Tabuľky
+## `sync_shopify.py`
 
-- `tatra_transactions`, `tatra_account_balances`, pohľad `tatra_cashflow_dashboard` (sync `etl/sync_tatra.py`)
-- `shopify_orders` (`customer_display_name` po `002`, `customer_id` po `015`, `customer_email` po `017`), `shopify_order_line_items`, `shopify_locations`, `shopify_inventory_levels`, `shopify_sync_state` (`resource` = `full_sync`, `last_success_at`). Po úspešnom dokončení blokov objednávky / inventár sa zapíše checkpoint. Pri upserte sa nastavuje **`fetched_at`** (čas behu synclu) na lokácie, objednávky, riadky a úrovne skladu. **Hlavička „Posledný sync“** na webe berie **najnovší** z `last_success_at` a `max(fetched_at)` z týchto tabuliek (API `resolveLastSyncAt`). Ak GitHub Actions píše do **iného** Supabase projektu než Vercel (`SUPABASE_URL` / service role), dáta na dashboarde ostanú staré — secrets musia smerovať na ten istý projekt.
+| Príkaz | Popis |
+|--------|--------|
+| `python sync_shopify.py` | Predvolené: YTD (`created_at` od 1. 1.) + lokácie + sklad |
+| `python sync_shopify.py --days 7` | Inkrement: `updated_at` ≥ dnes − N dní |
+| `python sync_shopify.py --ytd` | YTD aktuálny rok |
+| `python sync_shopify.py --ytd --ytd-year 2026` | YTD konkrétny rok |
+| `python sync_shopify.py --from 2026-01-01` | `updated_at` ≥ dátum |
+| `python sync_shopify.py --created-from 2025-11-01` | `created_at` ≥ dátum |
+| `python sync_shopify.py --utm-backfill` | UTM backfill |
+| `python sync_shopify.py --orders-only` / `--inventory-only` | Bez inventory / len sklad |
 
-RLS je zapnuté bez politík pre anon — prístup len cez **service role** (skript / server).
+## GitHub Actions
 
-## Webhooks (neskôr)
+**Secrets:** `SHOPIFY_STORE` + (`SHOPIFY_CLIENT_ID`/`SECRET` alebo `SHOPIFY_ACCESS_TOKEN`), `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, voliteľne `SHOPIFY_API_VERSION`; pre Tatra: `TATRA_CLIENT_ID`, `TATRA_CLIENT_SECRET`, `TATRA_REFRESH_TOKEN`.
 
-Pre takmer reálny čas môžeš doplniť Supabase Edge Function a Shopify webhooks; tento repo zatiaľ používa polling cez cron.
+| Workflow | Čas (UTC) | Predvolený beh |
+|----------|-----------|----------------|
+| Shopify sync | 00:00 | **`--days 14`** (inkrementálny) |
+| Tatra sync | 00:30 | bankové pohyby |
+
+Manuálne `workflow_dispatch`: Shopify môže ísť ako **`ytd`** (celý rok) alebo **`daily`** (14 dní).
+
+### Shopify 401
+
+1. Token = Admin API access token z Develop apps (Reveal), nie Client secret z Partner Dashboardu.
+2. `SHOPIFY_STORE` = handle (napr. `yttmhc-p0`), ten istý obchod ako token.
+3. V logu Actions: `Token prefix OK`. Skús `SHOPIFY_API_VERSION=2026-01`.
+
+```bash
+curl -sS -w "\nHTTP %{http_code}\n" \
+  -H "Content-Type: application/json" \
+  -H "X-Shopify-Access-Token: $SHOPIFY_ACCESS_TOKEN" \
+  -d '{"query":"{ shop { name } }"}' \
+  "https://${SHOPIFY_STORE}.myshopify.com/admin/api/2026-01/graphql.json"
+```
+
+## Tatra banka
+
+Migrácie od `051` (tabuľky + `tatra_cashflow_dashboard`) — súčasť `supabase db push`.
+
+Vlastná Tatra appka pre mo-ja (iné credentials než ZITA). AIS súhlas FAC_BBTB pre tento `client_id`.
+
+```bash
+python scripts/tatra_check_auth.py
+python etl/sync_tatra.py --days 7 --dry-run
+python etl/sync_tatra.py --days 45
+```
+
+OAuth refresh token: `docs/tatra-oauth-callback/` + `scripts/tatra_oauth_pkce.py` → Secret `TATRA_REFRESH_TOKEN`.
+
+## Marketing (MER)
+
+```bash
+python etl/import_meta_ads_csv.py --csv-path docs/…
+python etl/import_accounting_journal_csv.py
+```
+
+Migrácie od `072` (Meta Ads) a `076` (účtovný denník). Dashboard: `/marketing`.
+
+## Tabuľky (výber)
+
+- Shopify: `shopify_orders`, `shopify_order_line_items`, `shopify_locations`, `shopify_inventory_levels`, `shopify_sync_state`
+- Tatra: `tatra_transactions`, `tatra_account_balances`, view `tatra_cashflow_dashboard`
+- Marketing: `meta_ads_campaign_daily`, `accounting_journal_lines`
+
+RLS bez anon politík — prístup cez **service role** (ETL / Next.js API).
+
+Hlavička „Posledný sync“ berie max z `last_success_at` a `fetched_at`. Actions a Vercel musia smerovať na **ten istý** Supabase projekt.
+
+## Webhooks
+
+Zatiaľ polling cez cron. Edge Function + Shopify webhooks sú možné neskôr.
