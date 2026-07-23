@@ -29,7 +29,7 @@ pip install -r requirements.txt
 python sync_shopify.py
 ```
 
-Root `.env`: Shopify + Supabase + Tatra (`TATRA_*`). Web: `web/.env.example` → `.env.local` (`SUPABASE_*`, voliteľne `DASHBOARD_PASSWORD`).
+Root `.env`: Shopify + Supabase + Tatra (`TATRA_*`; `TATRA_ENV` default v skripte `sandbox`, v `.env.example` a Actions cron `production`). Web: `web/.env.example` → `.env.local` (`SUPABASE_*`, voliteľne `DASHBOARD_PASSWORD` alebo legacy alias `DASHBOARD_TOKEN`).
 
 ## Štruktúra
 
@@ -60,9 +60,9 @@ npm install && npm run dev
 | `/marketing` | MER (revenue, ads, fees, mROAS) |
 | `/login` | Heslo (`DASHBOARD_PASSWORD`) |
 
-`/insighty` je WIP (redirect na `/`) — návrh v `docs/insights-dashboard-design.md`.
+`/insighty` je WIP (redirect na `/`), v hlavnom menu dočasne skryté — návrh v `docs/insights-dashboard-design.md`.
 
-- Mock bez DB: tlačidlo „Ukážkové dáta“ alebo `?mock=1`.
+- Mock bez DB: pridaj `?mock=1` k volaniu API (Predaj, analytics, marketing, insights).
 - Idle logout: default 30 min (`NEXT_PUBLIC_DASHBOARD_IDLE_MINUTES`).
 - Vercel: Root Directory = `web`, rovnaké env ako `web/.env.example`.
 
@@ -86,9 +86,11 @@ npm install && npm run dev
 | Workflow | Čas (UTC) | Predvolený beh |
 |----------|-----------|----------------|
 | Shopify sync | 00:00 | **`--days 14`** (inkrementálny) |
-| Tatra sync | 00:30 | bankové pohyby |
+| Tatra sync | 00:30 | **`--days 400`** (min. dátum 2026-01-01) |
 
-Manuálne `workflow_dispatch`: Shopify môže ísť ako **`ytd`** (celý rok) alebo **`daily`** (14 dní).
+Manuálne `workflow_dispatch`:
+- **Shopify:** režim **`ytd`** / **`daily`** (14 dní); voliteľne `created_from` (YYYY-MM-DD backfill) alebo `utm_backfill`.
+- **Tatra:** parametre `days` (default 400) a `tatra_env` (`production` / `sandbox`).
 
 ### Shopify 401
 
@@ -106,7 +108,7 @@ curl -sS -w "\nHTTP %{http_code}\n" \
 
 ## Tatra banka
 
-Migrácie od `051` (tabuľky + `tatra_cashflow_dashboard`) — súčasť `supabase db push`.
+Migrácie od `051` (pohyby), `052`+ (zostatky a view `tatra_cashflow_dashboard`) — súčasť `supabase db push`.
 
 Vlastná Tatra appka pre mo-ja (iné credentials než ZITA). AIS súhlas FAC_BBTB pre tento `client_id`.
 
@@ -121,8 +123,8 @@ OAuth refresh token: `docs/tatra-oauth-callback/` + `scripts/tatra_oauth_pkce.py
 ## Marketing (MER)
 
 ```bash
-python etl/import_meta_ads_csv.py --csv-path docs/…
-python etl/import_accounting_journal_csv.py
+python etl/import_meta_ads_csv.py   # default: docs/MOJA-Kampane-20.-6.-2023-20.-7.-2026.csv
+python etl/import_accounting_journal_csv.py   # default: docs/Moja - Denník.csv
 ```
 
 Migrácie od `072` (Meta Ads) a `076` (účtovný denník). Dashboard: `/marketing`.
@@ -133,7 +135,7 @@ Migrácie od `072` (Meta Ads) a `076` (účtovný denník). Dashboard: `/marketi
 - Tatra: `tatra_transactions`, `tatra_account_balances`, view `tatra_cashflow_dashboard`
 - Marketing: `meta_ads_campaign_daily`, `accounting_journal_lines`
 
-RLS bez anon politík — prístup cez **service role** (ETL / Next.js API).
+Shopify tabuľky: RLS bez anon politík (ETL / Next.js API cez service role). Tatra a marketing tabuľky majú verejné SELECT pre anon/authenticated; dashboard stále používa service role v API.
 
 Hlavička „Posledný sync“ berie max z `last_success_at` a `fetched_at`. Actions a Vercel musia smerovať na **ten istý** Supabase projekt.
 
