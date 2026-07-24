@@ -192,6 +192,8 @@ type AnalyticsPayload = Pick<
 
 type ComparePayload = {
   kpisPrevious?: Kpis | null;
+  /** Light current-window KPIs (customer scorecards when analytics MVP times out). */
+  kpisCurrent?: Kpis | null;
   compareMeta?: {
     compareFrom?: string;
     compareTo?: string;
@@ -569,6 +571,14 @@ export default function DashboardClient() {
                   ...prev,
                   ...(compareJson.kpisPrevious
                     ? { kpisPrevious: compareJson.kpisPrevious }
+                    : {}),
+                  ...(compareJson.kpisCurrent
+                    ? {
+                        kpis: {
+                          ...prev.kpis,
+                          ...compareJson.kpisCurrent,
+                        },
+                      }
                     : {}),
                   meta: {
                     ...prev.meta,

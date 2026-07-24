@@ -91,16 +91,29 @@ export async function GET(request: Request) {
     );
   }
 
-  const prevRes = await supabasePostgrestRpc<Record<string, unknown>>(
-    supabaseUrl,
-    serviceKey,
-    "get_shopify_dashboard_kpis",
-    {
-      p_from: prevBounds.from,
-      p_to: prevBounds.to,
-      ...(pKpiProduct != null ? { p_kpi_product: pKpiProduct } : {}),
-    }
-  );
+  const kpiArgs = (pFrom: string, pTo: string) => ({
+    p_from: pFrom,
+    p_to: pTo,
+    ...(pKpiProduct != null ? { p_kpi_product: pKpiProduct } : {}),
+  });
+
+  // Current + previous via the light KPI RPC. Current customer scorecards are
+  // intentionally NULL in get_shopify_dashboard_summary and only appear after
+  // analytics MVP — which often statement-timeouts — so fill them here too.
+  const [prevRes, currentRes] = await Promise.all([
+    supabasePostgrestRpc<Record<string, unknown>>(
+      supabaseUrl,
+      serviceKey,
+      "get_shopify_dashboard_kpis",
+      kpiArgs(prevBounds.from, prevBounds.to)
+    ),
+    supabasePostgrestRpc<Record<string, unknown>>(
+      supabaseUrl,
+      serviceKey,
+      "get_shopify_dashboard_kpis",
+      kpiArgs(from.slice(0, 10), to.slice(0, 10))
+    ),
+  ]);
   if (prevRes.error) {
     return NextResponse.json(
       { error: `[dashboard-compare:kpis] ${prevRes.error}` },
@@ -111,6 +124,7 @@ export async function GET(request: Request) {
   return NextResponse.json(
     {
       kpisPrevious: prevRes.data ?? null,
+      kpisCurrent: currentRes.error ? null : currentRes.data ?? null,
       compareMeta: {
         compareFrom: prevBounds.from,
         compareTo: prevBounds.to,

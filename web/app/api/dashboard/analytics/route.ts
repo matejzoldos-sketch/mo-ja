@@ -16,6 +16,31 @@ const ALLOWED_KPI_PRODUCT = new Set([
   "listky",
 ]);
 
+/** Customer KPIs that summary intentionally leaves NULL (migration 067). */
+const CUSTOMER_KPI_KEYS = [
+  "returning_customers_pct",
+  "avg_customer_ltv",
+  "avg_units_per_unique_customer",
+  "avg_days_first_to_second_purchase",
+  "avg_units_per_order",
+  "pct_orders_multi_sku",
+] as const;
+
+function pickCustomerKpis(
+  source: Record<string, unknown> | null | undefined
+): Record<string, unknown> | null {
+  if (!source || typeof source !== "object") return null;
+  const out: Record<string, unknown> = {};
+  let any = false;
+  for (const key of CUSTOMER_KPI_KEYS) {
+    if (key in source && source[key] !== undefined) {
+      out[key] = source[key];
+      any = true;
+    }
+  }
+  return any ? out : null;
+}
+
 export async function GET(request: Request) {
   if (!(await isAuthorizedRequest(request))) {
     return NextResponse.json(
@@ -87,32 +112,87 @@ export async function GET(request: Request) {
   if (pYear) rpcPayload.p_year = pYear;
   if (pKpiProduct != null) rpcPayload.p_kpi_product = pKpiProduct;
 
-  const res = await supabasePostgrestRpc<Record<string, unknown>>(
+  // Resolve window via fast summary, then light KPIs + heavy MVP in parallel.
+  // MVP often hits statement_timeout; light KPIs still fill scorecards.
+  const summaryRes = await supabasePostgrestRpc<Record<string, unknown>>(
+    supabaseUrl,
+    serviceKey,
+    "get_shopify_dashboard_summary",
+    rpcPayload
+  );
+
+  const meta =
+    summaryRes.data != null &&
+    typeof summaryRes.data.meta === "object" &&
+    summaryRes.data.meta != null
+      ? (summaryRes.data.meta as Record<string, unknown>)
+      : null;
+  const from =
+    typeof meta?.from === "string" ? meta.from.slice(0, 10) : null;
+  const to = typeof meta?.to === "string" ? meta.to.slice(0, 10) : null;
+
+  const lightKpiPromise =
+    from && to && /^\d{4}-\d{2}-\d{2}$/.test(from) && /^\d{4}-\d{2}-\d{2}$/.test(to)
+      ? supabasePostgrestRpc<Record<string, unknown>>(
+          supabaseUrl,
+          serviceKey,
+          "get_shopify_dashboard_kpis",
+          {
+            p_from: from,
+            p_to: to,
+            ...(pKpiProduct != null ? { p_kpi_product: pKpiProduct } : {}),
+          }
+        )
+      : Promise.resolve({ data: null, error: null as string | null });
+
+  const mvpPromise = supabasePostgrestRpc<Record<string, unknown>>(
     supabaseUrl,
     serviceKey,
     "get_shopify_dashboard_mvp",
     rpcPayload
   );
 
-  if (res.error) {
+  const [lightKpiRes, mvpRes] = await Promise.all([lightKpiPromise, mvpPromise]);
+
+  const mvpBase =
+    mvpRes.data != null &&
+    typeof mvpRes.data === "object" &&
+    !Array.isArray(mvpRes.data)
+      ? mvpRes.data
+      : null;
+
+  const lightKpis = pickCustomerKpis(lightKpiRes.data ?? undefined);
+  const mvpKpis =
+    mvpBase?.kpis != null &&
+    typeof mvpBase.kpis === "object" &&
+    !Array.isArray(mvpBase.kpis)
+      ? (mvpBase.kpis as Record<string, unknown>)
+      : null;
+
+  const kpis =
+    lightKpis || mvpKpis
+      ? { ...(mvpKpis ?? {}), ...(lightKpis ?? {}) }
+      : undefined;
+
+  // If both paths failed, surface the MVP error (primary analytics payload).
+  if (!kpis && !mvpBase) {
     return NextResponse.json(
-      { error: `[dashboard-analytics] ${res.error}` },
+      {
+        error: `[dashboard-analytics] ${
+          mvpRes.error || lightKpiRes.error || "Analytics RPC failed"
+        }`,
+      },
       { status: 500, headers: jsonNoStoreHeaders }
     );
   }
 
-  const base =
-    res.data != null && typeof res.data === "object" && !Array.isArray(res.data)
-      ? res.data
-      : {};
-
   return NextResponse.json(
     {
-      kpis: base.kpis,
-      topCustomers: base.topCustomers ?? [],
-      monthlyNewVsReturning: base.monthlyNewVsReturning,
-      purchaseCountDistribution: base.purchaseCountDistribution,
-      purchaseIntervalHistogram: base.purchaseIntervalHistogram,
+      kpis,
+      topCustomers: mvpBase?.topCustomers ?? [],
+      monthlyNewVsReturning: mvpBase?.monthlyNewVsReturning,
+      purchaseCountDistribution: mvpBase?.purchaseCountDistribution,
+      purchaseIntervalHistogram: mvpBase?.purchaseIntervalHistogram,
     },
     { headers: jsonNoStoreHeaders }
   );
