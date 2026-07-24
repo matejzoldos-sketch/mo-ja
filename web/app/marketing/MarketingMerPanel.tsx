@@ -7,7 +7,6 @@ import { Chart } from "react-chartjs-2";
 import {
   currentCalendarYm,
   formatMonthLabelSk,
-  ROLLING_RANGE_LABELS,
 } from "@/lib/dashboardPeriodFilter";
 import { previousPeriodLabel } from "@/lib/dashboardPeriodCompare";
 import { KpiPeriodCompare } from "../components/KpiPeriodCompare";
@@ -18,8 +17,9 @@ import {
 
 ChartJS.register(...registerables);
 
-/** Graf + tabuľka vždy od spustenia; scorecards vždy aktuálny mesiac (kpisMom). */
+/** Graf + tabuľka od 1. 1. 2026; scorecards vždy aktuálny mesiac (kpisMom). */
 const SERIES_RANGE = "365d" as const;
+const SERIES_LABEL = "Od 1. 1. 2026";
 
 type MerKpis = {
   revenue: number;
@@ -155,7 +155,7 @@ export default function MarketingMerPanel() {
     const from = data.meta.from.replace(/\s/g, "");
     const to = data.meta.to.replace(/\s/g, "");
     const md = buildMarketingMerMarkdown({
-      rangeLabel: `${scorecardMonthLabel} (scorecards) · ${ROLLING_RANGE_LABELS[SERIES_RANGE]}`,
+      rangeLabel: `${scorecardMonthLabel} (scorecards) · ${SERIES_LABEL}`,
       from: data.meta.from,
       to: data.meta.to,
       launchFrom: data.meta.launch_from,
@@ -389,8 +389,7 @@ export default function MarketingMerPanel() {
         <p className="dashboard-meta">
           Scorecards: {scorecardMonthLabel}
           {" · "}
-          Graf a tabuľka: {ROLLING_RANGE_LABELS[SERIES_RANGE]}
-          {data.meta.launch_from ? ` (od ${data.meta.launch_from})` : null}
+          Graf a tabuľka: {SERIES_LABEL}
         </p>
         <p className="dashboard-meta dashboard-meta--hint">
           Ads = Meta CSV · Fees = denník (518/5015) · mROAS = Revenue / (Ads +
@@ -512,7 +511,7 @@ export default function MarketingMerPanel() {
         {chartData ? (
           <section className="dashboard-card" style={{ marginTop: "1.25rem" }}>
             <h2 className="dashboard-card__title">
-              Mesačný vývoj · {ROLLING_RANGE_LABELS[SERIES_RANGE]}
+              Mesačný vývoj · {SERIES_LABEL}
             </h2>
             <div style={{ height: 320 }}>
               <Chart type="bar" data={chartData} options={chartOptions} />
@@ -522,7 +521,7 @@ export default function MarketingMerPanel() {
 
         <section className="dashboard-card" style={{ marginTop: "1.25rem" }}>
           <h2 className="dashboard-card__title">
-            Mesačná tabuľka · {ROLLING_RANGE_LABELS[SERIES_RANGE]}
+            Mesačná tabuľka · {SERIES_LABEL}
           </h2>
           <div className="table-wrap">
             <table className="data-table data-table--compact">
