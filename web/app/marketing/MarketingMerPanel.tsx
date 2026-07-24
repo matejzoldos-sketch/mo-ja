@@ -5,10 +5,9 @@ import { Chart as ChartJS, registerables } from "chart.js";
 import type { ChartData, ChartOptions } from "chart.js";
 import { Chart } from "react-chartjs-2";
 import {
+  currentCalendarYm,
   formatMonthLabelSk,
-  periodFilterApiQuery,
-  periodFilterLabel,
-  type PeriodFilter,
+  ROLLING_RANGE_LABELS,
 } from "@/lib/dashboardPeriodFilter";
 import { previousPeriodLabel } from "@/lib/dashboardPeriodCompare";
 import { KpiPeriodCompare } from "../components/KpiPeriodCompare";
@@ -18,6 +17,9 @@ import {
 } from "@/lib/marketingMarkdownExport";
 
 ChartJS.register(...registerables);
+
+/** Graf + tabuľka vždy od spustenia; scorecards vždy aktuálny mesiac (kpisMom). */
+const SERIES_RANGE = "365d" as const;
 
 type MerKpis = {
   revenue: number;
@@ -90,22 +92,18 @@ function formatRatio(n: number | null | undefined, suffix = "×"): string {
   return `${n.toFixed(2)}${suffix}`;
 }
 
-type Props = {
-  period: PeriodFilter;
-};
-
-export default function MarketingMerPanel({ period }: Props) {
+export default function MarketingMerPanel() {
   const [data, setData] = useState<MerPayload | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [pdfExporting, setPdfExporting] = useState(false);
   const pdfExportRef = useRef<HTMLDivElement>(null);
 
-  const load = useCallback(async (p: PeriodFilter) => {
+  const load = useCallback(async () => {
     setLoading(true);
     setErr(null);
     try {
-      const q = `?${periodFilterApiQuery(p)}&_=${Date.now()}`;
+      const q = `?range=${SERIES_RANGE}&_=${Date.now()}`;
       const res = await fetch(`/api/marketing/mer${q}`, {
         credentials: "same-origin",
       });
@@ -123,13 +121,20 @@ export default function MarketingMerPanel({ period }: Props) {
   }, []);
 
   useEffect(() => {
-    void load(period);
-  }, [load, period.range, period.month, period.year]);
+    void load();
+  }, [load]);
 
   const currency = data?.kpis.currency ?? "EUR";
-  /** MoM delta uses focus month vs previous month (not YoY period totals). */
-  const mom = data?.kpisMom ?? data?.kpis ?? null;
+  /** Scorecards: always focus (current) month — not period totals. */
+  const kpis = data?.kpisMom ?? data?.kpis ?? null;
   const prev = data?.kpisPrevious ?? null;
+  const scorecardMonthLabel = useMemo(() => {
+    const from = data?.meta.momFrom?.slice(0, 7);
+    if (from && /^\d{4}-\d{2}$/.test(from)) {
+      return formatMonthLabelSk(from);
+    }
+    return formatMonthLabelSk(currentCalendarYm());
+  }, [data?.meta.momFrom]);
   const compareLabel = useMemo(() => {
     if (!data?.meta.compareFrom || !data?.meta.compareTo) {
       return data?.meta.compareLabel ?? data?.meta.compareKind ?? "MoM";
@@ -146,28 +151,25 @@ export default function MarketingMerPanel({ period }: Props) {
   const intFmt = useCallback((v: number) => String(Math.round(v)), []);
 
   const downloadMd = useCallback(() => {
-    if (!data) return;
+    if (!data || !kpis) return;
     const from = data.meta.from.replace(/\s/g, "");
     const to = data.meta.to.replace(/\s/g, "");
-    const periodSlug =
-      period.range === "month"
-        ? `month-${period.month ?? "current"}`
-        : period.range === "year"
-          ? `year-${period.year ?? "current"}`
-          : period.range;
     const md = buildMarketingMerMarkdown({
-      rangeLabel: periodFilterLabel(period),
+      rangeLabel: `${scorecardMonthLabel} (scorecards) · ${ROLLING_RANGE_LABELS[SERIES_RANGE]}`,
       from: data.meta.from,
       to: data.meta.to,
       launchFrom: data.meta.launch_from,
-      currency: data.kpis.currency,
-      kpis: data.kpis,
+      currency: kpis.currency,
+      kpis,
       monthly: data.monthly,
       feesBreakdown: data.feesBreakdown,
       unmappedExpenses: data.unmappedExpenses,
     });
-    downloadMarketingMarkdown(md, `marketing-mer-${periodSlug}_${from}_${to}.md`);
-  }, [data, period]);
+    downloadMarketingMarkdown(
+      md,
+      `marketing-mer-${SERIES_RANGE}_${from}_${to}.md`
+    );
+  }, [data, kpis, scorecardMonthLabel]);
 
   const downloadPdf = useCallback(async () => {
     const root = pdfExportRef.current;
@@ -213,13 +215,7 @@ export default function MarketingMerPanel({ period }: Props) {
 
       const from = data.meta.from.replace(/\s/g, "");
       const to = data.meta.to.replace(/\s/g, "");
-      const periodSlug =
-        period.range === "month"
-          ? `month-${period.month ?? "current"}`
-          : period.range === "year"
-            ? `year-${period.year ?? "current"}`
-            : period.range;
-      pdf.save(`marketing-mer-${periodSlug}_${from}_${to}.pdf`);
+      pdf.save(`marketing-mer-${SERIES_RANGE}_${from}_${to}.pdf`);
     } catch (e) {
       console.error(e);
       window.alert(
@@ -230,7 +226,7 @@ export default function MarketingMerPanel({ period }: Props) {
     } finally {
       setPdfExporting(false);
     }
-  }, [data, period]);
+  }, [data]);
 
   const chartData: ChartData<"bar" | "line"> | null = useMemo(() => {
     if (!data?.monthly.length) return null;
@@ -310,11 +306,9 @@ export default function MarketingMerPanel({ period }: Props) {
   if (err) {
     return <p className="msg msg--error">{err}</p>;
   }
-  if (!data) {
+  if (!data || !kpis) {
     return <p className="msg">Žiadne dáta.</p>;
   }
-
-  const { kpis } = data;
 
   return (
     <div className="marketing-mer">
@@ -345,10 +339,10 @@ export default function MarketingMerPanel({ period }: Props) {
           MER — Marketing efficiency
         </h1>
         <p className="dashboard-meta">
-          {data.meta.from} – {data.meta.to}
-          {data.meta.launch_from
-            ? ` · Mesačný vývoj od ${data.meta.launch_from}`
-            : null}
+          Scorecards: {scorecardMonthLabel}
+          {" · "}
+          Graf a tabuľka: {ROLLING_RANGE_LABELS[SERIES_RANGE]}
+          {data.meta.launch_from ? ` (od ${data.meta.launch_from})` : null}
         </p>
         <p className="dashboard-meta dashboard-meta--hint">
           Ads = Meta CSV · Fees = denník (518/5015) · mROAS = Revenue / (Ads +
@@ -362,7 +356,7 @@ export default function MarketingMerPanel({ period }: Props) {
               {formatMoney(kpis.revenue, currency)}
             </strong>
             <KpiPeriodCompare
-              current={mom?.revenue}
+              current={kpis.revenue}
               previous={prev?.revenue}
               formatValue={moneyFmt}
               periodLabel={compareLabel}
@@ -374,7 +368,7 @@ export default function MarketingMerPanel({ period }: Props) {
               {(kpis.orders ?? 0).toLocaleString("sk-SK")}
             </strong>
             <KpiPeriodCompare
-              current={mom?.orders}
+              current={kpis.orders}
               previous={prev?.orders}
               formatValue={intFmt}
               periodLabel={compareLabel}
@@ -386,7 +380,7 @@ export default function MarketingMerPanel({ period }: Props) {
               {kpis.aov == null ? "—" : formatMoney(kpis.aov, currency)}
             </strong>
             <KpiPeriodCompare
-              current={mom?.aov}
+              current={kpis.aov}
               previous={prev?.aov}
               formatValue={moneyFmt}
               periodLabel={compareLabel}
@@ -398,7 +392,7 @@ export default function MarketingMerPanel({ period }: Props) {
               {formatMoney(kpis.ads_spend, currency)}
             </strong>
             <KpiPeriodCompare
-              current={mom?.ads_spend}
+              current={kpis.ads_spend}
               previous={prev?.ads_spend}
               formatValue={moneyFmt}
               higherIsBetter={false}
@@ -411,7 +405,7 @@ export default function MarketingMerPanel({ period }: Props) {
               {formatMoney(kpis.fees_spend, currency)}
             </strong>
             <KpiPeriodCompare
-              current={mom?.fees_spend}
+              current={kpis.fees_spend}
               previous={prev?.fees_spend}
               formatValue={moneyFmt}
               higherIsBetter={false}
@@ -424,7 +418,7 @@ export default function MarketingMerPanel({ period }: Props) {
               {formatMoney(kpis.total_mkt_spend, currency)}
             </strong>
             <KpiPeriodCompare
-              current={mom?.total_mkt_spend}
+              current={kpis.total_mkt_spend}
               previous={prev?.total_mkt_spend}
               formatValue={moneyFmt}
               higherIsBetter={false}
@@ -435,7 +429,7 @@ export default function MarketingMerPanel({ period }: Props) {
             <span className="kpi-card__label">MER</span>
             <strong className="kpi-card__value">{formatRatio(kpis.mer)}</strong>
             <KpiPeriodCompare
-              current={mom?.mer}
+              current={kpis.mer}
               previous={prev?.mer}
               formatValue={ratioFmt}
               periodLabel={compareLabel}
@@ -447,7 +441,7 @@ export default function MarketingMerPanel({ period }: Props) {
               {formatRatio(kpis.ad_roas)}
             </strong>
             <KpiPeriodCompare
-              current={mom?.ad_roas}
+              current={kpis.ad_roas}
               previous={prev?.ad_roas}
               formatValue={ratioFmt}
               periodLabel={compareLabel}
@@ -459,7 +453,7 @@ export default function MarketingMerPanel({ period }: Props) {
               {formatRatio(kpis.m_roas)}
             </strong>
             <KpiPeriodCompare
-              current={mom?.m_roas}
+              current={kpis.m_roas}
               previous={prev?.m_roas}
               formatValue={ratioFmt}
               periodLabel={compareLabel}
@@ -469,7 +463,9 @@ export default function MarketingMerPanel({ period }: Props) {
 
         {chartData ? (
           <section className="dashboard-card" style={{ marginTop: "1.25rem" }}>
-            <h2 className="dashboard-card__title">Mesačný vývoj</h2>
+            <h2 className="dashboard-card__title">
+              Mesačný vývoj · {ROLLING_RANGE_LABELS[SERIES_RANGE]}
+            </h2>
             <div style={{ height: 320 }}>
               <Chart type="bar" data={chartData} options={chartOptions} />
             </div>
@@ -477,7 +473,9 @@ export default function MarketingMerPanel({ period }: Props) {
         ) : null}
 
         <section className="dashboard-card" style={{ marginTop: "1.25rem" }}>
-          <h2 className="dashboard-card__title">Mesačná tabuľka</h2>
+          <h2 className="dashboard-card__title">
+            Mesačná tabuľka · {ROLLING_RANGE_LABELS[SERIES_RANGE]}
+          </h2>
           <div className="table-wrap">
             <table className="data-table data-table--compact">
               <thead>
