@@ -70,7 +70,7 @@ type MerPayload = {
   kpisMom?: MerKpis | null;
   kpisPrevious?: MerKpis | null;
   monthly: MerMonthRow[];
-  feesBreakdown: { label: string; amount_eur: number }[];
+  feesBreakdown: { month?: string; label: string; amount_eur: number }[];
   unmappedExpenses: {
     label: string;
     line_text: string;
@@ -299,6 +299,54 @@ export default function MarketingMerPanel() {
     }),
     []
   );
+
+  const feesByMonth = useMemo(() => {
+    const rows = data?.feesBreakdown ?? [];
+    if (!rows.length) return null;
+
+    const amountByKey = new Map<string, number>();
+    const monthsSet = new Set<string>();
+    const labelTotals = new Map<string, number>();
+
+    for (const row of rows) {
+      const month =
+        typeof row.month === "string" && /^\d{4}-\d{2}$/.test(row.month)
+          ? row.month
+          : null;
+      if (!month) continue;
+      monthsSet.add(month);
+      labelTotals.set(
+        row.label,
+        (labelTotals.get(row.label) ?? 0) + Number(row.amount_eur || 0)
+      );
+      amountByKey.set(
+        `${month}|${row.label}`,
+        (amountByKey.get(`${month}|${row.label}`) ?? 0) +
+          Number(row.amount_eur || 0)
+      );
+    }
+
+    if (!monthsSet.size) return null;
+
+    const months = Array.from(monthsSet).sort();
+    const labels = Array.from(labelTotals.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([label]) => label);
+
+    return {
+      months,
+      labels,
+      amountAt: (month: string, label: string) =>
+        amountByKey.get(`${month}|${label}`) ?? 0,
+      monthTotal: (month: string) =>
+        labels.reduce(
+          (sum, label) => sum + (amountByKey.get(`${month}|${label}`) ?? 0),
+          0
+        ),
+      labelTotal: (label: string) => labelTotals.get(label) ?? 0,
+      grandTotal: Array.from(labelTotals.values()).reduce((a, b) => a + b, 0),
+    };
+  }, [data?.feesBreakdown]);
 
   if (loading) {
     return <p className="msg">Načítavam MER…</p>;
@@ -530,24 +578,58 @@ export default function MarketingMerPanel() {
           </div>
         </section>
 
-        {data.feesBreakdown.length > 0 ? (
+        {feesByMonth ? (
           <section className="dashboard-card" style={{ marginTop: "1.25rem" }}>
-            <h2 className="dashboard-card__title">Fees breakdown (denník)</h2>
+            <h2 className="dashboard-card__title">
+              Fees breakdown (denník) · po mesiacoch
+            </h2>
             <div className="table-wrap">
               <table className="data-table data-table--compact">
                 <thead>
                   <tr>
-                    <th>Dodávateľ</th>
-                    <th>Suma</th>
+                    <th>Mesiac</th>
+                    {feesByMonth.labels.map((label) => (
+                      <th key={label} title={label}>
+                        {label}
+                      </th>
+                    ))}
+                    <th>Spolu</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {data.feesBreakdown.map((row) => (
-                    <tr key={row.label}>
-                      <td>{row.label}</td>
-                      <td>{formatMoney(row.amount_eur, currency)}</td>
+                  {feesByMonth.months.map((month) => (
+                    <tr key={month}>
+                      <td>{formatMonthLabelSk(month)}</td>
+                      {feesByMonth.labels.map((label) => {
+                        const amount = feesByMonth.amountAt(month, label);
+                        return (
+                          <td key={`${month}-${label}`}>
+                            {amount > 0 ? formatMoney(amount, currency) : "—"}
+                          </td>
+                        );
+                      })}
+                      <td>
+                        {formatMoney(feesByMonth.monthTotal(month), currency)}
+                      </td>
                     </tr>
                   ))}
+                  <tr>
+                    <td>
+                      <strong>Spolu</strong>
+                    </td>
+                    {feesByMonth.labels.map((label) => (
+                      <td key={`total-${label}`}>
+                        <strong>
+                          {formatMoney(feesByMonth.labelTotal(label), currency)}
+                        </strong>
+                      </td>
+                    ))}
+                    <td>
+                      <strong>
+                        {formatMoney(feesByMonth.grandTotal, currency)}
+                      </strong>
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </div>

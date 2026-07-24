@@ -320,7 +320,7 @@ export type MerMarkdownInput = {
     mom_revenue_pct?: number | null;
     yoy_revenue_pct: number | null;
   }[];
-  feesBreakdown: { label: string; amount_eur: number }[];
+  feesBreakdown: { month?: string; label: string; amount_eur: number }[];
   unmappedExpenses: {
     label: string;
     line_text: string;
@@ -408,17 +408,33 @@ export function buildMarketingMerMarkdown(input: MerMarkdownInput): string {
   }
 
   if (input.feesBreakdown.length > 0) {
-    lines.push("## Fees breakdown (denník)");
+    lines.push("## Fees breakdown (denník) · po mesiacoch");
     lines.push("");
-    lines.push(
-      mdTable(
-        ["Dodávateľ", "Suma"],
-        input.feesBreakdown.map((r) => [
-          r.label,
-          formatMoney(r.amount_eur, input.currency),
-        ])
-      )
+    const hasMonth = input.feesBreakdown.some(
+      (r) => typeof r.month === "string" && /^\d{4}-\d{2}$/.test(r.month)
     );
+    if (hasMonth) {
+      lines.push(
+        mdTable(
+          ["Mesiac", "Dodávateľ", "Suma"],
+          input.feesBreakdown.map((r) => [
+            r.month ?? "—",
+            r.label,
+            formatMoney(r.amount_eur, input.currency),
+          ])
+        )
+      );
+    } else {
+      lines.push(
+        mdTable(
+          ["Dodávateľ", "Suma"],
+          input.feesBreakdown.map((r) => [
+            r.label,
+            formatMoney(r.amount_eur, input.currency),
+          ])
+        )
+      );
+    }
     lines.push("");
   }
 
