@@ -27,11 +27,16 @@ export const ROLLING_RANGE_ORDER: readonly RollingRangeKey[] = [
   "365d",
 ];
 
-function currentYm(): string {
+/** Aktuálny kalendárny mesiac YYYY-MM (lokálny čas klienta / servera). */
+export function currentCalendarYm(): string {
   const now = new Date();
   const y = now.getFullYear();
   const m = String(now.getMonth() + 1).padStart(2, "0");
   return `${y}-${m}`;
+}
+
+function currentYm(): string {
+  return currentCalendarYm();
 }
 
 function currentYear(): string {

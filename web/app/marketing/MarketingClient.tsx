@@ -5,12 +5,18 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { HeaderBrand, HeaderSectionSelect } from "../components/HeaderNav";
 import { PeriodFilterMenu } from "../components/PeriodFilterMenu";
 import {
+  currentCalendarYm,
   periodFilterNeedsUrlNormalize,
   periodFilterToSearchParams,
   parsePeriodFilter,
   type PeriodFilter,
 } from "@/lib/dashboardPeriodFilter";
 import MarketingMerPanel from "./MarketingMerPanel";
+
+/** Default: aktuálny mesiac — scorecards = mesiac vs predchádzajúci (MoM). */
+function defaultMarketingPeriod(): PeriodFilter {
+  return { range: "month", month: currentCalendarYm() };
+}
 
 export default function MarketingClient() {
   const router = useRouter();
@@ -23,34 +29,32 @@ export default function MarketingClient() {
 
   const period = useMemo(() => {
     if (!rangeRaw && !monthRaw && !yearRaw) {
-      return { range: "year" as const, year: "2026" };
+      return defaultMarketingPeriod();
     }
     return parsePeriodFilter(rangeRaw, monthRaw, yearRaw, {
-      defaultRange: "year",
+      defaultRange: "month",
     });
   }, [rangeRaw, monthRaw, yearRaw]);
 
   useEffect(() => {
     const view = searchParams.get("view");
     const dim = searchParams.get("dim");
+    const missingPeriod = !rangeRaw && !monthRaw && !yearRaw;
     const needsNormalize = periodFilterNeedsUrlNormalize(
       rangeRaw,
       monthRaw,
       yearRaw
     );
-    if (!needsNormalize && !view && !dim) return;
+    if (!needsNormalize && !view && !dim && !missingPeriod) return;
 
-    const next = parsePeriodFilter(rangeRaw, monthRaw, yearRaw, {
-      defaultRange: "year",
-    });
+    const next = missingPeriod
+      ? defaultMarketingPeriod()
+      : parsePeriodFilter(rangeRaw, monthRaw, yearRaw, {
+          defaultRange: "month",
+        });
     const params = periodFilterToSearchParams(next, searchParams);
     params.delete("view");
     params.delete("dim");
-    if (!rangeRaw && !monthRaw && !yearRaw) {
-      params.set("range", "year");
-      params.set("year", "2026");
-      params.delete("month");
-    }
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }, [searchParams, pathname, router, rangeRaw, monthRaw, yearRaw]);
