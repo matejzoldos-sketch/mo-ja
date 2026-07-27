@@ -9,7 +9,7 @@ Repo: [github.com/matejzoldos-sketch/mo-ja](https://github.com/matejzoldos-sketc
 - Python **3.12** (CI aj lokálne odporúčané)
 - Shopify **Admin API** so scopes: `read_inventory`, `read_locations`, **`read_products`** (bez neho Sklad nevie spájať predaj so skladom) a **`read_all_orders`** (pre YTD; bez neho ~posledných 60 dní). Alternatíva `read_orders` = kratšia história.
 - KPI „vracajúci sa“ nepotrebuje `read_customers` — sync berie `email` z objednávky (`customer_email`). Voliteľne `read_customers` + GraphQL `customer { id }` → `customer_id`.
-- Supabase projekt `kqsmsegcqdhuhiofxyuu` — pred sync/webom `supabase db push` (migrácie `001`–`080`).
+- Supabase projekt `kqsmsegcqdhuhiofxyuu` — pred sync/webom `supabase db push` (migrácie `001`–`082`).
 
 ### Shopify auth (od 1. 1. 2026)
 
@@ -127,7 +127,7 @@ python etl/import_meta_ads_csv.py   # default: docs/MOJA-Kampane-20.-6.-2023-20.
 python etl/import_accounting_journal_csv.py   # default: docs/Moja - Denník.csv
 ```
 
-Migrácie od `072` (Meta Ads) a `076` (účtovný denník). Dashboard: `/marketing`.
+Migrácie od `072` (Meta Ads) a `076` (účtovný denník); MER rozšírenia `081`–`082`. Dashboard: `/marketing`.
 
 ## Tabuľky (výber)
 
