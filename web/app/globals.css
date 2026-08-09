@@ -1778,6 +1778,38 @@ td code {
   color: hsl(15 55% 28%);
 }
 
+.scaling-verdict__details {
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.scaling-verdict__details summary {
+  cursor: pointer;
+  font-weight: 600;
+  list-style-position: outside;
+}
+
+.scaling-verdict__narrative {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  line-height: 1.45;
+}
+
+.scaling-verdict__block h4 {
+  margin: 0 0 0.35rem;
+  font-size: 0.92rem;
+}
+
+.scaling-verdict__block p {
+  margin: 0;
+}
+
+.scaling-verdict__block ul {
+  margin: 0.35rem 0 0;
+}
+
 .scaling-trends {
   display: flex;
   flex-direction: column;

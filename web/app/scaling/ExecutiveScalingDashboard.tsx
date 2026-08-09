@@ -7,6 +7,7 @@ import { Chart } from "react-chartjs-2";
 import { formatMonthLabelSk } from "@/lib/dashboardPeriodFilter";
 import {
   buildScalingMarkdown,
+  buildScalingVerdictNarrative,
   downloadScalingMarkdown,
 } from "@/lib/scalingMarkdownExport";
 
@@ -362,6 +363,32 @@ export default function ExecutiveScalingDashboard() {
 
   const downloadMd = useCallback(() => {
     if (!data) return;
+    const biz = data.decision.cards.biznis;
+    const tr = data.decision.cards.trh;
+    const mc = data.decision.cards.meta;
+    const narrative = buildScalingVerdictNarrative({
+      verdict: data.decision.verdict,
+      pno: biz.metric_value,
+      pnoTarget: biz.target,
+      pnoOk: biz.status === "ok",
+      storeCr: tr.metric_value,
+      storeCrTarget: tr.target,
+      storeCrOk: tr.status === "ok",
+      utmRoas: mc.metric_value,
+      utmRoasTarget: mc.target,
+      utmRoasOk: mc.status === "ok",
+      metaRoas:
+        mc.detail.meta_reported_roas != null
+          ? Number(mc.detail.meta_reported_roas)
+          : mc.detail.meta_reported_roas_est != null
+            ? Number(mc.detail.meta_reported_roas_est)
+            : null,
+      viewThroughPct: data.meta.attribution?.view_through_ratio_pct ?? null,
+      viewThroughFocusLabel: data.meta.attribution?.focus_month_label ?? null,
+      viewThroughPrevPct: data.meta.attribution?.view_through_ratio_prev_pct ?? null,
+      viewThroughPrevLabel: data.meta.attribution?.prev_month_label ?? null,
+      viewThroughRising: Boolean(data.meta.attribution?.view_through_rising),
+    });
     const md = buildScalingMarkdown({
       windowFrom: data.meta.window_from,
       windowTo: data.meta.window_to,
@@ -370,13 +397,10 @@ export default function ExecutiveScalingDashboard() {
       asOf: data.meta.as_of,
       verdictLabel: data.decision.verdict_label,
       failReasons: data.decision.fail_reasons ?? [],
-      cards: [
-        data.decision.cards.biznis,
-        data.decision.cards.trh,
-        data.decision.cards.meta,
-      ],
+      cards: [biz, tr, mc],
       monthly: data.monthly,
       attribution: data.meta.attribution ?? null,
+      narrative,
     });
     const from = data.meta.window_from.replace(/\s/g, "");
     const to = data.meta.window_to.replace(/\s/g, "");
@@ -455,6 +479,32 @@ export default function ExecutiveScalingDashboard() {
 
   const { decision, meta } = data;
   const increase = decision.verdict === "increase";
+  const biznis = decision.cards.biznis;
+  const trh = decision.cards.trh;
+  const metaCard = decision.cards.meta;
+  const narrative = buildScalingVerdictNarrative({
+    verdict: decision.verdict,
+    pno: biznis.metric_value,
+    pnoTarget: biznis.target,
+    pnoOk: biznis.status === "ok",
+    storeCr: trh.metric_value,
+    storeCrTarget: trh.target,
+    storeCrOk: trh.status === "ok",
+    utmRoas: metaCard.metric_value,
+    utmRoasTarget: metaCard.target,
+    utmRoasOk: metaCard.status === "ok",
+    metaRoas:
+      metaCard.detail.meta_reported_roas != null
+        ? Number(metaCard.detail.meta_reported_roas)
+        : metaCard.detail.meta_reported_roas_est != null
+          ? Number(metaCard.detail.meta_reported_roas_est)
+          : null,
+    viewThroughPct: meta.attribution?.view_through_ratio_pct ?? null,
+    viewThroughFocusLabel: meta.attribution?.focus_month_label ?? null,
+    viewThroughPrevPct: meta.attribution?.view_through_ratio_prev_pct ?? null,
+    viewThroughPrevLabel: meta.attribution?.prev_month_label ?? null,
+    viewThroughRising: Boolean(meta.attribution?.view_through_rising),
+  });
 
   return (
     <div className="scaling-dash">
@@ -558,6 +608,30 @@ export default function ExecutiveScalingDashboard() {
             ))}
           </ul>
         ) : null}
+        <details className="scaling-verdict__details">
+          <summary>Detail verdiktu — {narrative.statusTitle}</summary>
+          <div className="scaling-verdict__narrative">
+            <p>
+              <strong>Status:</strong> {narrative.statusTitle}
+            </p>
+            {narrative.sections.map((s) => (
+              <div key={s.title ?? s.body.slice(0, 40)} className="scaling-verdict__block">
+                {s.title ? <h4>{s.title}</h4> : null}
+                <p>{s.body}</p>
+              </div>
+            ))}
+            {narrative.actions.length ? (
+              <div className="scaling-verdict__block">
+                <h4>Odporúčané akcie</h4>
+                <ul>
+                  {narrative.actions.map((a) => (
+                    <li key={a}>{a}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+        </details>
       </div>
 
       <section className="scaling-trends">

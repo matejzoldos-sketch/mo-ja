@@ -29,6 +29,12 @@ export type ScalingExportMonth = {
   meta_view_sales?: number;
 };
 
+export type ScalingVerdictNarrative = {
+  statusTitle: string;
+  sections: { title?: string; body: string }[];
+  actions: string[];
+};
+
 export type ScalingMarkdownInput = {
   windowFrom: string;
   windowTo: string;
@@ -47,6 +53,7 @@ export type ScalingMarkdownInput = {
     attribution_split_is_proxy: boolean;
     warn_message: string | null;
   } | null;
+  narrative?: ScalingVerdictNarrative | null;
 };
 
 function money(n: number): string {
@@ -80,6 +87,25 @@ export function buildScalingMarkdown(input: ScalingMarkdownInput): string {
   if (input.failReasons.length) {
     lines.push("");
     for (const r of input.failReasons) lines.push(`- ${r}`);
+  }
+  if (input.narrative) {
+    lines.push("");
+    lines.push(`### ${input.narrative.statusTitle}`);
+    lines.push("");
+    for (const s of input.narrative.sections) {
+      if (s.title) {
+        lines.push(`#### ${s.title}`);
+        lines.push("");
+      }
+      lines.push(s.body);
+      lines.push("");
+    }
+    if (input.narrative.actions.length) {
+      lines.push("#### Odporúčané akcie");
+      lines.push("");
+      for (const a of input.narrative.actions) lines.push(`- ${a}`);
+      lines.push("");
+    }
   }
   lines.push("");
   lines.push("## Decision matrix (14 dní)");
@@ -141,4 +167,120 @@ export function downloadScalingMarkdown(content: string, filename: string): void
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function fmtPct(n: number | null | undefined, digits = 2): string {
+  if (n == null || Number.isNaN(n)) return "—";
+  return `${n.toFixed(digits)} %`;
+}
+
+function fmtRoas(n: number | null | undefined): string {
+  if (n == null || Number.isNaN(n)) return "—";
+  return `${n.toFixed(2)}×`;
+}
+
+/** Expandable verdict narrative from live decision metrics. */
+export function buildScalingVerdictNarrative(input: {
+  verdict: "increase" | "hold";
+  pno: number | null;
+  pnoTarget: number;
+  pnoOk: boolean;
+  storeCr: number | null;
+  storeCrTarget: number;
+  storeCrOk: boolean;
+  utmRoas: number | null;
+  utmRoasTarget: number;
+  utmRoasOk: boolean;
+  metaRoas: number | null;
+  viewThroughPct: number | null;
+  viewThroughFocusLabel: string | null;
+  viewThroughPrevPct: number | null;
+  viewThroughPrevLabel: string | null;
+  viewThroughRising: boolean;
+}): ScalingVerdictNarrative {
+  const {
+    verdict,
+    pno,
+    pnoTarget,
+    pnoOk,
+    storeCr,
+    storeCrOk,
+    utmRoas,
+    utmRoasTarget,
+    utmRoasOk,
+    metaRoas,
+    viewThroughPct,
+    viewThroughFocusLabel,
+    viewThroughPrevPct,
+    viewThroughPrevLabel,
+    viewThroughRising,
+  } = input;
+
+  if (verdict === "increase") {
+    return {
+      statusTitle: "Biznis, trh aj Meta sú v zelenom — škálovanie dáva zmysel",
+      sections: [
+        {
+          body: `Blended PNO ${fmtPct(pno)} (target ≤ ${pnoTarget.toFixed(0)} %) , Store CR ${fmtPct(storeCr)} a UTM Real ROAS ${fmtRoas(utmRoas)} sú nad cieľmi. Podmienky na opatrné zvýšenie Meta spendu (+15 %) sú splnené.`,
+        },
+      ],
+      actions: [
+        "Zvýšiť Meta rozpočet kontrolovane (+15 %) a sledovať UTM ROAS denne.",
+        "Držať exclusions pre existujúcich zákazníkov, aby sa neriedila akvizícia.",
+      ],
+    };
+  }
+
+  if (pnoOk && storeCrOk && !utmRoasOk) {
+    const vtBit =
+      viewThroughPct != null && viewThroughFocusLabel
+        ? viewThroughRising &&
+          viewThroughPrevPct != null &&
+          viewThroughPrevLabel
+          ? ` View-Through Ratio v ${viewThroughFocusLabel}: ${viewThroughPct.toFixed(1)} % (vs ${viewThroughPrevPct.toFixed(1)} % v ${viewThroughPrevLabel}), čím Meta umelo nafukuje svoje výsledky.`
+          : ` Podiel View-Through v ${viewThroughFocusLabel}: ${viewThroughPct.toFixed(1)} %.`
+        : "";
+
+    return {
+      statusTitle: "Biznis je zdravý, akvizícia z Mety zlyháva",
+      sections: [
+        {
+          body: `Celková ekonomika e-shopu funguje výborne — Blended PNO držíme na úrovni ${fmtPct(pno)} (target ≤ ${pnoTarget.toFixed(0)} %) a konverzný pomer webu dosahuje ${fmtPct(storeCr)}. Produkt aj web teda konvertujú stabilne. Problémom je výhradne efektivita Meta reklamy.`,
+        },
+        {
+          title: "Meta parazituje na organickom dopyte",
+          body: `Zatiaľ čo Meta v Ads Manageri vykazuje ROAS ${fmtRoas(metaRoas)}, reálny prínos cez UTM prekliky je len ${fmtRoas(utmRoas)} (pod cieľom ${fmtRoas(utmRoasTarget)}). Kampane oslovujú najmä teplé publikum, ktoré by nakúpilo aj bez reklamy.${vtBit}`,
+        },
+      ],
+      actions: [
+        `Nezvyšovať rozpočet na Meta Ads až do momentu, kým UTM ROAS neprekročí ${fmtRoas(utmRoasTarget)}.`,
+        "Vyžadovať od agentúry návrat k akvizícii: nastaviť prísne vylúčenia (exclusions) pre návštevníkov webu a existujúcich zákazníkov.",
+        "Investovať do retencie a AOV: presmerovať kapacity do e-mailingu (Klaviyo), cross-sellu v košíku a budovania vlastnej databázy pred Q4.",
+      ],
+    };
+  }
+
+  const failing: string[] = [];
+  if (!pnoOk) failing.push(`Blended PNO ${fmtPct(pno)} (target ≤ ${pnoTarget} %)`);
+  if (!storeCrOk)
+    failing.push(
+      `Store CR ${fmtPct(storeCr)} (target ≥ ${input.storeCrTarget} %)`
+    );
+  if (!utmRoasOk)
+    failing.push(
+      `UTM Real ROAS ${fmtRoas(utmRoas)} (target ≥ ${fmtRoas(utmRoasTarget)})`
+    );
+
+  return {
+    statusTitle: "Verdikt: nezvyšovať spend — niektoré metriky zlyhávajú",
+    sections: [
+      {
+        body: `Rozhodovacia matica nie je celá zelená. Zlyháva: ${failing.join("; ") || "neznáme metriky"}.`,
+      },
+    ],
+    actions: [
+      "Nezvyšovať Meta rozpočet, kým nie sú všetky tri karty v OK.",
+      "Overiť dáta (sessions, UTM, Meta spend) a upraviť kampane podľa zlyhávajúcej metriky.",
+    ],
+  };
 }
