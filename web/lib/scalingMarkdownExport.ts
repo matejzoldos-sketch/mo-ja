@@ -238,7 +238,9 @@ export function buildScalingVerdictNarrative(input: {
     };
   }
 
-  if (pnoOk && storeCrOk && !utmRoasOk) {
+  // Meta acquisition story (incl. Klaviyo/retention): Store CR OK + UTM ROAS failing.
+  // Keep this even when Blended PNO is slightly over target after agency fee.
+  if (storeCrOk && !utmRoasOk) {
     const vtBit =
       viewThroughPct != null && viewThroughFocusLabel
         ? viewThroughRising &&
@@ -248,11 +250,17 @@ export function buildScalingVerdictNarrative(input: {
           : ` Podiel View-Through v ${viewThroughFocusLabel}: ${viewThroughPct.toFixed(1)} %.`
         : "";
 
+    const economyBody = pnoOk
+      ? `Celková ekonomika e-shopu funguje výborne — Blended PNO držíme na úrovni ${fmtPct(pno)} (target ≤ ${pnoTarget.toFixed(0)} %) a konverzný pomer webu dosahuje ${fmtPct(storeCr)}. Produkt aj web teda konvertujú stabilne. Problémom je výhradne efektivita Meta reklamy.`
+      : `Konverzný pomer webu držíme na ${fmtPct(storeCr)} — produkt a web konvertujú stabilne. Blended PNO je ${fmtPct(pno)} (target ≤ ${pnoTarget.toFixed(0)} %), teda mierne nad cieľom, ale hlavný problém zostáva efektivita Meta reklamy.`;
+
     return {
-      statusTitle: "Biznis je zdravý, akvizícia z Mety zlyháva",
+      statusTitle: pnoOk
+        ? "Biznis je zdravý, akvizícia z Mety zlyháva"
+        : "Web konvertuje, akvizícia z Mety zlyháva",
       sections: [
         {
-          body: `Celková ekonomika e-shopu funguje výborne — Blended PNO držíme na úrovni ${fmtPct(pno)} (target ≤ ${pnoTarget.toFixed(0)} %) a konverzný pomer webu dosahuje ${fmtPct(storeCr)}. Produkt aj web teda konvertujú stabilne. Problémom je výhradne efektivita Meta reklamy.`,
+          body: economyBody,
         },
         {
           title: "Meta parazituje na organickom dopyte",
