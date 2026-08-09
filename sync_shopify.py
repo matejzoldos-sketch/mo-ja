@@ -289,8 +289,17 @@ query Orders($cursor: String, $query: String!) {
         displayFinancialStatus
         displayFulfillmentStatus
         currencyCode
+        taxesIncluded
         totalPriceSet { shopMoney { amount currencyCode } }
         subtotalPriceSet { shopMoney { amount currencyCode } }
+        totalTaxSet { shopMoney { amount currencyCode } }
+        currentTotalTaxSet { shopMoney { amount currencyCode } }
+        currentTaxLines {
+          title
+          rate
+          ratePercentage
+          priceSet { shopMoney { amount } }
+        }
         email
         customerJourneySummary {
           ready
@@ -471,6 +480,74 @@ def extract_order_utm_fields(node: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _money_amount(money_bag: Any) -> Optional[float]:
+    shop = (money_bag or {}).get("shopMoney") if isinstance(money_bag, dict) else None
+    if not isinstance(shop, dict):
+        return None
+    amt = shop.get("amount")
+    if amt is None:
+        return None
+    try:
+        return float(amt)
+    except (TypeError, ValueError):
+        return None
+
+
+def extract_order_tax_fields(
+    node: Dict[str, Any], total_price: Optional[float]
+) -> Dict[str, Any]:
+    """VAT/tax from Order.taxesIncluded + currentTotalTaxSet (+ taxLines for rate/title)."""
+    taxes_included = node.get("taxesIncluded")
+    if not isinstance(taxes_included, bool):
+        taxes_included = None
+
+    total_tax = _money_amount(node.get("currentTotalTaxSet"))
+    if total_tax is None:
+        total_tax = _money_amount(node.get("totalTaxSet"))
+
+    tax_rate: Optional[float] = None
+    tax_title: Optional[str] = None
+    lines = node.get("currentTaxLines")
+    if isinstance(lines, list) and lines:
+        # Dominant line by absolute price; fallback first.
+        best = None
+        best_amt = -1.0
+        for line in lines:
+            if not isinstance(line, dict):
+                continue
+            amt = _money_amount(line.get("priceSet")) or 0.0
+            if amt >= best_amt:
+                best_amt = amt
+                best = line
+        if best is None:
+            best = lines[0] if isinstance(lines[0], dict) else None
+        if isinstance(best, dict):
+            tax_title = _blank_str(best.get("title"))
+            rate = best.get("rate")
+            if rate is None and best.get("ratePercentage") is not None:
+                try:
+                    rate = float(best["ratePercentage"]) / 100.0
+                except (TypeError, ValueError):
+                    rate = None
+            if rate is not None:
+                try:
+                    tax_rate = float(rate)
+                except (TypeError, ValueError):
+                    tax_rate = None
+
+    total_price_net: Optional[float] = None
+    if total_price is not None and total_tax is not None:
+        total_price_net = round(total_price - total_tax, 4)
+
+    return {
+        "taxes_included": taxes_included,
+        "total_tax": total_tax,
+        "total_price_net": total_price_net,
+        "tax_rate": tax_rate,
+        "tax_title": tax_title,
+    }
+
+
 def order_node_to_rows(
     node: Dict[str, Any],
 ) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
@@ -497,6 +574,9 @@ def order_node_to_rows(
     else:
         customer_email = None
 
+    total_price_f = float(total_price) if total_price is not None else None
+    subtotal_price_f = float(subtotal_price) if subtotal_price is not None else None
+
     order_row = {
         "id": oid,
         "shopify_gid": node.get("id"),
@@ -506,13 +586,14 @@ def order_node_to_rows(
         "financial_status": node.get("displayFinancialStatus"),
         "fulfillment_status": node.get("displayFulfillmentStatus"),
         "currency": node.get("currencyCode") or total_set.get("currencyCode"),
-        "total_price": float(total_price) if total_price is not None else None,
-        "subtotal_price": float(subtotal_price) if subtotal_price is not None else None,
+        "total_price": total_price_f,
+        "subtotal_price": subtotal_price_f,
         "customer_id": customer_id,
         "customer_email": customer_email,
         # displayName: ORDERS_QUERY + read_customers.
         "customer_display_name": None,
         **extract_order_utm_fields(node),
+        **extract_order_tax_fields(node, total_price_f),
         "raw_json": node,
     }
 

@@ -712,7 +712,7 @@ export default function DashboardClient() {
           labels: daily.map((d) => d.date),
           datasets: [
             {
-              label: "Tržby (deň)",
+              label: "Tržby bez DPH (deň)",
               data: revenues,
               borderColor: SECONDARY,
               backgroundColor: "rgba(107, 127, 98, 0.12)",
@@ -745,7 +745,7 @@ export default function DashboardClient() {
         ),
         datasets: [
           {
-            label: "Tržby",
+            label: "Tržby bez DPH",
             data: data.topProducts.map((p) => Number(p.revenue)),
             backgroundColor: PRIMARY,
             borderColor: TEXT,
@@ -1281,7 +1281,7 @@ export default function DashboardClient() {
             <section className="kpi-section">
               <div className="kpi-grid kpi-grid--hero">
                 <div className="kpi-card kpi-card--hero">
-                  <div className="kpi-card__label">Obrat</div>
+                  <div className="kpi-card__label">Obrat (bez DPH)</div>
                   <div className="kpi-card__value">
                     {formatMoney(Number(data.kpis.revenue), data.kpis.currency)}
                   </div>
@@ -1305,7 +1305,7 @@ export default function DashboardClient() {
                   />
                 </div>
                 <div className="kpi-card kpi-card--hero">
-                  <div className="kpi-card__label">AOV</div>
+                  <div className="kpi-card__label">AOV (bez DPH)</div>
                   <div className="kpi-card__value">
                     {formatMoney(Number(data.kpis.aov), data.kpis.currency)}
                   </div>
@@ -1386,7 +1386,7 @@ export default function DashboardClient() {
                 />
               </div>
               <div className="kpi-card">
-                <div className="kpi-card__label">Priem. LTV / zákazníka</div>
+                <div className="kpi-card__label">Priem. LTV / zákazníka (bez DPH)</div>
                 <div className="kpi-card__value">
                   {data.kpis.avg_customer_ltv === null ||
                   data.kpis.avg_customer_ltv === undefined ||
@@ -1416,7 +1416,7 @@ export default function DashboardClient() {
             >
               <div className="chart-card" style={{ minHeight: 320 }}>
                 <h2>
-                  Tržby po dňoch
+                  Tržby po dňoch (bez DPH)
                   {chartPeriodInParens ? ` (${chartPeriodInParens})` : ""}
                 </h2>
                 {lineData ? (
@@ -1434,7 +1434,7 @@ export default function DashboardClient() {
                           style={{ backgroundColor: SECONDARY }}
                           aria-hidden
                         />
-                        <span>Tržby (deň)</span>
+                        <span>Tržby bez DPH (deň)</span>
                       </li>
                       <li className="chart-legend-minimal__item">
                         <span
@@ -1453,7 +1453,7 @@ export default function DashboardClient() {
               {kpiProduct === "all" ? (
                 <div className="chart-card" style={{ minHeight: 320 }}>
                   <h2>
-                    Tržby podľa produktu
+                    Tržby podľa produktu (bez DPH)
                     {chartPeriodInParens ? ` (${chartPeriodInParens})` : ""}
                   </h2>
                   {barData ? (
@@ -1476,7 +1476,7 @@ export default function DashboardClient() {
                 {monthlyStackedBarData ? (
                   <section className="chart-card chart-card--monthly-new-returning">
                     <h2>
-                      Mesačné tržby: Noví vs. Vracajúci sa
+                      Mesačné tržby (bez DPH): Noví vs. Vracajúci sa
                       {chartPeriodInParens ? ` (${chartPeriodInParens})` : ""}
                     </h2>
                     <div style={{ height: 300 }}>
@@ -1582,7 +1582,7 @@ export default function DashboardClient() {
                     <tr>
                       <th>Customer ID</th>
                       <th>Objednávky</th>
-                      <th>Tržby</th>
+                      <th>Tržby (bez DPH)</th>
                     </tr>
                   </thead>
                   <tbody>
