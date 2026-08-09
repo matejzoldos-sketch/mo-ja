@@ -434,6 +434,7 @@ export default function ExecutiveScalingDashboard() {
       viewThroughPrevPct: data.meta.attribution?.view_through_ratio_prev_pct ?? null,
       viewThroughPrevLabel: data.meta.attribution?.prev_month_label ?? null,
       viewThroughRising: Boolean(data.meta.attribution?.view_through_rising),
+      windowKey: data.meta.window_key ?? windowKey,
     });
     const md = buildScalingMarkdown({
       windowFrom: data.meta.window_from,
@@ -452,7 +453,7 @@ export default function ExecutiveScalingDashboard() {
     const from = data.meta.window_from.replace(/\s/g, "");
     const to = data.meta.window_to.replace(/\s/g, "");
     downloadScalingMarkdown(md, `spend-scaling_${from}_${to}.md`);
-  }, [data]);
+  }, [data, windowKey]);
 
   const downloadPdf = useCallback(async () => {
     const root = pdfExportRef.current;
@@ -551,6 +552,7 @@ export default function ExecutiveScalingDashboard() {
     viewThroughPrevPct: meta.attribution?.view_through_ratio_prev_pct ?? null,
     viewThroughPrevLabel: meta.attribution?.prev_month_label ?? null,
     viewThroughRising: Boolean(meta.attribution?.view_through_rising),
+    windowKey: meta.window_key ?? windowKey,
   });
 
   return (
@@ -695,15 +697,29 @@ export default function ExecutiveScalingDashboard() {
           {narrative.sections.map((s) => (
             <div key={s.title ?? s.body.slice(0, 40)} className="scaling-verdict__block">
               {s.title ? <h4>{s.title}</h4> : null}
-              <p>{s.body}</p>
+              {s.body.split(/\n\n+/).map((para) => (
+                <p key={para.slice(0, 48)}>{para}</p>
+              ))}
             </div>
           ))}
           {narrative.actions.length ? (
             <div className="scaling-verdict__block">
               <h4>Odporúčané akcie</h4>
-              <ul>
+              <ul className="scaling-verdict__actions">
                 {narrative.actions.map((a) => (
-                  <li key={a}>{a}</li>
+                  <li key={a.text}>
+                    {a.text}
+                    {a.children?.length ? (
+                      <ol className="scaling-verdict__checklist">
+                        {a.children.map((c, i) => (
+                          <li key={c}>
+                            <span className="scaling-verdict__check-num">{i + 1}.</span>{" "}
+                            {c}
+                          </li>
+                        ))}
+                      </ol>
+                    ) : null}
+                  </li>
                 ))}
               </ul>
             </div>
@@ -813,12 +829,9 @@ export default function ExecutiveScalingDashboard() {
 
       <section className="scaling-glossary" aria-labelledby="scaling-glossary-title">
         <h2 id="scaling-glossary-title" className="scaling-glossary__summary">
-          📘 Slovník pojmov a metrík (pre rýchlu orientáciu)
+          📘 Slovník pojmov a metrík
         </h2>
         <div className="scaling-glossary__body">
-          <p className="scaling-glossary__intro">
-            Krátke vysvetlenia pre rozhodovanie bez marketingového žargónu.
-          </p>
           <div className="scaling-glossary__grid">
             {SCALING_GLOSSARY.map((item) => (
               <article key={item.id} className="scaling-glossary__item">
