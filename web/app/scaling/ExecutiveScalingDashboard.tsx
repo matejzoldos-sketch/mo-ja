@@ -19,7 +19,7 @@ type DecisionCard = {
   target: number;
   target_op: string;
   status: CardStatus;
-  detail: Record<string, number | null | undefined>;
+  detail: Record<string, number | boolean | string | null | undefined>;
 };
 
 type MonthRow = {
@@ -38,6 +38,9 @@ type MonthRow = {
   meta_purchases: number;
   meta_reported_sales_est: number | null;
   meta_reported_roas_est: number | null;
+  meta_reported_sales?: number | null;
+  meta_reported_roas?: number | null;
+  meta_roas_is_actual?: boolean;
   meta_inflation_ratio: number | null;
 };
 
@@ -256,8 +259,8 @@ export default function ExecutiveScalingDashboard() {
       labels: data.monthly.map((m) => formatMonthLabelSk(m.month)),
       datasets: [
         {
-          label: "Meta ROAS (odhad)",
-          data: data.monthly.map((m) => m.meta_reported_roas_est),
+          label: "Meta ROAS",
+          data: data.monthly.map((m) => m.meta_reported_roas ?? m.meta_reported_roas_est),
           borderColor: META_REP,
           backgroundColor: META_REP,
           borderWidth: 2,
@@ -381,10 +384,15 @@ export default function ExecutiveScalingDashboard() {
                 <li>UTM Meta sales {formatMoney(Number(card.detail.utm_meta_net_sales ?? 0))}</li>
                 <li>Meta spend {formatMoney(Number(card.detail.meta_spend ?? 0))}</li>
                 <li>
-                  Meta ROAS odhad{" "}
-                  {card.detail.meta_reported_roas_est != null
-                    ? `${Number(card.detail.meta_reported_roas_est).toFixed(2)}×`
+                  Meta ROAS{" "}
+                  {card.detail.meta_reported_roas != null ||
+                  card.detail.meta_reported_roas_est != null
+                    ? `${Number(
+                        card.detail.meta_reported_roas ??
+                          card.detail.meta_reported_roas_est
+                      ).toFixed(2)}×`
                     : "—"}
+                  {card.detail.meta_roas_is_actual === false ? " (odhad)" : ""}
                 </li>
               </ul>
             ) : null}
@@ -433,7 +441,7 @@ export default function ExecutiveScalingDashboard() {
         <div className="chart-card scaling-chart">
           <h3>Audit pravdivosti Meta Ads</h3>
           <p className="scaling-chart__hint">
-            Meta ROAS (odhad purchases×AOV) vs UTM Real ROAS · inflation ratio
+            Meta ROAS (purchase value) vs UTM Real ROAS · inflation ratio
           </p>
           <div className="scaling-chart__canvas">
             {auditChart ? <Chart type="line" data={auditChart} options={auditOptions} /> : null}

@@ -30,7 +30,7 @@ from supabase import create_client
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CSV = (
-    ROOT / "docs" / "MOJA-Kampane-20.-6.-2023-20.-7.-2026.csv"
+    ROOT / "docs" / "MOJA-Kampane-1.-1.-2026-8.-8.-2026.csv"
 )  # typicky váš export
 
 load_dotenv(ROOT / ".env")
@@ -87,6 +87,13 @@ def parse_csv_rows(path: Path) -> List[dict]:
             spend = _num(row.get("Minutá suma (EUR)")) or 0.0
             results = _num(row.get("Výsledky"))
             cpr = _num(row.get("Cena za výsledky"))
+            # Prefer website purchase value; fall back to generic Purchases conversion value.
+            purchase_value = _num(
+                row.get("Hodnota konverzie nákupov na webe")
+            )
+            if purchase_value is None:
+                purchase_value = _num(row.get("Purchases conversion value"))
+            purchases_count = _num(row.get("Nákupy"))
 
             out.append(
                 {
@@ -110,6 +117,10 @@ def parse_csv_rows(path: Path) -> List[dict]:
                         row.get("Nastavenie pričítania") or ""
                     ).strip()
                     or None,
+                    "purchase_value_eur": (
+                        round(purchase_value, 6) if purchase_value is not None else None
+                    ),
+                    "purchases_count": purchases_count,
                 }
             )
 
