@@ -638,14 +638,7 @@ export default function ExecutiveScalingDashboard() {
               <ul className="scaling-card__detail">
                 <li>Net sales {formatMoney(Number(card.detail.net_sales ?? 0))}</li>
                 <li>Meta spend {formatMoney(Number(card.detail.meta_spend ?? 0))}</li>
-                <li>
-                  Agency {formatMoney(Number(card.detail.agency_fee ?? 0))}
-                  {card.detail.agency_fee_monthly != null
-                    ? ` (fix ${formatMoney(Number(card.detail.agency_fee_monthly))}/mes${
-                        card.detail.agency_fee_is_override ? ", dočasne" : ""
-                      })`
-                    : ""}
-                </li>
+                {/* Agency fee line hidden temporarily; still included in Blended PNO. */}
               </ul>
             ) : null}
             {card.id === "trh" ? (
