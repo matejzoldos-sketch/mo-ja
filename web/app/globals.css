@@ -1627,10 +1627,20 @@ td code {
   gap: 1.25rem;
 }
 
+.scaling-dash__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .scaling-dash__intro {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  flex: 1 1 240px;
+  min-width: 0;
 }
 
 .scaling-dash__sub {

@@ -1,10 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chart as ChartJS, registerables } from "chart.js";
 import type { ChartData, ChartOptions } from "chart.js";
 import { Chart } from "react-chartjs-2";
 import { formatMonthLabelSk } from "@/lib/dashboardPeriodFilter";
+import {
+  buildScalingMarkdown,
+  downloadScalingMarkdown,
+} from "@/lib/scalingMarkdownExport";
 
 ChartJS.register(...registerables);
 
@@ -53,8 +57,15 @@ type AttributionSummary = {
   meta_reported_sales_split: number;
   shopify_utm_net_sales: number;
   view_through_ratio_pct: number | null;
+  view_through_ratio_prev_pct?: number | null;
+  focus_month?: string | null;
+  prev_month?: string | null;
+  focus_month_label?: string | null;
+  prev_month_label?: string | null;
+  view_through_rising?: boolean;
   view_through_warn: boolean;
   attribution_split_is_proxy: boolean;
+  headline?: string | null;
   warn_message: string | null;
 };
 
@@ -118,6 +129,8 @@ export default function ExecutiveScalingDashboard() {
   const [data, setData] = useState<ScalingPayload | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pdfExporting, setPdfExporting] = useState(false);
+  const pdfExportRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -347,6 +360,86 @@ export default function ExecutiveScalingDashboard() {
     []
   );
 
+  const downloadMd = useCallback(() => {
+    if (!data) return;
+    const md = buildScalingMarkdown({
+      windowFrom: data.meta.window_from,
+      windowTo: data.meta.window_to,
+      windowDays: data.meta.window_days,
+      ytdFrom: data.meta.ytd_from,
+      asOf: data.meta.as_of,
+      verdictLabel: data.decision.verdict_label,
+      failReasons: data.decision.fail_reasons ?? [],
+      cards: [
+        data.decision.cards.biznis,
+        data.decision.cards.trh,
+        data.decision.cards.meta,
+      ],
+      monthly: data.monthly,
+      attribution: data.meta.attribution ?? null,
+    });
+    const from = data.meta.window_from.replace(/\s/g, "");
+    const to = data.meta.window_to.replace(/\s/g, "");
+    downloadScalingMarkdown(md, `spend-scaling_${from}_${to}.md`);
+  }, [data]);
+
+  const downloadPdf = useCallback(async () => {
+    const root = pdfExportRef.current;
+    if (!root || !data) return;
+    setPdfExporting(true);
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+      const canvas = await html2canvas(root, {
+        scale: 1.75,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+        scrollX: 0,
+        scrollY: -window.scrollY,
+        windowWidth: root.scrollWidth,
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const imgW = pageW;
+      const imgH = (canvas.height * imgW) / canvas.width;
+      let heightLeft = imgH;
+      let y = 0;
+
+      pdf.addImage(imgData, "PNG", 0, y, imgW, imgH);
+      heightLeft -= pageH;
+      while (heightLeft > 0) {
+        y = heightLeft - imgH;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 0, y, imgW, imgH);
+        heightLeft -= pageH;
+      }
+
+      const from = data.meta.window_from.replace(/\s/g, "");
+      const to = data.meta.window_to.replace(/\s/g, "");
+      pdf.save(`spend-scaling_${from}_${to}.pdf`);
+    } catch (e) {
+      console.error(e);
+      window.alert(
+        e instanceof Error
+          ? e.message
+          : "Export do PDF zlyhal. Skús znova alebo iný prehliadač."
+      );
+    } finally {
+      setPdfExporting(false);
+    }
+  }, [data]);
+
   if (loading) return <p className="msg">Načítavam spend rozhodnutie…</p>;
   if (err) {
     return (
@@ -365,15 +458,36 @@ export default function ExecutiveScalingDashboard() {
 
   return (
     <div className="scaling-dash">
-      <div className="scaling-dash__intro">
-        <h1 className="dashboard-card__title">Spend rozhodnutie</h1>
-        <p className="scaling-dash__sub">
-          Posledných {meta.window_days} dní ({meta.window_from} → {meta.window_to}) · ciele: PNO ≤{" "}
-          {meta.targets.blended_pno_pct_max} % · CR ≥ {meta.targets.store_cr_pct_min} % · UTM ROAS ≥{" "}
-          {meta.targets.utm_real_roas_min}×
-        </p>
+      <div className="scaling-dash__toolbar">
+        <div className="scaling-dash__intro">
+          <h1 className="dashboard-card__title">Spend rozhodnutie</h1>
+          <p className="scaling-dash__sub">
+            Posledných {meta.window_days} dní ({meta.window_from} → {meta.window_to}) · ciele: PNO ≤{" "}
+            {meta.targets.blended_pno_pct_max} % · CR ≥ {meta.targets.store_cr_pct_min} % · UTM ROAS ≥{" "}
+            {meta.targets.utm_real_roas_min}×
+          </p>
+        </div>
+        <div className="site-toolbar__actions">
+          <button
+            type="button"
+            className="dashboard-export-btn"
+            onClick={downloadMd}
+          >
+            Stiahnuť MD
+          </button>
+          <button
+            type="button"
+            className="dashboard-export-btn dashboard-export-btn--accent"
+            disabled={pdfExporting}
+            aria-busy={pdfExporting}
+            onClick={() => void downloadPdf()}
+          >
+            {pdfExporting ? "Generujem PDF…" : "Stiahnuť PDF"}
+          </button>
+        </div>
       </div>
 
+      <div className="dashboard-pdf-root" ref={pdfExportRef}>
       <div className="scaling-matrix">
         {cards.map((card) => (
           <article
@@ -484,14 +598,27 @@ export default function ExecutiveScalingDashboard() {
               }`}
             >
               <div className="scaling-attr-badge__metric">
-                {meta.attribution.attribution_split_is_proxy
-                  ? "Meta nadhodnotenie vs UTM"
-                  : "Meta View-Through Ratio"}{" "}
-                <strong>
-                  {meta.attribution.view_through_ratio_pct != null
-                    ? `${meta.attribution.view_through_ratio_pct.toFixed(1)} %`
-                    : "—"}
-                </strong>
+                {meta.attribution.attribution_split_is_proxy ? (
+                  <>
+                    Meta nadhodnotenie vs UTM{" "}
+                    <strong>
+                      {meta.attribution.view_through_ratio_pct != null
+                        ? `${meta.attribution.view_through_ratio_pct.toFixed(1)} %`
+                        : "—"}
+                    </strong>
+                  </>
+                ) : meta.attribution.headline ? (
+                  <strong>{meta.attribution.headline}</strong>
+                ) : (
+                  <>
+                    Meta View-Through Ratio{" "}
+                    <strong>
+                      {meta.attribution.view_through_ratio_pct != null
+                        ? `${meta.attribution.view_through_ratio_pct.toFixed(1)} %`
+                        : "—"}
+                    </strong>
+                  </>
+                )}
               </div>
               <div className="scaling-attr-badge__detail">
                 {meta.attribution.attribution_split_is_proxy ? (
@@ -508,7 +635,9 @@ export default function ExecutiveScalingDashboard() {
                   </>
                 )}
               </div>
-              {meta.attribution.view_through_warn && meta.attribution.warn_message ? (
+              {meta.attribution.view_through_warn &&
+              meta.attribution.warn_message &&
+              !meta.attribution.view_through_rising ? (
                 <p className="scaling-attr-badge__warn">{meta.attribution.warn_message}</p>
               ) : null}
             </div>
@@ -520,6 +649,7 @@ export default function ExecutiveScalingDashboard() {
           </div>
         </div>
       </section>
+      </div>
     </div>
   );
 }

@@ -1,4 +1,4 @@
--- Attribution cannibalization: Meta 7d click / 1d view vs Shopify UTM (proxy when split missing).
+-- View-Through badge: last complete month vs prior month (not YTD).
 
 CREATE OR REPLACE FUNCTION public.get_executive_scaling_dashboard()
 RETURNS json
