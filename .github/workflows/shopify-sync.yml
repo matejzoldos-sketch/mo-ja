@@ -91,3 +91,7 @@ jobs:
       - name: YTD orders + inventory (matches dashboard / sklad YTD)
         if: steps.kind.outputs.backfill != '1' && (github.event_name != 'workflow_dispatch' || inputs.utm_backfill != true) && steps.mode.outputs.mode == 'ytd'
         run: python sync_shopify.py --ytd
+
+      # Sessions sync is included in the steps above (ShopifyQL, needs read_reports).
+      # Standalone backfill if needed:
+      #   python sync_shopify.py --sessions-only --sessions-from 2026-01-01

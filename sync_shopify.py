@@ -22,6 +22,8 @@ Usage:
   python sync_shopify.py --from 2026-01-01   # updated_at >= date (YYYY-MM-DD)
   python sync_shopify.py --created-from 2025-11-20  # orders created_at >= date (one-shot backfill; wins over --ytd/--from/--days)
   python sync_shopify.py --utm-backfill          # re-sync orders since SHOPIFY_ORDERS_SINCE (default 2025-11-01) for UTM
+  python sync_shopify.py --sessions-only         # ShopifyQL sessions → shopify_sessions_daily (needs read_reports)
+  python sync_shopify.py --sessions-from 2026-01-01
   python sync_shopify.py --orders-only
   python sync_shopify.py --inventory-only
 """
@@ -432,6 +434,94 @@ def write_full_sync_checkpoint(supabase: Any, argv: List[str], phase: str) -> No
     log.info("Checkpoint %s → shopify_sync_state.full_sync OK (%s)", phase, now_iso)
 
 
+SHOPIFYQL_SESSIONS_QUERY = """
+query ShopifyqlSessions($q: String!) {
+  shopifyqlQuery(query: $q) {
+    parseErrors
+    tableData {
+      columns { name }
+      rows
+    }
+  }
+}
+"""
+
+
+def sync_sessions(
+    supabase: Any,
+    client: httpx.Client,
+    store: str,
+    token: str,
+    ver: str,
+    since: date,
+    until: Optional[date] = None,
+    sync_run_at: Optional[str] = None,
+) -> int:
+    """Pull daily online-store sessions via ShopifyQL → shopify_sessions_daily."""
+    until = until or date.today()
+    if until < since:
+        log.warning("sessions: until < since (%s < %s) — skipping", until, since)
+        return 0
+
+    ql = (
+        "FROM sessions "
+        "SHOW sessions, conversion_rate "
+        "WHERE human_or_bot_session = 'human' "
+        "TIMESERIES day "
+        f"SINCE {since.isoformat()} UNTIL {until.isoformat()} "
+        "ORDER BY day ASC"
+    )
+    log.info("Fetching ShopifyQL sessions %s → %s ...", since.isoformat(), until.isoformat())
+    data = shopify_graphql(
+        client, store, token, ver, SHOPIFYQL_SESSIONS_QUERY, {"q": ql}
+    )
+    payload = data.get("shopifyqlQuery") if isinstance(data, dict) else None
+    if not isinstance(payload, dict):
+        log.error("shopifyqlQuery missing in response: %s", data)
+        return 0
+    errs = payload.get("parseErrors") or []
+    if errs:
+        log.error("ShopifyQL parseErrors: %s", errs)
+        return 0
+
+    rows_raw = ((payload.get("tableData") or {}).get("rows")) or []
+    now_iso = sync_run_at or datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    out: List[Dict[str, Any]] = []
+    for row in rows_raw:
+        if not isinstance(row, dict):
+            continue
+        day_raw = str(row.get("day") or "")[:10]
+        if not day_raw:
+            continue
+        try:
+            sessions_n = int(float(str(row.get("sessions") or "0").replace(",", "")))
+        except (TypeError, ValueError):
+            sessions_n = 0
+        cr_raw = row.get("conversion_rate")
+        cr_val: Optional[float] = None
+        if cr_raw is not None and str(cr_raw).strip() != "":
+            try:
+                cr_val = float(str(cr_raw))
+            except (TypeError, ValueError):
+                cr_val = None
+        out.append(
+            {
+                "report_date": day_raw,
+                "sessions": sessions_n,
+                "conversion_rate": cr_val,
+                "imported_at": now_iso,
+            }
+        )
+
+    if not out:
+        log.warning("No session rows returned from ShopifyQL")
+        return 0
+
+    upsert_chunked(supabase, "shopify_sessions_daily", out, "report_date")
+    log.info("Upserted %d shopify_sessions_daily rows", len(out))
+    return len(out)
+
+
 def sync_locations(
     supabase: Any,
     client: httpx.Client,
@@ -838,6 +928,19 @@ def main() -> None:
     parser.add_argument("--orders-only", action="store_true")
     parser.add_argument("--inventory-only", action="store_true")
     parser.add_argument(
+        "--sessions-only",
+        action="store_true",
+        help="Only sync ShopifyQL online store sessions (requires read_reports)",
+    )
+    parser.add_argument(
+        "--sessions-from",
+        dest="sessions_from",
+        type=lambda s: datetime.strptime(s, "%Y-%m-%d").date(),
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Sessions SINCE date (default: Jan 1 current year for --ytd, else today−14)",
+    )
+    parser.add_argument(
         "--utm-backfill",
         action="store_true",
         help="Re-sync orders since SHOPIFY_ORDERS_SINCE (default 2025-11-01) to populate UTM columns; implies --orders-only",
@@ -870,8 +973,10 @@ def main() -> None:
 
     inv_only = args.inventory_only
     ord_only = args.orders_only
-    if inv_only and ord_only:
-        log.error("Choose at most one of --inventory-only / --orders-only")
+    sess_only = args.sessions_only
+    exclusive = sum(1 for x in (inv_only, ord_only, sess_only) if x)
+    if exclusive > 1:
+        log.error("Choose at most one of --inventory-only / --orders-only / --sessions-only")
         sys.exit(1)
 
     if not (client_id and client_secret) and not raw_access:
@@ -881,6 +986,18 @@ def main() -> None:
         )
         sys.exit(1)
 
+    # Sessions window: explicit --sessions-from, else YTD Jan 1, else last 14 days.
+    if args.sessions_from:
+        sessions_since = args.sessions_from
+    elif args.ytd or args.created_from:
+        sessions_since = date(args.ytd_year if args.ytd else date.today().year, 1, 1)
+        if args.created_from and args.created_from.year == date.today().year:
+            sessions_since = max(sessions_since, args.created_from)
+    elif args.days is not None:
+        sessions_since = date.today() - timedelta(days=int(args.days))
+    else:
+        sessions_since = date.today() - timedelta(days=14)
+
     with httpx.Client(timeout=120.0) as client:
         sync_run_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
         if client_id and client_secret:
@@ -888,6 +1005,14 @@ def main() -> None:
         else:
             token = _normalize_token(raw_access)
             _log_token_hint(token)
+
+        if sess_only:
+            sync_sessions(
+                supabase, client, store, token, ver, sessions_since, date.today(), sync_run_at
+            )
+            write_full_sync_checkpoint(supabase, sys.argv[1:], "sessions")
+            log.info("Done.")
+            return
 
         if not inv_only:
             sync_locations(supabase, client, store, token, ver, sync_run_at)
@@ -900,6 +1025,28 @@ def main() -> None:
                 sync_locations(supabase, client, store, token, ver, sync_run_at)
             sync_inventory(supabase, client, store, token, ver, sync_run_at)
             write_full_sync_checkpoint(supabase, sys.argv[1:], "inventory")
+
+        # Sessions for scaling Store CR (skip only on --orders-only / --inventory-only exclusives already handled;
+        # still run after normal sync and after orders-only so CR stays fresh).
+        if not inv_only:
+            try:
+                sync_sessions(
+                    supabase,
+                    client,
+                    store,
+                    token,
+                    ver,
+                    sessions_since,
+                    date.today(),
+                    sync_run_at,
+                )
+                write_full_sync_checkpoint(supabase, sys.argv[1:], "sessions")
+            except SystemExit:
+                raise
+            except Exception:
+                log.exception(
+                    "Sessions sync failed (read_reports / ShopifyQL). Orders/inventory already saved."
+                )
 
     log.info("Done.")
 

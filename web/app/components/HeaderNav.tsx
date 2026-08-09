@@ -7,7 +7,8 @@ export type DashboardSection =
   | "cashflow"
   | "sklad"
   | "insighty"
-  | "marketing";
+  | "marketing"
+  | "scaling";
 
 const SECTIONS: {
   id: DashboardSection;
@@ -20,6 +21,7 @@ const SECTIONS: {
   { id: "sklad", label: "Sklad", path: "/sklad", subtitle: "Sklad" },
   { id: "insighty", label: "Insighty", path: "/insighty", subtitle: "Insighty" },
   { id: "marketing", label: "Marketing", path: "/marketing", subtitle: "Marketing" },
+  { id: "scaling", label: "Spend", path: "/scaling", subtitle: "Spend rozhodnutie" },
 ];
 
 /** Dočasne skryté v hlavnom menu — stránka /insighty ostáva dostupná priamo. */
@@ -32,6 +34,7 @@ function sectionFromPathname(pathname: string): DashboardSection {
   if (pathname === "/sklad") return "sklad";
   if (pathname === "/insighty") return "insighty";
   if (pathname === "/marketing") return "marketing";
+  if (pathname === "/scaling") return "scaling";
   return "predaj";
 }
 
