@@ -10,6 +10,10 @@ import {
   buildScalingVerdictNarrative,
   downloadScalingMarkdown,
 } from "@/lib/scalingMarkdownExport";
+import {
+  SCALING_GLOSSARY,
+  SCALING_METRIC_TIPS,
+} from "@/lib/scalingGlossary";
 
 ChartJS.register(...registerables);
 
@@ -134,6 +138,30 @@ function statusLabel(s: CardStatus): string {
   if (s === "ok") return "OK";
   if (s === "warn") return "WARNING";
   return "CHÝBAJÚ DÁTA";
+}
+
+function MetricTip({
+  label,
+  tip,
+  className,
+}: {
+  label: string;
+  tip: string;
+  className?: string;
+}) {
+  return (
+    <span className={`scaling-tip${className ? ` ${className}` : ""}`}>
+      <span className="scaling-tip__label" tabIndex={0}>
+        {label}
+        <span className="scaling-tip__mark" aria-hidden="true">
+          ?
+        </span>
+      </span>
+      <span className="scaling-tip__bubble" role="tooltip">
+        {tip}
+      </span>
+    </span>
+  );
 }
 
 export default function ExecutiveScalingDashboard() {
@@ -595,8 +623,13 @@ export default function ExecutiveScalingDashboard() {
             </div>
             <div className="scaling-card__metric">{formatMetric(card)}</div>
             <div className="scaling-card__label">
-              {card.metric_label} · {meta.window_label ?? "aktuálny mesiac"} · target{" "}
-              {card.target_op} {card.target}
+              {SCALING_METRIC_TIPS[card.id] ? (
+                <MetricTip label={card.metric_label} tip={SCALING_METRIC_TIPS[card.id]} />
+              ) : (
+                card.metric_label
+              )}{" "}
+              · {meta.window_label ?? "aktuálny mesiac"} · target {card.target_op}{" "}
+              {card.target}
               {card.metric_unit === "×" ? "×" : card.metric_unit === "%" ? " %" : ""}
             </div>
             {card.id === "biznis" ? (
@@ -624,7 +657,10 @@ export default function ExecutiveScalingDashboard() {
                 <li>UTM Meta sales {formatMoney(Number(card.detail.utm_meta_net_sales ?? 0))}</li>
                 <li>Meta spend {formatMoney(Number(card.detail.meta_spend ?? 0))}</li>
                 <li>
-                  Meta ROAS{" "}
+                  <MetricTip
+                    label="Meta ROAS"
+                    tip={SCALING_METRIC_TIPS.meta_reported_roas}
+                  />{" "}
                   {card.detail.meta_reported_roas != null ||
                   card.detail.meta_reported_roas_est != null
                     ? `${Number(
@@ -716,22 +752,31 @@ export default function ExecutiveScalingDashboard() {
               <div className="scaling-attr-badge__metric">
                 {meta.attribution.attribution_split_is_proxy ? (
                   <>
-                    Meta nadhodnotenie vs UTM{" "}
+                    <MetricTip
+                      label="Meta nadhodnotenie vs UTM"
+                      tip={SCALING_METRIC_TIPS.view_through}
+                    />{" "}
                     <strong>
                       {meta.attribution.view_through_ratio_pct != null
                         ? `${meta.attribution.view_through_ratio_pct.toFixed(1)} %`
                         : "—"}
                     </strong>
                   </>
-                ) : meta.attribution.headline ? (
-                  <strong>{meta.attribution.headline}</strong>
                 ) : (
                   <>
-                    Meta View-Through Ratio{" "}
+                    <MetricTip
+                      label="View-Through Ratio"
+                      tip={SCALING_METRIC_TIPS.view_through}
+                    />{" "}
                     <strong>
-                      {meta.attribution.view_through_ratio_pct != null
-                        ? `${meta.attribution.view_through_ratio_pct.toFixed(1)} %`
-                        : "—"}
+                      {meta.attribution.headline
+                        ? meta.attribution.headline.replace(
+                            /^Meta View-Through Ratio:?\s*/i,
+                            ""
+                          )
+                        : meta.attribution.view_through_ratio_pct != null
+                          ? `${meta.attribution.view_through_ratio_pct.toFixed(1)} %`
+                          : "—"}
                     </strong>
                   </>
                 )}
@@ -765,6 +810,25 @@ export default function ExecutiveScalingDashboard() {
           </div>
         </div>
       </section>
+
+      <details className="scaling-glossary">
+        <summary className="scaling-glossary__summary">
+          📘 Slovník pojmov a metrík (pre rýchlu orientáciu)
+        </summary>
+        <div className="scaling-glossary__body">
+          <p className="scaling-glossary__intro">
+            Krátke vysvetlenia pre rozhodovanie bez marketingového žargónu.
+          </p>
+          <div className="scaling-glossary__grid">
+            {SCALING_GLOSSARY.map((item) => (
+              <article key={item.id} className="scaling-glossary__item">
+                <h3>{item.term}</h3>
+                <p>{item.definition}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </details>
       </div>
     </div>
   );
