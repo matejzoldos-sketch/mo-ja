@@ -2005,29 +2005,11 @@ td code {
 }
 
 .scaling-glossary__summary {
-  cursor: pointer;
-  list-style: none;
+  margin: 0;
   padding: 0.9rem 1.1rem;
   font-weight: 700;
   font-size: 0.95rem;
   color: var(--text-dark);
-  user-select: none;
-}
-
-.scaling-glossary__summary::-webkit-details-marker {
-  display: none;
-}
-
-.scaling-glossary__summary::before {
-  content: "▸";
-  display: inline-block;
-  margin-right: 0.45rem;
-  color: var(--text-muted);
-  transition: transform 0.15s ease;
-}
-
-.scaling-glossary[open] .scaling-glossary__summary::before {
-  transform: rotate(90deg);
 }
 
 .scaling-glossary__body {

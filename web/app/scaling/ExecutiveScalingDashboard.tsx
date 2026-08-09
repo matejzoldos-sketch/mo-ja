@@ -811,10 +811,10 @@ export default function ExecutiveScalingDashboard() {
         </div>
       </section>
 
-      <details className="scaling-glossary">
-        <summary className="scaling-glossary__summary">
+      <section className="scaling-glossary" aria-labelledby="scaling-glossary-title">
+        <h2 id="scaling-glossary-title" className="scaling-glossary__summary">
           📘 Slovník pojmov a metrík (pre rýchlu orientáciu)
-        </summary>
+        </h2>
         <div className="scaling-glossary__body">
           <p className="scaling-glossary__intro">
             Krátke vysvetlenia pre rozhodovanie bez marketingového žargónu.
@@ -828,7 +828,7 @@ export default function ExecutiveScalingDashboard() {
             ))}
           </div>
         </div>
-      </details>
+      </section>
       </div>
     </div>
   );
