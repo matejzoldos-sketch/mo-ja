@@ -552,7 +552,8 @@ export default function ExecutiveScalingDashboard() {
             </div>
             <div className="scaling-card__metric">{formatMetric(card)}</div>
             <div className="scaling-card__label">
-              {card.metric_label} · target {card.target_op} {card.target}
+              {card.metric_label} · posledných {meta.window_days} dní · target{" "}
+              {card.target_op} {card.target}
               {card.metric_unit === "×" ? "×" : card.metric_unit === "%" ? " %" : ""}
             </div>
             {card.id === "biznis" ? (
@@ -600,38 +601,26 @@ export default function ExecutiveScalingDashboard() {
         className={`scaling-verdict ${increase ? "scaling-verdict--ok" : "scaling-verdict--hold"}`}
         role="status"
       >
-        <strong>{decision.verdict_label}</strong>
-        {!increase && decision.fail_reasons?.length ? (
-          <ul>
-            {decision.fail_reasons.map((r) => (
-              <li key={r}>{r}</li>
-            ))}
-          </ul>
-        ) : null}
-        <details className="scaling-verdict__details">
-          <summary>Detail verdiktu — {narrative.statusTitle}</summary>
-          <div className="scaling-verdict__narrative">
-            <p>
-              <strong>Status:</strong> {narrative.statusTitle}
-            </p>
-            {narrative.sections.map((s) => (
-              <div key={s.title ?? s.body.slice(0, 40)} className="scaling-verdict__block">
-                {s.title ? <h4>{s.title}</h4> : null}
-                <p>{s.body}</p>
-              </div>
-            ))}
-            {narrative.actions.length ? (
-              <div className="scaling-verdict__block">
-                <h4>Odporúčané akcie</h4>
-                <ul>
-                  {narrative.actions.map((a) => (
-                    <li key={a}>{a}</li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </div>
-        </details>
+        <strong className="scaling-verdict__status">{narrative.statusTitle}</strong>
+        <p className="scaling-verdict__action">{decision.verdict_label}</p>
+        <div className="scaling-verdict__narrative">
+          {narrative.sections.map((s) => (
+            <div key={s.title ?? s.body.slice(0, 40)} className="scaling-verdict__block">
+              {s.title ? <h4>{s.title}</h4> : null}
+              <p>{s.body}</p>
+            </div>
+          ))}
+          {narrative.actions.length ? (
+            <div className="scaling-verdict__block">
+              <h4>Odporúčané akcie</h4>
+              <ul>
+                {narrative.actions.map((a) => (
+                  <li key={a}>{a}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <section className="scaling-trends">
@@ -641,7 +630,8 @@ export default function ExecutiveScalingDashboard() {
         <div className="chart-card scaling-chart">
           <h3>Reálna ziskovosť</h3>
           <p className="scaling-chart__hint">
-            Net sales vs spend · Blended PNO (target {meta.targets.blended_pno_pct_max} %)
+            Mesačné net sales vs spend · Blended PNO po kalendárnych mesiacoch
+            (scorecard vyššie = posledných {meta.window_days} dní, nie celý mesiac)
           </p>
           <div className="scaling-chart__canvas">
             {profitChart ? (

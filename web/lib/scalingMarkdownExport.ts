@@ -83,14 +83,10 @@ export function buildScalingMarkdown(input: ScalingMarkdownInput): string {
   lines.push("");
   lines.push(`## Verdikt`);
   lines.push("");
-  lines.push(`**${input.verdictLabel}**`);
-  if (input.failReasons.length) {
-    lines.push("");
-    for (const r of input.failReasons) lines.push(`- ${r}`);
-  }
   if (input.narrative) {
+    lines.push(`**${input.narrative.statusTitle}**`);
     lines.push("");
-    lines.push(`### ${input.narrative.statusTitle}`);
+    lines.push(input.verdictLabel);
     lines.push("");
     for (const s of input.narrative.sections) {
       if (s.title) {
@@ -105,6 +101,12 @@ export function buildScalingMarkdown(input: ScalingMarkdownInput): string {
       lines.push("");
       for (const a of input.narrative.actions) lines.push(`- ${a}`);
       lines.push("");
+    }
+  } else {
+    lines.push(`**${input.verdictLabel}**`);
+    if (input.failReasons.length) {
+      lines.push("");
+      for (const r of input.failReasons) lines.push(`- ${r}`);
     }
   }
   lines.push("");
@@ -179,7 +181,7 @@ function fmtRoas(n: number | null | undefined): string {
   return `${n.toFixed(2)}×`;
 }
 
-/** Expandable verdict narrative from live decision metrics. */
+/** Verdict narrative from live decision metrics. */
 export function buildScalingVerdictNarrative(input: {
   verdict: "increase" | "hold";
   pno: number | null;
