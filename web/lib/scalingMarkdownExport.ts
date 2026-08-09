@@ -232,11 +232,7 @@ export function buildScalingVerdictNarrative(input: {
     viewThroughPrevPct,
     viewThroughPrevLabel,
     viewThroughRising,
-    windowKey,
   } = input;
-
-  const win = (windowKey || "mtd").toLowerCase();
-  const detailedMetaBrief = win === "mtd" || win === "30d";
 
   if (verdict === "increase") {
     return {
@@ -272,46 +268,13 @@ export function buildScalingVerdictNarrative(input: {
     const vtDiagnosisLabel = viewThroughFocusLabel ?? "júli";
     const vtDiagnosisPct =
       viewThroughPct != null ? viewThroughPct.toFixed(1) : "39.0";
-    const diagnosis = detailedMetaBrief
-      ? `Dôvod zistený v dátach: Hlavná konverzná kampaň má nastavené vylúčenie iba pre 'Nakúpili – 30 dní'. Návštevníci webu a starší zákazníci vylúčení NIE SÚ. Algoritmus tak páli budget na teplom publiku a pripisuje si tržby zo zobrazení (View-Through Ratio v ${vtDiagnosisLabel.toLowerCase()} stúpol na ${vtDiagnosisPct} %).`
-      : null;
+    const diagnosis = `Dôvod zistený v dátach: Hlavná konverzná kampaň má nastavené vylúčenie iba pre 'Nakúpili – 30 dní'. Návštevníci webu a starší zákazníci vylúčení NIE SÚ. Algoritmus tak páli budget na teplom publiku a pripisuje si tržby zo zobrazení (View-Through Ratio v ${vtDiagnosisLabel.toLowerCase()} stúpol na ${vtDiagnosisPct} %).`;
 
     const economyBody = pnoOk
       ? `Celková ekonomika e-shopu funguje výborne — Blended PNO držíme na úrovni ${fmtPct(pno)} (target ≤ ${pnoTarget.toFixed(0)} %) a konverzný pomer webu dosahuje ${fmtPct(storeCr)}. Produkt aj web teda konvertujú stabilne. Problémom je výhradne efektivita Meta reklamy.`
       : `Konverzný pomer webu držíme na ${fmtPct(storeCr)} — produkt a web konvertujú stabilne. Blended PNO je ${fmtPct(pno)} (target ≤ ${pnoTarget.toFixed(0)} %), teda mierne nad cieľom, ale hlavný problém zostáva efektivita Meta reklamy.`;
 
-    const metaBody = `Zatiaľ čo Meta v Ads Manageri vykazuje ROAS ${fmtRoas(metaRoas)}, reálny prínos cez UTM prekliky je len ${fmtRoas(utmRoas)} (pod cieľom ${fmtRoas(utmRoasTarget)}). Kampane oslovujú najmä teplé publikum, ktoré by nakúpilo aj bez reklamy.${vtBit}${
-      diagnosis ? `\n\n${diagnosis}` : ""
-    }`;
-
-    const actions: ScalingVerdictAction[] = detailedMetaBrief
-      ? [
-          {
-            text: `Zmraziť rozpočet na Meta Ads: Nenavyšovať spend, kým UTM ROAS neprekročí ${fmtRoas(utmRoasTarget)}.`,
-          },
-          {
-            text: "Opraviť exclusions v akvizícii (Zadanie pre agentúru):",
-            children: [
-              "Sprísniť vylúčenie kupujúcich na 'Nakúpili – 180 dní'.",
-              "Pridať natvrdo vylúčenie pre 'All Website Visitors – 30 dní'.",
-              "Pre retargeting vyčleniť samostatnú kampaň s malým fixným rozpočtom.",
-            ],
-          },
-          {
-            text: "Investovať do retencie a AOV: Presmerovať kapacity do e-mailingu (Mailchimp/Klaviyo), cross-sellu v košíku a budovania vlastnej databázy pred Q4.",
-          },
-        ]
-      : [
-          {
-            text: `Nezvyšovať rozpočet na Meta Ads až do momentu, kým UTM ROAS neprekročí ${fmtRoas(utmRoasTarget)}.`,
-          },
-          {
-            text: "Vyžadovať od agentúry návrat k akvizícii: nastaviť prísne vylúčenia (exclusions) pre návštevníkov webu a existujúcich zákazníkov.",
-          },
-          {
-            text: "Investovať do retencie a AOV: presmerovať kapacity do e-mailingu (Klaviyo), cross-sellu v košíku a budovania vlastnej databázy pred Q4.",
-          },
-        ];
+    const metaBody = `Zatiaľ čo Meta v Ads Manageri vykazuje ROAS ${fmtRoas(metaRoas)}, reálny prínos cez UTM prekliky je len ${fmtRoas(utmRoas)} (pod cieľom ${fmtRoas(utmRoasTarget)}). Kampane oslovujú najmä teplé publikum, ktoré by nakúpilo aj bez reklamy.${vtBit}\n\n${diagnosis}`;
 
     return {
       statusTitle: pnoOk
@@ -326,7 +289,22 @@ export function buildScalingVerdictNarrative(input: {
           body: metaBody,
         },
       ],
-      actions,
+      actions: [
+        {
+          text: `Zmraziť rozpočet na Meta Ads: Nenavyšovať spend, kým UTM ROAS neprekročí ${fmtRoas(utmRoasTarget)}.`,
+        },
+        {
+          text: "Opraviť exclusions v akvizícii (Zadanie pre agentúru):",
+          children: [
+            "Sprísniť vylúčenie kupujúcich na 'Nakúpili – 180 dní'.",
+            "Pridať natvrdo vylúčenie pre 'All Website Visitors – 30 dní'.",
+            "Pre retargeting vyčleniť samostatnú kampaň s malým fixným rozpočtom.",
+          ],
+        },
+        {
+          text: "Investovať do retencie a AOV: Presmerovať kapacity do e-mailingu (Mailchimp/Klaviyo), cross-sellu v košíku a budovania vlastnej databázy pred Q4.",
+        },
+      ],
     };
   }
 
