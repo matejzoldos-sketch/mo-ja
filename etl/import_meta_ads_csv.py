@@ -57,6 +57,66 @@ def _int(val: Optional[str]) -> int:
     return int(round(n))
 
 
+def _pick_num(row: dict, *keys: str) -> Optional[float]:
+    for k in keys:
+        if k in row:
+            n = _num(row.get(k))
+            if n is not None:
+                return n
+    # Fuzzy: match by normalized substring when exact key missing.
+    lower_map = {str(k).lower(): k for k in row.keys()}
+    for want in keys:
+        w = want.lower()
+        for lk, orig in lower_map.items():
+            if w in lk:
+                n = _num(row.get(orig))
+                if n is not None:
+                    return n
+    return None
+
+
+def _pick_click_value(row: dict) -> Optional[float]:
+    exact = _pick_num(
+        row,
+        "Hodnota konverzie nákupov na webe (7-dňové kliknutie)",
+        "Hodnota konverzie nákupov na webe (kliknutie 7 dní)",
+        "Website purchase conversion value (7-day click)",
+        "Purchases conversion value (7-day click)",
+    )
+    if exact is not None:
+        return exact
+    for k, v in row.items():
+        lk = str(k).lower()
+        if ("7" in lk or "sedem" in lk) and (
+            "klik" in lk or "click" in lk
+        ) and ("hodnot" in lk or "value" in lk):
+            n = _num(v)
+            if n is not None:
+                return n
+    return None
+
+
+def _pick_view_value(row: dict) -> Optional[float]:
+    exact = _pick_num(
+        row,
+        "Hodnota konverzie nákupov na webe (1-dňové zobrazenie)",
+        "Hodnota konverzie nákupov na webe (zobrazenie 1 deň)",
+        "Website purchase conversion value (1-day view)",
+        "Purchases conversion value (1-day view)",
+    )
+    if exact is not None:
+        return exact
+    for k, v in row.items():
+        lk = str(k).lower()
+        if ("1" in lk or "jednod" in lk) and (
+            "zobrazen" in lk or "view" in lk
+        ) and ("hodnot" in lk or "value" in lk):
+            n = _num(v)
+            if n is not None:
+                return n
+    return None
+
+
 def parse_csv_rows(path: Path) -> List[dict]:
     out: List[dict] = []
     with path.open(encoding="utf-8-sig", errors="replace", newline="") as f:
@@ -94,6 +154,8 @@ def parse_csv_rows(path: Path) -> List[dict]:
             if purchase_value is None:
                 purchase_value = _num(row.get("Purchases conversion value"))
             purchases_count = _num(row.get("Nákupy"))
+            click_value = _pick_click_value(row)
+            view_value = _pick_view_value(row)
 
             out.append(
                 {
@@ -121,6 +183,12 @@ def parse_csv_rows(path: Path) -> List[dict]:
                         round(purchase_value, 6) if purchase_value is not None else None
                     ),
                     "purchases_count": purchases_count,
+                    "purchase_value_7d_click_eur": (
+                        round(click_value, 6) if click_value is not None else None
+                    ),
+                    "purchase_value_1d_view_eur": (
+                        round(view_value, 6) if view_value is not None else None
+                    ),
                 }
             )
 

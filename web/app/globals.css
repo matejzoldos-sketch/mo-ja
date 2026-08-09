@@ -1789,23 +1789,34 @@ td code {
   height: 280px;
 }
 
-.scaling-notes {
-  background: var(--surface);
+.scaling-attr-badge {
+  margin: 0.65rem 0 1rem;
+  padding: 0.75rem 0.9rem;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 0.85rem 1rem;
-  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted, #f8fafc);
   font-size: 0.85rem;
 }
 
-.scaling-notes summary {
-  cursor: pointer;
-  color: var(--text-dark);
-  font-weight: 600;
+.scaling-attr-badge--warn {
+  border-color: #f97316;
+  background: rgba(249, 115, 22, 0.1);
 }
 
-.scaling-notes ul {
-  margin: 0.65rem 0 0;
-  padding-left: 1.15rem;
+.scaling-attr-badge__metric {
+  color: var(--text-dark);
+}
+
+.scaling-attr-badge__detail {
+  margin-top: 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.scaling-attr-badge__warn {
+  margin: 0.55rem 0 0;
+  color: #c2410c;
+  font-weight: 600;
+  line-height: 1.35;
 }
 

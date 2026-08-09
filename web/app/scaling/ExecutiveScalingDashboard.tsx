@@ -41,7 +41,21 @@ type MonthRow = {
   meta_reported_sales?: number | null;
   meta_reported_roas?: number | null;
   meta_roas_is_actual?: boolean;
+  meta_click_sales?: number;
+  meta_view_sales?: number;
+  attribution_split_is_proxy?: boolean;
   meta_inflation_ratio: number | null;
+};
+
+type AttributionSummary = {
+  meta_click_sales: number;
+  meta_view_sales: number;
+  meta_reported_sales_split: number;
+  shopify_utm_net_sales: number;
+  view_through_ratio_pct: number | null;
+  view_through_warn: boolean;
+  attribution_split_is_proxy: boolean;
+  warn_message: string | null;
 };
 
 type ScalingPayload = {
@@ -56,7 +70,7 @@ type ScalingPayload = {
       store_cr_pct_min: number;
       utm_real_roas_min: number;
     };
-    notes: string[];
+    attribution?: AttributionSummary;
   };
   decision: {
     verdict: "increase" | "hold";
@@ -75,8 +89,9 @@ const SPEND = "#c45c26";
 const PNO = "#dc2626";
 const CR = "#2563eb";
 const AOV = "#7c3aed";
-const META_REP = "#94a3b8";
-const UTM = "#0f766e";
+const META_CLICK = "#0f4c5c";
+const META_VIEW = "#f97316";
+const UTM = "#16a34a";
 
 function formatMoney(n: number): string {
   return new Intl.NumberFormat("sk-SK", {
@@ -253,62 +268,79 @@ export default function ExecutiveScalingDashboard() {
     []
   );
 
+  const auditIsProxy =
+    data?.meta.attribution?.attribution_split_is_proxy !== false;
+
   const auditChart = useMemo(() => {
     if (!data?.monthly?.length) return null;
     return {
       labels: data.monthly.map((m) => formatMonthLabelSk(m.month)),
       datasets: [
         {
-          label: "Meta ROAS",
-          data: data.monthly.map((m) => m.meta_reported_roas ?? m.meta_reported_roas_est),
-          borderColor: META_REP,
-          backgroundColor: META_REP,
-          borderWidth: 2,
-          borderDash: [6, 4],
-          pointRadius: 3,
+          type: "bar" as const,
+          label: auditIsProxy ? "Zhoda s Shopify UTM" : "Meta click sales (7d)",
+          data: data.monthly.map((m) => m.meta_click_sales ?? 0),
+          backgroundColor: META_CLICK,
+          borderColor: META_CLICK,
+          stack: "meta",
           yAxisID: "y",
-          spanGaps: true,
+          order: 2,
         },
         {
-          label: "UTM Real ROAS",
-          data: data.monthly.map((m) => m.utm_real_roas),
+          type: "bar" as const,
+          label: auditIsProxy ? "Meta navyše vs UTM" : "Meta view-through (1d)",
+          data: data.monthly.map((m) => m.meta_view_sales ?? 0),
+          backgroundColor: "rgba(249, 115, 22, 0.72)",
+          borderColor: META_VIEW,
+          borderWidth: 1,
+          borderDash: [4, 2],
+          stack: "meta",
+          yAxisID: "y",
+          order: 2,
+        },
+        {
+          type: "line" as const,
+          label: "Shopify UTM net sales",
+          data: data.monthly.map((m) => m.utm_meta_net_sales),
           borderColor: UTM,
           backgroundColor: UTM,
-          borderWidth: 2,
-          pointRadius: 3,
+          borderWidth: 3,
+          pointRadius: 4,
+          pointBackgroundColor: "#fff",
+          pointBorderColor: UTM,
+          pointBorderWidth: 2,
           yAxisID: "y",
-          spanGaps: true,
-        },
-        {
-          label: "Meta inflation ratio",
-          data: data.monthly.map((m) => m.meta_inflation_ratio),
-          borderColor: SPEND,
-          backgroundColor: SPEND,
-          borderWidth: 2,
-          pointRadius: 3,
-          yAxisID: "y1",
+          tension: 0.25,
+          order: 1,
           spanGaps: true,
         },
       ],
-    } satisfies ChartData<"line">;
-  }, [data]);
+    };
+  }, [data, auditIsProxy]);
 
-  const auditOptions = useMemo<ChartOptions<"line">>(
+  const auditOptions = useMemo<ChartOptions>(
     () => ({
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
-      plugins: { legend: { position: "bottom" } },
-      scales: {
-        y: {
-          position: "left",
-          title: { display: true, text: "ROAS ×" },
-          grid: { color: "rgba(15,23,42,0.06)" },
+      plugins: {
+        legend: { position: "bottom" },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const v = Number(ctx.parsed.y ?? 0);
+              return `${ctx.dataset.label}: ${formatMoney(v)}`;
+            },
+          },
         },
-        y1: {
-          position: "right",
-          title: { display: true, text: "Inflation" },
-          grid: { drawOnChartArea: false },
+      },
+      scales: {
+        x: { stacked: true },
+        y: {
+          stacked: true,
+          position: "left",
+          title: { display: true, text: "Tržby €" },
+          grid: { color: "rgba(15,23,42,0.06)" },
         },
       },
     }),
@@ -441,22 +473,53 @@ export default function ExecutiveScalingDashboard() {
         <div className="chart-card scaling-chart">
           <h3>Audit pravdivosti Meta Ads</h3>
           <p className="scaling-chart__hint">
-            Meta ROAS (purchase value) vs UTM Real ROAS · inflation ratio
+            {meta.attribution?.attribution_split_is_proxy !== false
+              ? "Meta reportované tržby vs Shopify UTM — oranžová = Meta navyše oproti UTM"
+              : "Attribution cannibalization — Meta click vs view-through vs Shopify UTM"}
           </p>
+          {meta.attribution ? (
+            <div
+              className={`scaling-attr-badge${
+                meta.attribution.view_through_warn ? " scaling-attr-badge--warn" : ""
+              }`}
+            >
+              <div className="scaling-attr-badge__metric">
+                {meta.attribution.attribution_split_is_proxy
+                  ? "Meta nadhodnotenie vs UTM"
+                  : "Meta View-Through Ratio"}{" "}
+                <strong>
+                  {meta.attribution.view_through_ratio_pct != null
+                    ? `${meta.attribution.view_through_ratio_pct.toFixed(1)} %`
+                    : "—"}
+                </strong>
+              </div>
+              <div className="scaling-attr-badge__detail">
+                {meta.attribution.attribution_split_is_proxy ? (
+                  <>
+                    UTM {formatMoney(meta.attribution.shopify_utm_net_sales)} · Meta navyše{" "}
+                    {formatMoney(meta.attribution.meta_view_sales)} · Meta spolu{" "}
+                    {formatMoney(meta.attribution.meta_reported_sales_split)}
+                  </>
+                ) : (
+                  <>
+                    Click {formatMoney(meta.attribution.meta_click_sales)} · View{" "}
+                    {formatMoney(meta.attribution.meta_view_sales)} · UTM{" "}
+                    {formatMoney(meta.attribution.shopify_utm_net_sales)}
+                  </>
+                )}
+              </div>
+              {meta.attribution.view_through_warn && meta.attribution.warn_message ? (
+                <p className="scaling-attr-badge__warn">{meta.attribution.warn_message}</p>
+              ) : null}
+            </div>
+          ) : null}
           <div className="scaling-chart__canvas">
-            {auditChart ? <Chart type="line" data={auditChart} options={auditOptions} /> : null}
+            {auditChart ? (
+              <Chart type="bar" data={auditChart as ChartData<"bar">} options={auditOptions} />
+            ) : null}
           </div>
         </div>
       </section>
-
-      <details className="scaling-notes">
-        <summary>Metodika a limity dát</summary>
-        <ul>
-          {meta.notes.map((n) => (
-            <li key={n}>{n}</li>
-          ))}
-        </ul>
-      </details>
     </div>
   );
 }
