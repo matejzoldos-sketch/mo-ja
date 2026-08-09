@@ -648,6 +648,13 @@ export default function ExecutiveScalingDashboard() {
       >
         <strong className="scaling-verdict__status">{narrative.statusTitle}</strong>
         <p className="scaling-verdict__action">{decision.verdict_label}</p>
+        {!increase && decision.fail_reasons?.length ? (
+          <ul className="scaling-verdict__reasons">
+            {decision.fail_reasons.map((r) => (
+              <li key={r}>{r}</li>
+            ))}
+          </ul>
+        ) : null}
         <div className="scaling-verdict__narrative">
           {narrative.sections.map((s) => (
             <div key={s.title ?? s.body.slice(0, 40)} className="scaling-verdict__block">

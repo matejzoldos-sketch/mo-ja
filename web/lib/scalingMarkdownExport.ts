@@ -88,6 +88,10 @@ export function buildScalingMarkdown(input: ScalingMarkdownInput): string {
     lines.push(`**${input.narrative.statusTitle}**`);
     lines.push("");
     lines.push(input.verdictLabel);
+    if (input.failReasons.length) {
+      lines.push("");
+      for (const r of input.failReasons) lines.push(`- ${r}`);
+    }
     lines.push("");
     for (const s of input.narrative.sections) {
       if (s.title) {

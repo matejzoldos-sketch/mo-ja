@@ -1839,6 +1839,12 @@ td code {
   opacity: 0.85;
 }
 
+.scaling-verdict__reasons {
+  margin: 0.55rem 0 0;
+  padding-left: 1.15rem;
+  font-size: 0.9rem;
+}
+
 .scaling-verdict ul {
   margin: 0.55rem 0 0;
   padding-left: 1.15rem;
