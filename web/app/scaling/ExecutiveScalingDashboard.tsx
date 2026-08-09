@@ -75,6 +75,7 @@ type ScalingPayload = {
     window_from: string;
     window_to: string;
     window_days: number;
+    window_label?: string;
     ytd_from: string;
     as_of: string;
     targets: {
@@ -393,6 +394,7 @@ export default function ExecutiveScalingDashboard() {
       windowFrom: data.meta.window_from,
       windowTo: data.meta.window_to,
       windowDays: data.meta.window_days,
+      windowLabel: data.meta.window_label,
       ytdFrom: data.meta.ytd_from,
       asOf: data.meta.as_of,
       verdictLabel: data.decision.verdict_label,
@@ -512,9 +514,9 @@ export default function ExecutiveScalingDashboard() {
         <div className="scaling-dash__intro">
           <h1 className="dashboard-card__title">Spend rozhodnutie</h1>
           <p className="scaling-dash__sub">
-            Posledných {meta.window_days} dní ({meta.window_from} → {meta.window_to}) · ciele: PNO ≤{" "}
-            {meta.targets.blended_pno_pct_max} % · CR ≥ {meta.targets.store_cr_pct_min} % · UTM ROAS ≥{" "}
-            {meta.targets.utm_real_roas_min}×
+            {meta.window_label ?? "Aktuálny mesiac"} ({meta.window_from} → {meta.window_to},{" "}
+            {meta.window_days} dní) · ciele: PNO ≤ {meta.targets.blended_pno_pct_max} % · CR ≥{" "}
+            {meta.targets.store_cr_pct_min} % · UTM ROAS ≥ {meta.targets.utm_real_roas_min}×
           </p>
         </div>
         <div className="site-toolbar__actions">
@@ -552,7 +554,7 @@ export default function ExecutiveScalingDashboard() {
             </div>
             <div className="scaling-card__metric">{formatMetric(card)}</div>
             <div className="scaling-card__label">
-              {card.metric_label} · posledných {meta.window_days} dní · target{" "}
+              {card.metric_label} · {meta.window_label ?? "aktuálny mesiac"} · target{" "}
               {card.target_op} {card.target}
               {card.metric_unit === "×" ? "×" : card.metric_unit === "%" ? " %" : ""}
             </div>
@@ -631,7 +633,7 @@ export default function ExecutiveScalingDashboard() {
           <h3>Reálna ziskovosť</h3>
           <p className="scaling-chart__hint">
             Mesačné net sales vs spend · Blended PNO po kalendárnych mesiacoch
-            (scorecard vyššie = posledných {meta.window_days} dní, nie celý mesiac)
+            (scorecard vyššie = {meta.window_label ?? "aktuálny mesiac (MTD)"})
           </p>
           <div className="scaling-chart__canvas">
             {profitChart ? (

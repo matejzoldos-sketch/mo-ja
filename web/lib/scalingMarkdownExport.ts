@@ -39,6 +39,7 @@ export type ScalingMarkdownInput = {
   windowFrom: string;
   windowTo: string;
   windowDays: number;
+  windowLabel?: string;
   ytdFrom: string;
   asOf: string;
   verdictLabel: string;
@@ -76,7 +77,7 @@ export function buildScalingMarkdown(input: ScalingMarkdownInput): string {
   lines.push("# MO–JA · Spend rozhodnutie");
   lines.push("");
   lines.push(
-    `Okno: posledných ${input.windowDays} dní (${input.windowFrom} → ${input.windowTo})`
+    `Okno: ${input.windowLabel ?? "aktuálny mesiac (MTD)"} (${input.windowFrom} → ${input.windowTo}, ${input.windowDays} dní)`
   );
   lines.push(`YTD od: ${input.ytdFrom}`);
   lines.push(`As of: ${input.asOf}`);
@@ -110,7 +111,7 @@ export function buildScalingMarkdown(input: ScalingMarkdownInput): string {
     }
   }
   lines.push("");
-  lines.push("## Decision matrix (14 dní)");
+  lines.push("## Decision matrix (aktuálny mesiac)");
   lines.push("");
   for (const c of input.cards) {
     lines.push(
