@@ -22,12 +22,19 @@ export async function GET(request: Request) {
     );
   }
 
+  const url = new URL(request.url);
+  const rawWindow = (url.searchParams.get("window") || "mtd").toLowerCase();
+  const windowKey =
+    rawWindow === "14d" || rawWindow === "30d" || rawWindow === "mtd"
+      ? rawWindow
+      : "mtd";
+
   try {
     const rpcRes = await supabasePostgrestRpc<Record<string, unknown>>(
       supabaseUrl,
       serviceKey,
       "get_executive_scaling_dashboard",
-      {}
+      { p_window: windowKey }
     );
     if (rpcRes.error) {
       return NextResponse.json(

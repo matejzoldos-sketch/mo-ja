@@ -70,11 +70,20 @@ type AttributionSummary = {
   warn_message: string | null;
 };
 
+type ScalingWindow = "mtd" | "14d" | "30d";
+
+const WINDOW_OPTIONS: { key: ScalingWindow; label: string }[] = [
+  { key: "mtd", label: "MTD (Aktuálny mesiac)" },
+  { key: "14d", label: "Posledných 14 dní" },
+  { key: "30d", label: "Posledných 30 dní" },
+];
+
 type ScalingPayload = {
   meta: {
     window_from: string;
     window_to: string;
     window_days: number;
+    window_key?: ScalingWindow | string;
     window_label?: string;
     ytd_from: string;
     as_of: string;
@@ -128,19 +137,23 @@ function statusLabel(s: CardStatus): string {
 }
 
 export default function ExecutiveScalingDashboard() {
+  const [windowKey, setWindowKey] = useState<ScalingWindow>("mtd");
   const [data, setData] = useState<ScalingPayload | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [pdfExporting, setPdfExporting] = useState(false);
   const pdfExportRef = useRef<HTMLDivElement>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (win: ScalingWindow, isRefresh: boolean) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
     setErr(null);
     try {
-      const res = await fetch(`/api/scaling?_=${Date.now()}`, {
-        credentials: "same-origin",
-      });
+      const res = await fetch(
+        `/api/scaling?window=${encodeURIComponent(win)}&_=${Date.now()}`,
+        { credentials: "same-origin" }
+      );
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error || `HTTP ${res.status}`);
@@ -151,12 +164,16 @@ export default function ExecutiveScalingDashboard() {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
+  const initialLoadDone = useRef(false);
   useEffect(() => {
-    void load();
-  }, [load]);
+    const isRefresh = initialLoadDone.current;
+    initialLoadDone.current = true;
+    void load(windowKey, isRefresh);
+  }, [windowKey, load]);
 
   const cards = useMemo(() => {
     if (!data) return [];
@@ -471,7 +488,7 @@ export default function ExecutiveScalingDashboard() {
     return (
       <p className="msg msg-error">
         Chyba: {err}{" "}
-        <button type="button" onClick={() => void load()}>
+        <button type="button" onClick={() => void load(windowKey, false)}>
           Skúsiť znova
         </button>
       </p>
@@ -540,7 +557,31 @@ export default function ExecutiveScalingDashboard() {
       </div>
 
       <div className="dashboard-pdf-root" ref={pdfExportRef}>
-      <div className="scaling-matrix">
+      <div
+        className={`scaling-window${refreshing ? " scaling-window--refreshing" : ""}`}
+        role="group"
+        aria-label="Časové okno"
+      >
+        <span className="scaling-window__label">Časové okno</span>
+        <div className="scaling-window__segmented">
+          {WINDOW_OPTIONS.map((opt) => (
+            <button
+              key={opt.key}
+              type="button"
+              className={`scaling-window__btn${
+                windowKey === opt.key ? " is-active" : ""
+              }`}
+              aria-pressed={windowKey === opt.key}
+              disabled={refreshing && windowKey === opt.key}
+              onClick={() => setWindowKey(opt.key)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className={`scaling-matrix${refreshing ? " is-refreshing" : ""}`}>
         {cards.map((card) => (
           <article
             key={card.id}
@@ -600,7 +641,9 @@ export default function ExecutiveScalingDashboard() {
       </div>
 
       <div
-        className={`scaling-verdict ${increase ? "scaling-verdict--ok" : "scaling-verdict--hold"}`}
+        className={`scaling-verdict ${increase ? "scaling-verdict--ok" : "scaling-verdict--hold"}${
+          refreshing ? " is-refreshing" : ""
+        }`}
         role="status"
       >
         <strong className="scaling-verdict__status">{narrative.statusTitle}</strong>
