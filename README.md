@@ -9,7 +9,7 @@ Repo: [github.com/matejzoldos-sketch/mo-ja](https://github.com/matejzoldos-sketc
 - Python **3.12** (CI aj lokálne odporúčané)
 - Shopify **Admin API** so scopes: `read_inventory`, `read_locations`, **`read_products`** (bez neho Sklad nevie spájať predaj so skladom) a **`read_all_orders`** (pre YTD; bez neho ~posledných 60 dní). Alternatíva `read_orders` = kratšia história.
 - KPI „vracajúci sa“ nepotrebuje `read_customers` — sync berie `email` z objednávky (`customer_email`). Voliteľne `read_customers` + GraphQL `customer { id }` → `customer_id`.
-- Supabase projekt `kqsmsegcqdhuhiofxyuu` — pred sync/webom `supabase db push` (migrácie `001`–`080`).
+- Supabase projekt `kqsmsegcqdhuhiofxyuu` — pred sync/webom `supabase db push` (migrácie `001`–`093` + timestamped scaling patch).
 
 ### Shopify auth (od 1. 1. 2026)
 
@@ -58,6 +58,7 @@ npm install && npm run dev
 | `/sklad` | Inventár zo Shopify |
 | `/cashflow` | Tatra banka |
 | `/marketing` | MER (revenue, ads, fees, mROAS) |
+| `/scaling` | Spend — executive scaling matrix (Meta spend rozhodnutie) |
 | `/login` | Heslo (`DASHBOARD_PASSWORD`) |
 
 `/insighty` je WIP (redirect na `/`), v hlavnom menu dočasne skryté — návrh v `docs/insights-dashboard-design.md`.
@@ -127,7 +128,7 @@ python etl/import_meta_ads_csv.py   # default: docs/MOJA-Kampane-20.-6.-2023-20.
 python etl/import_accounting_journal_csv.py   # default: docs/Moja - Denník.csv
 ```
 
-Migrácie od `072` (Meta Ads) a `076` (účtovný denník). Dashboard: `/marketing`.
+Migrácie od `072` (Meta Ads) a `076` (účtovný denník); `085`+ executive scaling (`/scaling`), `089`+ Meta purchase value / ROAS, `091`–`093` view-through a atribúcia. Dashboard: `/marketing`, `/scaling`.
 
 ## Tabuľky (výber)
 
