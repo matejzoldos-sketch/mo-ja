@@ -100,7 +100,7 @@ type ScalingPayload = {
     attribution?: AttributionSummary;
   };
   decision: {
-    verdict: "increase" | "hold";
+    verdict: "increase" | "hold" | "optimize";
     verdict_label: string;
     fail_reasons: string[];
     cards: {
@@ -438,6 +438,8 @@ export default function ExecutiveScalingDashboard() {
       metaCpa: cac?.metric_value ?? null,
       metaCpaTarget: cac?.target ?? null,
       metaCpaOk: cac?.status === "ok",
+      metaCpaHeadroom:
+        cac?.detail.headroom_eur != null ? Number(cac.detail.headroom_eur) : null,
       metaRoas:
         mc.detail.meta_reported_roas != null
           ? Number(mc.detail.meta_reported_roas)
@@ -542,6 +544,8 @@ export default function ExecutiveScalingDashboard() {
 
   const { decision, meta } = data;
   const increase = decision.verdict === "increase";
+  const optimize = decision.verdict === "optimize";
+  const verdictTone = increase ? "ok" : optimize ? "optimize" : "hold";
   const biznis = decision.cards.biznis;
   const trh = decision.cards.trh;
   const metaCard = decision.cards.meta;
@@ -560,6 +564,10 @@ export default function ExecutiveScalingDashboard() {
     metaCpa: cacCard?.metric_value ?? null,
     metaCpaTarget: cacCard?.target ?? null,
     metaCpaOk: cacCard?.status === "ok",
+    metaCpaHeadroom:
+      cacCard?.detail.headroom_eur != null
+        ? Number(cacCard.detail.headroom_eur)
+        : null,
     metaRoas:
       metaCard.detail.meta_reported_roas != null
         ? Number(metaCard.detail.meta_reported_roas)
@@ -725,7 +733,7 @@ export default function ExecutiveScalingDashboard() {
       </div>
 
       <div
-        className={`scaling-verdict ${increase ? "scaling-verdict--ok" : "scaling-verdict--hold"}${
+        className={`scaling-verdict scaling-verdict--${verdictTone}${
           refreshing ? " is-refreshing" : ""
         }`}
         role="status"

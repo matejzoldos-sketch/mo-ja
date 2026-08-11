@@ -209,7 +209,7 @@ function fmtMoney(n: number | null | undefined): string {
 
 /** Verdict narrative from live decision metrics. */
 export function buildScalingVerdictNarrative(input: {
-  verdict: "increase" | "hold";
+  verdict: "increase" | "hold" | "optimize";
   pno: number | null;
   pnoTarget: number;
   pnoOk: boolean;
@@ -222,6 +222,7 @@ export function buildScalingVerdictNarrative(input: {
   metaCpa?: number | null;
   metaCpaTarget?: number | null;
   metaCpaOk?: boolean;
+  metaCpaHeadroom?: number | null;
   metaRoas: number | null;
   viewThroughPct: number | null;
   viewThroughFocusLabel: string | null;
@@ -243,6 +244,7 @@ export function buildScalingVerdictNarrative(input: {
     metaCpa,
     metaCpaTarget,
     metaCpaOk,
+    metaCpaHeadroom,
     metaRoas,
     viewThroughPct,
     viewThroughFocusLabel,
@@ -270,6 +272,62 @@ export function buildScalingVerdictNarrative(input: {
     };
   }
 
+  const cpaRoomBit =
+    metaCpaOk && metaCpa != null && metaCpaTarget != null
+      ? ` Meta CPA ${fmtMoney(metaCpa)} je stále pod prírastkovou maržou ${fmtMoney(metaCpaTarget)}${
+          metaCpaHeadroom != null ? ` (rezerva ${fmtMoney(metaCpaHeadroom)})` : ""
+        } — unit economics ešte unesú investíciu, problém nie je „predražený nákup“, ale atribúcia / mix kampaní.`
+      : "";
+
+  // CPA headroom softens the hold: keep base, fix campaigns, then small test.
+  if (verdict === "optimize") {
+    const blockers: string[] = [];
+    if (!pnoOk) blockers.push(`Blended PNO ${fmtPct(pno)} (target ≤ ${pnoTarget} %)`);
+    if (!utmRoasOk)
+      blockers.push(
+        `UTM Real ROAS ${fmtRoas(utmRoas)} (target ≥ ${fmtRoas(utmRoasTarget)})`
+      );
+    if (!storeCrOk)
+      blockers.push(
+        `Store CR ${fmtPct(storeCr)} (target ≥ ${input.storeCrTarget} %)`
+      );
+
+    return {
+      statusTitle: "CPA má rezervu — nereduuj bázu, oprav efektivitu a potom testuj",
+      sections: [
+        {
+          body: `Web drží Store CR ${fmtPct(storeCr)} a Meta CPA pokrýva maržu.${cpaRoomBit} Plné +15 % škálovanie ešte nie: ${blockers.join("; ") || "niektoré metriky mimo cieľ"}.`,
+        },
+        ...(storeCrOk && !utmRoasOk
+          ? [
+              {
+                title: "Najprv atribúcia, potom spend",
+                body: `Meta reportuje ROAS ${fmtRoas(metaRoas)}, UTM Real ROAS je ${fmtRoas(utmRoas)}. Kým sa neopraví warm-audience / exclusions, navyšovanie celkového budgetu nafúkne PNO bez reálnej akvizície.`,
+              },
+            ]
+          : []),
+      ],
+      actions: [
+        {
+          text: "Držať celkovú Meta bázu (nezvyšovať celkový spend, ale ani neskákať do plošnej redukcie).",
+        },
+        {
+          text: "Opraviť exclusions v akvizícii (Zadanie pre agentúru):",
+          children: [
+            "Sprísniť vylúčenie kupujúcich na 'Nakúpili – 180 dní'.",
+            "Pridať natvrdo vylúčenie pre 'All Website Visitors – 30 dní'.",
+            "Pre retargeting vyčleniť samostatnú kampaň s malým fixným rozpočtom.",
+          ],
+        },
+        {
+          text: `Po oprave exclusions: malý TOF test (+5–10 %) v rámci CPA rezervy${
+            metaCpaHeadroom != null ? ` ~${fmtMoney(metaCpaHeadroom)}/obj.` : ""
+          }, denne sledovať UTM ROAS a PNO.`,
+        },
+      ],
+    };
+  }
+
   // Meta acquisition story (incl. Klaviyo/retention): Store CR OK + UTM ROAS failing.
   // Keep this even when Blended PNO is slightly over target after agency fee.
   if (storeCrOk && !utmRoasOk) {
@@ -288,8 +346,8 @@ export function buildScalingVerdictNarrative(input: {
     const diagnosis = `Dôvod zistený v dátach: Hlavná konverzná kampaň má nastavené vylúčenie iba pre 'Nakúpili – 30 dní'. Návštevníci webu a starší zákazníci vylúčení NIE SÚ. Algoritmus tak páli budget na teplom publiku a pripisuje si tržby zo zobrazení (View-Through Ratio v ${vtDiagnosisLabel.toLowerCase()} stúpol na ${vtDiagnosisPct} %).`;
 
     const economyBody = pnoOk
-      ? `Celková ekonomika e-shopu funguje výborne — Blended PNO držíme na úrovni ${fmtPct(pno)} (target ≤ ${pnoTarget.toFixed(0)} %) a konverzný pomer webu dosahuje ${fmtPct(storeCr)}. Produkt aj web teda konvertujú stabilne. Problémom je výhradne efektivita Meta reklamy.`
-      : `Konverzný pomer webu držíme na ${fmtPct(storeCr)} — produkt a web konvertujú stabilne. Blended PNO je ${fmtPct(pno)} (target ≤ ${pnoTarget.toFixed(0)} %), teda mierne nad cieľom, ale hlavný problém zostáva efektivita Meta reklamy.`;
+      ? `Celková ekonomika e-shopu funguje výborne — Blended PNO držíme na úrovni ${fmtPct(pno)} (target ≤ ${pnoTarget.toFixed(0)} %) a konverzný pomer webu dosahuje ${fmtPct(storeCr)}. Produkt aj web teda konvertujú stabilne. Problémom je výhradne efektivita Meta reklamy.${cpaRoomBit}`
+      : `Konverzný pomer webu držíme na ${fmtPct(storeCr)} — produkt a web konvertujú stabilne. Blended PNO je ${fmtPct(pno)} (target ≤ ${pnoTarget.toFixed(0)} %), teda mierne nad cieľom, ale hlavný problém zostáva efektivita Meta reklamy.${cpaRoomBit}`;
 
     const metaBody = `Zatiaľ čo Meta v Ads Manageri vykazuje ROAS ${fmtRoas(metaRoas)}, reálny prínos cez UTM prekliky je len ${fmtRoas(utmRoas)} (pod cieľom ${fmtRoas(utmRoasTarget)}). Kampane oslovujú najmä teplé publikum, ktoré by nakúpilo aj bez reklamy.${vtBit}\n\n${diagnosis}`;
 
@@ -308,7 +366,9 @@ export function buildScalingVerdictNarrative(input: {
       ],
       actions: [
         {
-          text: `Zmraziť rozpočet na Meta Ads: Nenavyšovať spend, kým UTM ROAS neprekročí ${fmtRoas(utmRoasTarget)}.`,
+          text: metaCpaOk
+            ? `Nezvyšovať celkový Meta spend, kým UTM ROAS neprekročí ${fmtRoas(utmRoasTarget)} — ale vďaka CPA rezerve netreba plošne rezať bázu.`
+            : `Zmraziť rozpočet na Meta Ads: Nenavyšovať spend, kým UTM ROAS neprekročí ${fmtRoas(utmRoasTarget)}.`,
         },
         {
           text: "Opraviť exclusions v akvizícii (Zadanie pre agentúru):",
@@ -344,7 +404,7 @@ export function buildScalingVerdictNarrative(input: {
     statusTitle: "Verdikt: nezvyšovať spend — niektoré metriky zlyhávajú",
     sections: [
       {
-        body: `Rozhodovacia matica nie je celá zelená. Zlyháva: ${failing.join("; ") || "neznáme metriky"}.`,
+        body: `Rozhodovacia matica nie je celá zelená. Zlyháva: ${failing.join("; ") || "neznáme metriky"}.${cpaRoomBit}`,
       },
     ],
     actions: [

@@ -1864,6 +1864,12 @@ td code {
   color: hsl(152 45% 22%);
 }
 
+.scaling-verdict--optimize {
+  background: hsl(44 90% 94%);
+  border-color: hsl(40 70% 72%);
+  color: hsl(32 55% 26%);
+}
+
 .scaling-verdict--hold {
   background: hsl(22 90% 95%);
   border-color: hsl(18 70% 78%);
