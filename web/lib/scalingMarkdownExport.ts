@@ -74,6 +74,7 @@ function metric(v: number | null, unit: string): string {
   if (v == null) return "—";
   if (unit === "%") return `${v.toFixed(2)} %`;
   if (unit === "×") return `${v.toFixed(2)}×`;
+  if (unit === "€") return money(v);
   return String(v);
 }
 
@@ -132,13 +133,18 @@ export function buildScalingMarkdown(input: ScalingMarkdownInput): string {
       `### ${c.title} — ${c.status.toUpperCase()}`
     );
     lines.push(
-      `- ${c.metric_label}: ${metric(c.metric_value, c.metric_unit)} (target ${c.target_op} ${c.target}${c.metric_unit === "×" ? "×" : c.metric_unit === "%" ? " %" : ""})`
+      `- ${c.metric_label}: ${metric(c.metric_value, c.metric_unit)} (target ${c.target_op} ${
+        c.metric_unit === "€"
+          ? money(c.target)
+          : `${c.target}${c.metric_unit === "×" ? "×" : c.metric_unit === "%" ? " %" : ""}`
+      })`
     );
     if (c.detail) {
       for (const [k, v] of Object.entries(c.detail)) {
         if (v == null || typeof v === "boolean") continue;
         const isMoney =
-          /sales|spend|fee|value/i.test(k) && typeof v === "number";
+          /sales|spend|fee|value|cpa|cac|aov|margin|headroom/i.test(k) &&
+          typeof v === "number";
         lines.push(`- ${k}: ${isMoney ? money(Number(v)) : String(v)}`);
       }
     }
@@ -196,6 +202,11 @@ function fmtRoas(n: number | null | undefined): string {
   return `${n.toFixed(2)}×`;
 }
 
+function fmtMoney(n: number | null | undefined): string {
+  if (n == null || Number.isNaN(n)) return "—";
+  return money(n);
+}
+
 /** Verdict narrative from live decision metrics. */
 export function buildScalingVerdictNarrative(input: {
   verdict: "increase" | "hold";
@@ -208,6 +219,9 @@ export function buildScalingVerdictNarrative(input: {
   utmRoas: number | null;
   utmRoasTarget: number;
   utmRoasOk: boolean;
+  metaCpa?: number | null;
+  metaCpaTarget?: number | null;
+  metaCpaOk?: boolean;
   metaRoas: number | null;
   viewThroughPct: number | null;
   viewThroughFocusLabel: string | null;
@@ -226,6 +240,9 @@ export function buildScalingVerdictNarrative(input: {
     utmRoas,
     utmRoasTarget,
     utmRoasOk,
+    metaCpa,
+    metaCpaTarget,
+    metaCpaOk,
     metaRoas,
     viewThroughPct,
     viewThroughFocusLabel,
@@ -236,10 +253,10 @@ export function buildScalingVerdictNarrative(input: {
 
   if (verdict === "increase") {
     return {
-      statusTitle: "Biznis, trh aj Meta sú v zelenom — škálovanie dáva zmysel",
+      statusTitle: "Biznis, trh, Meta aj CPA sú v zelenom — škálovanie dáva zmysel",
       sections: [
         {
-          body: `Blended PNO ${fmtPct(pno)} (target ≤ ${pnoTarget.toFixed(0)} %) , Store CR ${fmtPct(storeCr)} a UTM Real ROAS ${fmtRoas(utmRoas)} sú nad cieľmi. Podmienky na opatrné zvýšenie Meta spendu (+15 %) sú splnené.`,
+          body: `Blended PNO ${fmtPct(pno)} (target ≤ ${pnoTarget.toFixed(0)} %), Store CR ${fmtPct(storeCr)}, UTM Real ROAS ${fmtRoas(utmRoas)} a Meta CPA ${fmtMoney(metaCpa)} (≤ marža ${fmtMoney(metaCpaTarget)}) sú v cieli. Podmienky na opatrné zvýšenie Meta spendu (+15 %) sú splnené.`,
         },
       ],
       actions: [
@@ -318,6 +335,10 @@ export function buildScalingVerdictNarrative(input: {
     failing.push(
       `UTM Real ROAS ${fmtRoas(utmRoas)} (target ≥ ${fmtRoas(utmRoasTarget)})`
     );
+  if (metaCpaOk === false)
+    failing.push(
+      `Meta CPA ${fmtMoney(metaCpa)} (target ≤ marža ${fmtMoney(metaCpaTarget)})`
+    );
 
   return {
     statusTitle: "Verdikt: nezvyšovať spend — niektoré metriky zlyhávajú",
@@ -328,10 +349,10 @@ export function buildScalingVerdictNarrative(input: {
     ],
     actions: [
       {
-        text: "Nezvyšovať Meta rozpočet, kým nie sú všetky tri karty v OK.",
+        text: "Nezvyšovať Meta rozpočet, kým nie sú všetky štyri karty v OK.",
       },
       {
-        text: "Overiť dáta (sessions, UTM, Meta spend) a upraviť kampane podľa zlyhávajúcej metriky.",
+        text: "Overiť dáta (sessions, UTM, Meta spend, CPA vs marža) a upraviť kampane podľa zlyhávajúcej metriky.",
       },
     ],
   };

@@ -95,6 +95,7 @@ type ScalingPayload = {
       blended_pno_pct_max: number;
       store_cr_pct_min: number;
       utm_real_roas_min: number;
+      contrib_margin_pct?: number;
     };
     attribution?: AttributionSummary;
   };
@@ -106,6 +107,7 @@ type ScalingPayload = {
       biznis: DecisionCard;
       trh: DecisionCard;
       meta: DecisionCard;
+      cac: DecisionCard;
     };
   };
   monthly: MonthRow[];
@@ -131,7 +133,15 @@ function formatMetric(card: DecisionCard): string {
   if (card.metric_value == null) return "—";
   if (card.metric_unit === "%") return `${card.metric_value.toFixed(2)} %`;
   if (card.metric_unit === "×") return `${card.metric_value.toFixed(2)}×`;
+  if (card.metric_unit === "€") return formatMoney(card.metric_value);
   return String(card.metric_value);
+}
+
+function formatTarget(card: DecisionCard): string {
+  if (card.metric_unit === "€") return formatMoney(card.target);
+  if (card.metric_unit === "×") return `${card.target}×`;
+  if (card.metric_unit === "%") return `${card.target} %`;
+  return String(card.target);
 }
 
 function statusLabel(s: CardStatus): string {
@@ -205,7 +215,8 @@ export default function ExecutiveScalingDashboard() {
 
   const cards = useMemo(() => {
     if (!data) return [];
-    return [data.decision.cards.biznis, data.decision.cards.trh, data.decision.cards.meta];
+    const c = data.decision.cards;
+    return [c.biznis, c.trh, c.meta, c.cac].filter(Boolean);
   }, [data]);
 
   const profitChart = useMemo(() => {
@@ -412,6 +423,7 @@ export default function ExecutiveScalingDashboard() {
     const biz = data.decision.cards.biznis;
     const tr = data.decision.cards.trh;
     const mc = data.decision.cards.meta;
+    const cac = data.decision.cards.cac;
     const narrative = buildScalingVerdictNarrative({
       verdict: data.decision.verdict,
       pno: biz.metric_value,
@@ -423,6 +435,9 @@ export default function ExecutiveScalingDashboard() {
       utmRoas: mc.metric_value,
       utmRoasTarget: mc.target,
       utmRoasOk: mc.status === "ok",
+      metaCpa: cac?.metric_value ?? null,
+      metaCpaTarget: cac?.target ?? null,
+      metaCpaOk: cac?.status === "ok",
       metaRoas:
         mc.detail.meta_reported_roas != null
           ? Number(mc.detail.meta_reported_roas)
@@ -445,7 +460,7 @@ export default function ExecutiveScalingDashboard() {
       asOf: data.meta.as_of,
       verdictLabel: data.decision.verdict_label,
       failReasons: data.decision.fail_reasons ?? [],
-      cards: [biz, tr, mc],
+      cards: [biz, tr, mc, cac].filter(Boolean),
       monthly: data.monthly,
       attribution: data.meta.attribution ?? null,
       narrative,
@@ -530,6 +545,7 @@ export default function ExecutiveScalingDashboard() {
   const biznis = decision.cards.biznis;
   const trh = decision.cards.trh;
   const metaCard = decision.cards.meta;
+  const cacCard = decision.cards.cac;
   const narrative = buildScalingVerdictNarrative({
     verdict: decision.verdict,
     pno: biznis.metric_value,
@@ -541,6 +557,9 @@ export default function ExecutiveScalingDashboard() {
     utmRoas: metaCard.metric_value,
     utmRoasTarget: metaCard.target,
     utmRoasOk: metaCard.status === "ok",
+    metaCpa: cacCard?.metric_value ?? null,
+    metaCpaTarget: cacCard?.target ?? null,
+    metaCpaOk: cacCard?.status === "ok",
     metaRoas:
       metaCard.detail.meta_reported_roas != null
         ? Number(metaCard.detail.meta_reported_roas)
@@ -564,6 +583,9 @@ export default function ExecutiveScalingDashboard() {
             {meta.window_label ?? "Aktuálny mesiac"} ({meta.window_from} → {meta.window_to},{" "}
             {meta.window_days} dní) · ciele: PNO ≤ {meta.targets.blended_pno_pct_max} % · CR ≥{" "}
             {meta.targets.store_cr_pct_min} % · UTM ROAS ≥ {meta.targets.utm_real_roas_min}×
+            {meta.targets.contrib_margin_pct != null
+              ? ` · Meta CPA ≤ AOV × ${meta.targets.contrib_margin_pct} %`
+              : ""}
           </p>
         </div>
         <div className="site-toolbar__actions">
@@ -631,8 +653,7 @@ export default function ExecutiveScalingDashboard() {
                 card.metric_label
               )}{" "}
               · {meta.window_label ?? "aktuálny mesiac"} · target {card.target_op}{" "}
-              {card.target}
-              {card.metric_unit === "×" ? "×" : card.metric_unit === "%" ? " %" : ""}
+              {formatTarget(card)}
             </div>
             {card.id === "biznis" ? (
               <ul className="scaling-card__detail">
@@ -669,6 +690,33 @@ export default function ExecutiveScalingDashboard() {
                       ).toFixed(2)}×`
                     : "—"}
                   {card.detail.meta_roas_is_actual === false ? " (odhad)" : ""}
+                </li>
+              </ul>
+            ) : null}
+            {card.id === "cac" ? (
+              <ul className="scaling-card__detail">
+                <li>
+                  Meta purchases {card.detail.meta_purchases ?? 0} · spend{" "}
+                  {formatMoney(Number(card.detail.meta_spend ?? 0))}
+                </li>
+                <li>
+                  <MetricTip label="UTM CAC" tip={SCALING_METRIC_TIPS.utm_cac} />{" "}
+                  {card.detail.utm_cac != null
+                    ? formatMoney(Number(card.detail.utm_cac))
+                    : "—"}
+                  {card.detail.utm_meta_orders != null
+                    ? ` (${card.detail.utm_meta_orders} obj.)`
+                    : ""}
+                </li>
+                <li>
+                  AOV {formatMoney(Number(card.detail.aov ?? 0))} · marža{" "}
+                  {card.detail.contrib_margin_pct ?? "—"} %{" "}
+                  {card.detail.contrib_margin_eur != null
+                    ? `= ${formatMoney(Number(card.detail.contrib_margin_eur))}`
+                    : ""}
+                  {card.detail.headroom_eur != null
+                    ? ` · rezervá ${formatMoney(Number(card.detail.headroom_eur))}`
+                    : ""}
                 </li>
               </ul>
             ) : null}

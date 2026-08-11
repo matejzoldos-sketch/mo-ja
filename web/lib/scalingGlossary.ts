@@ -43,6 +43,18 @@ export const SCALING_GLOSSARY: GlossaryTerm[] = [
     definition:
       "TOF = akvizícia úplne nových ľudí (nová krv). RMKT = retargeting (pripomínanie sa existujúcim).",
   },
+  {
+    id: "meta_cpa",
+    term: "Meta CPA",
+    definition:
+      "Koľko € stojí jedna Meta nákupná konverzia (Meta spend ÷ Meta purchases). OK, ak je ≤ prírastková marža na objednávku (AOV × marža %).",
+  },
+  {
+    id: "utm_cac",
+    term: "UTM CAC",
+    definition:
+      "Prísnejší náklad na zákazníka: Meta spend ÷ počet Shopify objednávok s Meta UTM (bez View-Through nadhodnotenia).",
+  },
 ];
 
 /** Short tips keyed by decision card id / metric. */
@@ -50,6 +62,8 @@ export const SCALING_METRIC_TIPS: Record<string, string> = {
   biznis: SCALING_GLOSSARY[0].definition,
   trh: SCALING_GLOSSARY[3].definition,
   meta: SCALING_GLOSSARY[1].definition,
+  cac: SCALING_GLOSSARY[5].definition,
   meta_reported_roas: SCALING_GLOSSARY[2].definition,
   view_through: SCALING_GLOSSARY[4].definition,
+  utm_cac: SCALING_GLOSSARY[6].definition,
 };
