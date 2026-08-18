@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAuthorizedRequest } from "@/lib/dashboardAuth";
 import { jsonNoStoreHeaders } from "@/lib/apiJsonNoStore";
+import { formatRpcError, MISSING_SUPABASE_CONFIG } from "@/lib/formatRpcError";
 import { resolveLastSyncAt } from "@/lib/resolveLastSyncAt";
 import { supabasePostgrestRpc } from "@/lib/supabasePostgrestRpc";
 import {
@@ -200,14 +201,8 @@ export async function GET(request: Request) {
   const supabaseUrl = (process.env.SUPABASE_URL || "").trim();
   const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
   if (!supabaseUrl || !serviceKey) {
-    const missing = [
-      !supabaseUrl && "SUPABASE_URL",
-      !serviceKey && "SUPABASE_SERVICE_ROLE_KEY",
-    ].filter(Boolean) as string[];
     return NextResponse.json(
-      {
-        error: `Chýba: ${missing.join(", ")}. Vercel → Project → Settings → Environment Variables: pridaj obe pre Production, potom Redeploy. (Názvy presne takto; service_role secret, nie anon.)`,
-      },
+      { error: MISSING_SUPABASE_CONFIG },
       { status: 500, headers: jsonNoStoreHeaders }
     );
   }
@@ -235,14 +230,14 @@ export async function GET(request: Request) {
 
   if (dashRes.error) {
     return NextResponse.json(
-      { error: `[dashboard-summary] ${dashRes.error}` },
+      { error: formatRpcError(dashRes.error, "dashboard-summary") },
       { status: 500, headers: dashboardHeaders(supabaseUrl, null) }
     );
   }
 
   if (heatmapRes.error) {
     return NextResponse.json(
-      { error: `[dashboard-order-time-heatmap] ${heatmapRes.error}` },
+      { error: formatRpcError(heatmapRes.error, "dashboard-order-time-heatmap") },
       { status: 500, headers: dashboardHeaders(supabaseUrl, null) }
     );
   }

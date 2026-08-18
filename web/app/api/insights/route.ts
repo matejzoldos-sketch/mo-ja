@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAuthorizedRequest } from "@/lib/dashboardAuth";
 import { jsonNoStoreHeaders } from "@/lib/apiJsonNoStore";
-import { formatRpcError } from "@/lib/formatRpcError";
+import { formatRpcError, MISSING_SUPABASE_CONFIG } from "@/lib/formatRpcError";
 import { supabasePostgrestRpc } from "@/lib/supabasePostgrestRpc";
 import { evaluateInsights } from "@/lib/insights/evaluate";
 import type {
@@ -107,12 +107,8 @@ export async function GET(request: Request) {
   const supabaseUrl = (process.env.SUPABASE_URL || "").trim();
   const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
   if (!supabaseUrl || !serviceKey) {
-    const missing = [
-      !supabaseUrl && "SUPABASE_URL",
-      !serviceKey && "SUPABASE_SERVICE_ROLE_KEY",
-    ].filter(Boolean) as string[];
     return NextResponse.json(
-      { error: `Chýba: ${missing.join(", ")}.` },
+      { error: MISSING_SUPABASE_CONFIG },
       { status: 500, headers: jsonNoStoreHeaders }
     );
   }

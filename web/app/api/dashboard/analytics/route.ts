@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { isAuthorizedRequest } from "@/lib/dashboardAuth";
 import { jsonNoStoreHeaders } from "@/lib/apiJsonNoStore";
+import { formatRpcError, MISSING_SUPABASE_CONFIG } from "@/lib/formatRpcError";
 import { supabasePostgrestRpc } from "@/lib/supabasePostgrestRpc";
 import {
   periodToRpcPayload,
   resolvePeriodFromSearchParams,
 } from "@/lib/dashboardPeriodApi";
+import { isIsoDateOnly } from "@/lib/dashboardPeriodCompare";
 
 export const dynamic = "force-dynamic";
 
@@ -97,12 +99,8 @@ export async function GET(request: Request) {
   const supabaseUrl = (process.env.SUPABASE_URL || "").trim();
   const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
   if (!supabaseUrl || !serviceKey) {
-    const missing = [
-      !supabaseUrl && "SUPABASE_URL",
-      !serviceKey && "SUPABASE_SERVICE_ROLE_KEY",
-    ].filter(Boolean) as string[];
     return NextResponse.json(
-      { error: `Chýba: ${missing.join(", ")}.` },
+      { error: MISSING_SUPABASE_CONFIG },
       { status: 500, headers: jsonNoStoreHeaders }
     );
   }
@@ -112,27 +110,31 @@ export async function GET(request: Request) {
   if (pYear) rpcPayload.p_year = pYear;
   if (pKpiProduct != null) rpcPayload.p_kpi_product = pKpiProduct;
 
-  // Resolve window via fast summary, then light KPIs + heavy MVP in parallel.
-  // MVP often hits statement_timeout; light KPIs still fill scorecards.
-  const summaryRes = await supabasePostgrestRpc<Record<string, unknown>>(
-    supabaseUrl,
-    serviceKey,
-    "get_shopify_dashboard_summary",
-    rpcPayload
-  );
+  const fromParam = url.searchParams.get("from");
+  const toParam = url.searchParams.get("to");
+  let from = isIsoDateOnly(fromParam) ? fromParam.trim() : null;
+  let to = isIsoDateOnly(toParam) ? toParam.trim() : null;
 
-  const meta =
-    summaryRes.data != null &&
-    typeof summaryRes.data.meta === "object" &&
-    summaryRes.data.meta != null
-      ? (summaryRes.data.meta as Record<string, unknown>)
-      : null;
-  const from =
-    typeof meta?.from === "string" ? meta.from.slice(0, 10) : null;
-  const to = typeof meta?.to === "string" ? meta.to.slice(0, 10) : null;
+  // Window for light KPIs: prefer client dates so we skip a duplicate summary RPC.
+  if (!from || !to) {
+    const summaryRes = await supabasePostgrestRpc<Record<string, unknown>>(
+      supabaseUrl,
+      serviceKey,
+      "get_shopify_dashboard_summary",
+      rpcPayload
+    );
+    const meta =
+      summaryRes.data != null &&
+      typeof summaryRes.data.meta === "object" &&
+      summaryRes.data.meta != null
+        ? (summaryRes.data.meta as Record<string, unknown>)
+        : null;
+    from = typeof meta?.from === "string" ? meta.from.slice(0, 10) : null;
+    to = typeof meta?.to === "string" ? meta.to.slice(0, 10) : null;
+  }
 
   const lightKpiPromise =
-    from && to && /^\d{4}-\d{2}-\d{2}$/.test(from) && /^\d{4}-\d{2}-\d{2}$/.test(to)
+    from && to && isIsoDateOnly(from) && isIsoDateOnly(to)
       ? supabasePostgrestRpc<Record<string, unknown>>(
           supabaseUrl,
           serviceKey,
@@ -178,9 +180,10 @@ export async function GET(request: Request) {
   if (!kpis && !mvpBase) {
     return NextResponse.json(
       {
-        error: `[dashboard-analytics] ${
-          mvpRes.error || lightKpiRes.error || "Analytics RPC failed"
-        }`,
+        error: formatRpcError(
+          mvpRes.error || lightKpiRes.error || "Analytics RPC failed",
+          "dashboard-analytics"
+        ),
       },
       { status: 500, headers: jsonNoStoreHeaders }
     );

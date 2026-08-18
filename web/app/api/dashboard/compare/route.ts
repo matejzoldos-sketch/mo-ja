@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { isAuthorizedRequest } from "@/lib/dashboardAuth";
 import { jsonNoStoreHeaders } from "@/lib/apiJsonNoStore";
+import { formatRpcError, MISSING_SUPABASE_CONFIG } from "@/lib/formatRpcError";
 import { supabasePostgrestRpc } from "@/lib/supabasePostgrestRpc";
 import {
   periodToRpcPayload,
   resolvePeriodFromSearchParams,
 } from "@/lib/dashboardPeriodApi";
 import {
+  isIsoDateOnly,
   previousPeriodBounds,
   previousPeriodLabel,
 } from "@/lib/dashboardPeriodCompare";
@@ -42,40 +44,44 @@ export async function GET(request: Request) {
   const supabaseUrl = (process.env.SUPABASE_URL || "").trim();
   const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
   if (!supabaseUrl || !serviceKey) {
-    const missing = [
-      !supabaseUrl && "SUPABASE_URL",
-      !serviceKey && "SUPABASE_SERVICE_ROLE_KEY",
-    ].filter(Boolean) as string[];
     return NextResponse.json(
-      { error: `Chýba: ${missing.join(", ")}.` },
+      { error: MISSING_SUPABASE_CONFIG },
       { status: 500, headers: jsonNoStoreHeaders }
     );
   }
 
-  const summaryPayload: Record<string, unknown> = { p_range: pRange };
-  if (pMonth) summaryPayload.p_month = pMonth;
-  if (pYear) summaryPayload.p_year = pYear;
-  if (pKpiProduct != null) summaryPayload.p_kpi_product = pKpiProduct;
+  const fromParam = url.searchParams.get("from");
+  const toParam = url.searchParams.get("to");
+  let from: string | null = isIsoDateOnly(fromParam) ? fromParam.trim() : null;
+  let to: string | null = isIsoDateOnly(toParam) ? toParam.trim() : null;
 
-  const summaryRes = await supabasePostgrestRpc<Record<string, unknown>>(
-    supabaseUrl,
-    serviceKey,
-    "get_shopify_dashboard_summary",
-    summaryPayload
-  );
-  if (summaryRes.error || !summaryRes.data) {
-    return NextResponse.json(
-      { error: `[dashboard-compare:summary] ${summaryRes.error || "Summary RPC failed"}` },
-      { status: 500, headers: jsonNoStoreHeaders }
+  if (!from || !to) {
+    const summaryPayload: Record<string, unknown> = { p_range: pRange };
+    if (pMonth) summaryPayload.p_month = pMonth;
+    if (pYear) summaryPayload.p_year = pYear;
+    if (pKpiProduct != null) summaryPayload.p_kpi_product = pKpiProduct;
+
+    const summaryRes = await supabasePostgrestRpc<Record<string, unknown>>(
+      supabaseUrl,
+      serviceKey,
+      "get_shopify_dashboard_summary",
+      summaryPayload
     );
+    if (summaryRes.error || !summaryRes.data) {
+      return NextResponse.json(
+        { error: formatRpcError(summaryRes.error || "Summary RPC failed", "dashboard-compare") },
+        { status: 500, headers: jsonNoStoreHeaders }
+      );
+    }
+
+    const meta =
+      typeof summaryRes.data.meta === "object" && summaryRes.data.meta != null
+        ? (summaryRes.data.meta as Record<string, unknown>)
+        : null;
+    from = typeof meta?.from === "string" ? meta.from.slice(0, 10) : null;
+    to = typeof meta?.to === "string" ? meta.to.slice(0, 10) : null;
   }
 
-  const meta =
-    typeof summaryRes.data.meta === "object" && summaryRes.data.meta != null
-      ? (summaryRes.data.meta as Record<string, unknown>)
-      : null;
-  const from = typeof meta?.from === "string" ? meta.from : null;
-  const to = typeof meta?.to === "string" ? meta.to : null;
   if (!from || !to) {
     return NextResponse.json(
       { kpisPrevious: null, compareMeta: null },
@@ -116,7 +122,7 @@ export async function GET(request: Request) {
   ]);
   if (prevRes.error) {
     return NextResponse.json(
-      { error: `[dashboard-compare:kpis] ${prevRes.error}` },
+      { error: formatRpcError(prevRes.error, "dashboard-compare") },
       { status: 500, headers: jsonNoStoreHeaders }
     );
   }

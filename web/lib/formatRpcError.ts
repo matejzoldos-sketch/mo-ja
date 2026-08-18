@@ -1,22 +1,23 @@
-/** PostgREST / Postgres chyby → stručná správa pre UI. */
+/** PostgREST / Postgres chyby → stručná správa pre UI (bez úniku schémy). */
 export function formatRpcError(raw: string, label?: string): string {
   const prefix = label ? `[${label}] ` : "";
   const text = (raw || "").trim();
-  if (!text) return `${prefix}Chyba databázy.`;
-
-  try {
-    const parsed = JSON.parse(text) as { message?: string; code?: string };
-    if (parsed.code === "57014" || (parsed.message || "").includes("statement timeout")) {
-      return `${prefix}Dotaz v databáze trval príliš dlho. Skús neskôr alebo kratšie obdobie.`;
-    }
-    if (parsed.message) return `${prefix}${parsed.message}`;
-  } catch {
-    /* not JSON */
+  if (text) {
+    console.error(`${prefix}${text.slice(0, 2000)}`);
   }
 
-  if (text.includes("57014") || text.toLowerCase().includes("statement timeout")) {
+  const lower = text.toLowerCase();
+  if (
+    text.includes("57014") ||
+    lower.includes("statement timeout") ||
+    lower.includes("the operation was aborted") ||
+    lower.includes("aborted due to timeout")
+  ) {
     return `${prefix}Dotaz v databáze trval príliš dlho. Skús neskôr alebo kratšie obdobie.`;
   }
 
-  return `${prefix}${text.slice(0, 400)}`;
+  return `${prefix}Načítanie dát zlyhalo. Skús obnoviť stránku.`;
 }
+
+export const MISSING_SUPABASE_CONFIG =
+  "Chýba konfigurácia databázy. Skontroluj prostredie a skús znova.";

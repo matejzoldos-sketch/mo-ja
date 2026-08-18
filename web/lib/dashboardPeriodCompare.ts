@@ -1,3 +1,7 @@
+export function isIsoDateOnly(value: string | null | undefined): value is string {
+  return !!value && /^\d{4}-\d{2}-\d{2}$/.test(value.trim());
+}
+
 /** YYYY-MM-DD in UTC (date-only, no timezone shift). */
 function parseYmd(iso: string): Date | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim());

@@ -1,7 +1,10 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
-import { getDashboardSecret } from "@/lib/dashboardAuth";
+import {
+  getDashboardSecret,
+  isOpenDashboardAllowed,
+} from "@/lib/dashboardAuth";
 import LoginClient from "./LoginClient";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +16,19 @@ export const metadata: Metadata = {
 
 export default function LoginPage() {
   if (!getDashboardSecret()) {
-    redirect("/");
+    if (isOpenDashboardAllowed()) {
+      redirect("/");
+    }
+    return (
+      <main className="main-wrap login-page">
+        <div className="login-card">
+          <h1 className="login-card__title">MO–JA dashboard</h1>
+          <p className="login-card__hint">
+            Dashboard nie je nakonfigurovaný. Nastav DASHBOARD_PASSWORD.
+          </p>
+        </div>
+      </main>
+    );
   }
 
   return (

@@ -3,13 +3,11 @@ import type { NextRequest } from "next/server";
 import {
   getDashboardSecret,
   isAuthorizedNextRequest,
+  isOpenDashboardAllowed,
 } from "@/lib/dashboardAuth";
+import { jsonNoStoreHeaders } from "@/lib/apiJsonNoStore";
 
 export async function middleware(request: NextRequest) {
-  if (!getDashboardSecret()) {
-    return NextResponse.next();
-  }
-
   const { pathname } = request.nextUrl;
 
   if (pathname === "/login") {
@@ -19,8 +17,29 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  const secret = getDashboardSecret();
+  if (!secret) {
+    if (isOpenDashboardAllowed()) {
+      return NextResponse.next();
+    }
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json(
+        { error: "Dashboard nie je nakonfigurovaný." },
+        { status: 503, headers: jsonNoStoreHeaders }
+      );
+    }
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
   if (await isAuthorizedNextRequest(request)) {
     return NextResponse.next();
+  }
+
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401, headers: jsonNoStoreHeaders }
+    );
   }
 
   const login = new URL("/login", request.url);

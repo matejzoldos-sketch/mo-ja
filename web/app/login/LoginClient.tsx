@@ -27,6 +27,14 @@ export default function LoginClient() {
         credentials: "include",
       });
       if (!res.ok) {
+        if (res.status === 429) {
+          setError("Príliš veľa pokusov. Skús neskôr.");
+          return;
+        }
+        if (res.status === 503) {
+          setError("Dashboard nie je nakonfigurovaný.");
+          return;
+        }
         setError("Nesprávne heslo.");
         return;
       }

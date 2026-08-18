@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAuthorizedRequest } from "@/lib/dashboardAuth";
 import { jsonNoStoreHeaders } from "@/lib/apiJsonNoStore";
+import { formatRpcError, MISSING_SUPABASE_CONFIG } from "@/lib/formatRpcError";
 import { supabasePostgrestRpc } from "@/lib/supabasePostgrestRpc";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +18,7 @@ export async function GET(request: Request) {
   const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
   if (!supabaseUrl || !serviceKey) {
     return NextResponse.json(
-      { error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" },
+      { error: MISSING_SUPABASE_CONFIG },
       { status: 500, headers: jsonNoStoreHeaders }
     );
   }
@@ -38,7 +39,7 @@ export async function GET(request: Request) {
     );
     if (rpcRes.error) {
       return NextResponse.json(
-        { error: rpcRes.error },
+        { error: formatRpcError(rpcRes.error, "scaling") },
         { status: 500, headers: jsonNoStoreHeaders }
       );
     }
@@ -52,7 +53,7 @@ export async function GET(request: Request) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json(
-      { error: msg },
+      { error: formatRpcError(msg, "scaling") },
       { status: 502, headers: jsonNoStoreHeaders }
     );
   }

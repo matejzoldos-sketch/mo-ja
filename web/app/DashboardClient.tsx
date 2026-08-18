@@ -546,18 +546,50 @@ export default function DashboardClient() {
         cache: "no-store",
         headers: { "Cache-Control": "no-cache" },
       };
-      const mainRes = await fetch(`/api/dashboard${q}`, fetchOpts);
+      const skuQuery = `?${periodQ}${
+        kpi !== "all" ? `&kpi_product=${encodeURIComponent(kpi)}` : ""
+      }&_=${Date.now()}`;
+      const [mainRes, skuRes] = await Promise.all([
+        fetch(`/api/dashboard${q}`, fetchOpts),
+        fetch(`/api/dashboard/sku-ytd${skuQuery}`, fetchOpts),
+      ]);
       const mainJson = (await mainRes.json()) as Payload & { error?: string };
       if (!mainRes.ok) {
         setErr(mainJson.error || `HTTP ${mainRes.status}`);
         setData(null);
+        if (typeof console !== "undefined") {
+          console.error(mainJson.error || mainRes.status);
+        }
         return;
       }
-      setData({ ...mainJson, skuDailyYtd: mainJson.skuDailyYtd } as Payload);
 
+      let skuDailyYtd = mainJson.skuDailyYtd;
+      if (skuRes.ok) {
+        const sj = (await skuRes.json()) as {
+          error?: string;
+          skuDailyYtd?: SkuDailyYtd;
+        };
+        if (!sj.error && sj.skuDailyYtd !== undefined) {
+          skuDailyYtd = sj.skuDailyYtd;
+        }
+      }
+      setData({ ...mainJson, skuDailyYtd } as Payload);
+
+      const from =
+        typeof mainJson.meta?.from === "string"
+          ? mainJson.meta.from.slice(0, 10)
+          : "";
+      const to =
+        typeof mainJson.meta?.to === "string"
+          ? mainJson.meta.to.slice(0, 10)
+          : "";
+      const dateQ =
+        /^\d{4}-\d{2}-\d{2}$/.test(from) && /^\d{4}-\d{2}-\d{2}$/.test(to)
+          ? `&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
+          : "";
       const compareQuery = `?${periodQ}${
         kpi !== "all" ? `&kpi_product=${encodeURIComponent(kpi)}` : ""
-      }&_=${Date.now()}`;
+      }${dateQ}&_=${Date.now()}`;
       void fetch(`/api/dashboard/compare${compareQuery}`, fetchOpts)
         .then(async (res) => {
           if (!res.ok) return null;
@@ -594,7 +626,7 @@ export default function DashboardClient() {
 
       const analyticsQuery = `?${periodQ}${
         kpi !== "all" ? `&kpi_product=${encodeURIComponent(kpi)}` : ""
-      }&_=${Date.now()}`;
+      }${dateQ}&_=${Date.now()}`;
       void fetch(`/api/dashboard/analytics${analyticsQuery}`, fetchOpts)
         .then(async (res) => {
           if (!res.ok) return null;
@@ -627,25 +659,8 @@ export default function DashboardClient() {
         .catch(() => {
           // Keep the main dashboard responsive even when heavy analytics time out.
         });
-
-      const skuQuery = `?${periodQ}${
-        kpi !== "all"
-          ? `&kpi_product=${encodeURIComponent(kpi)}`
-          : ""
-      }&_=${Date.now()}`;
-      const skuRes = await fetch(`/api/dashboard/sku-ytd${skuQuery}`, fetchOpts);
-      if (skuRes.ok) {
-        const sj = (await skuRes.json()) as {
-          error?: string;
-          skuDailyYtd?: SkuDailyYtd;
-        };
-        if (!sj.error && sj.skuDailyYtd !== undefined) {
-          setData((prev) =>
-            prev ? { ...prev, skuDailyYtd: sj.skuDailyYtd } : prev
-          );
-        }
-      }
     } catch (e) {
+      console.error(e);
       setErr(e instanceof Error ? e.message : "Fetch failed");
       setData(null);
     } finally {
@@ -1246,34 +1261,7 @@ export default function DashboardClient() {
         {loading && <p className="msg">Načítavam…</p>}
         {err && !loading && (
           <p className="msg msg-error">
-            {err}{" "}
-            Skontroluj env na Verceli (<code>SUPABASE_URL</code>,{" "}
-            <code>SUPABASE_SERVICE_ROLE_KEY</code>) a migráciu{" "}
-            <code>002_dashboard_mvp.sql</code>, <code>003_dashboard_range.sql</code>,{" "}
-            <code>004_dashboard_remove_365d.sql</code>,{" "}
-            <code>015_shopify_orders_customer_id_returning_kpi.sql</code>,{" "}
-            <code>016_returning_kpi_effective_customer_id.sql</code>,{" "}
-            <code>017_returning_kpi_order_email.sql</code>,{" "}
-            <code>018_ytd_returning_repeat_within_year.sql</code>,{" "}
-            <code>024_dashboard_top_customers_by_id.sql</code>,{" "}
-            <code>025_shopify_order_effective_customer_id_if_missing.sql</code>,{" "}
-            <code>005_inventory_dashboard_rpc.sql</code> (sklad),{" "}
-            <code>006_sku_units_daily_ytd.sql</code>,{" "}
-            <code>034_dashboard_pct_orders_multi_sku.sql</code>,{" "}
-            <code>035_dashboard_avg_customer_ltv.sql</code>,{" "}
-            <code>036_dashboard_exclude_listky_moja_faza.sql</code>,{" "}
-            <code>037_dashboard_recent_orders_top_value_90_365.sql</code>,{" "}
-            <code>038_dashboard_ltv_exclude_line_items.sql</code>,{" "}
-            <code>039_dashboard_product_orders_only.sql</code>,{" "}
-            <code>040_dashboard_top_products_label_title_first.sql</code>,{" "}
-            <code>043_dashboard_avg_units_per_unique_customer.sql</code>,{" "}
-            <code>044_dashboard_avg_days_first_to_second_purchase.sql</code>,{" "}
-            <code>045_dashboard_kpi_product_filter.sql</code>,{" "}
-            <code>046_sku_units_daily_ytd_kpi_product_filter.sql</code>,{" "}
-            <code>047_dashboard_recent_orders_top_value_30d.sql</code>,{" "}
-            <code>048_dashboard_monthly_new_vs_returning_revenue.sql</code>,{" "}
-            <code>049_dashboard_purchase_count_distribution.sql</code>,{" "}
-            <code>050_dashboard_purchase_interval_histogram.sql</code>.
+            Načítanie zlyhalo. Skús obnoviť stránku.
           </p>
         )}
         {data && !loading && (

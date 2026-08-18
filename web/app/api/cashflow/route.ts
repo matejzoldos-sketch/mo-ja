@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAuthorizedRequest } from "@/lib/dashboardAuth";
+import { jsonNoStoreHeaders } from "@/lib/apiJsonNoStore";
+import { formatRpcError, MISSING_SUPABASE_CONFIG } from "@/lib/formatRpcError";
 import {
   MOJA_CASHFLOW_PERIOD_START,
   MOJA_MAIN_CASH_ACCOUNT_KEY,
@@ -7,6 +9,8 @@ import {
 } from "@/lib/cashflowConfig";
 import { buildCashflowMonths } from "@/lib/cashflowMonthly";
 import { supabasePostgrestGet } from "@/lib/supabasePostgrestRpc";
+
+export const dynamic = "force-dynamic";
 
 type BalanceRow = {
   balance?: unknown;
@@ -44,19 +48,18 @@ function additionalInfoFromRaw(raw: unknown): string | null {
 
 export async function GET(request: Request) {
   if (!(await isAuthorizedRequest(request))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401, headers: jsonNoStoreHeaders }
+    );
   }
 
   const supabaseUrl = (process.env.SUPABASE_URL || "").trim();
   const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
   if (!supabaseUrl || !serviceKey) {
-    const missing = [
-      !supabaseUrl && "SUPABASE_URL",
-      !serviceKey && "SUPABASE_SERVICE_ROLE_KEY",
-    ].filter(Boolean);
     return NextResponse.json(
-      { error: `Chýbajú env: ${missing.join(", ")}` },
-      { status: 500 }
+      { error: MISSING_SUPABASE_CONFIG },
+      { status: 500, headers: jsonNoStoreHeaders }
     );
   }
 
@@ -77,10 +80,16 @@ export async function GET(request: Request) {
   ]);
 
   if (balRes.error) {
-    return NextResponse.json({ error: `[cashflow-balance] ${balRes.error}` }, { status: 500 });
+    return NextResponse.json(
+      { error: formatRpcError(balRes.error, "cashflow-balance") },
+      { status: 500, headers: jsonNoStoreHeaders }
+    );
   }
   if (txRes.error) {
-    return NextResponse.json({ error: `[cashflow-tx] ${txRes.error}` }, { status: 500 });
+    return NextResponse.json(
+      { error: formatRpcError(txRes.error, "cashflow-tx") },
+      { status: 500, headers: jsonNoStoreHeaders }
+    );
   }
 
   const balRow = balRes.data?.[0];
@@ -88,7 +97,7 @@ export async function GET(request: Request) {
   if (!Number.isFinite(balance)) {
     return NextResponse.json(
       { error: "Zostatok účtu nie je v databáze — spusti sync_tatra." },
-      { status: 404 }
+      { status: 404, headers: jsonNoStoreHeaders }
     );
   }
 
@@ -145,21 +154,24 @@ export async function GET(request: Request) {
     periodStart
   );
 
-  return NextResponse.json({
-    meta: {
-      accountLabel: displayIban,
-      periodStart,
-      currency,
-      lastSync,
-      openingDerived: true,
+  return NextResponse.json(
+    {
+      meta: {
+        accountLabel: displayIban,
+        periodStart,
+        currency,
+        lastSync,
+        openingDerived: true,
+      },
+      kpis: {
+        currentBalance: balance,
+        ytdNet,
+        openingAtPeriodStart,
+        transactionCount: transactions.length,
+      },
+      months: rows,
+      transactions,
     },
-    kpis: {
-      currentBalance: balance,
-      ytdNet,
-      openingAtPeriodStart,
-      transactionCount: transactions.length,
-    },
-    months: rows,
-    transactions,
-  });
+    { headers: jsonNoStoreHeaders }
+  );
 }

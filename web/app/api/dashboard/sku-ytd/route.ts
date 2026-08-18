@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAuthorizedRequest } from "@/lib/dashboardAuth";
 import { jsonNoStoreHeaders } from "@/lib/apiJsonNoStore";
+import { formatRpcError, MISSING_SUPABASE_CONFIG } from "@/lib/formatRpcError";
 import { supabasePostgrestRpc } from "@/lib/supabasePostgrestRpc";
 import {
   periodToRpcPayload,
@@ -70,14 +71,8 @@ export async function GET(request: Request) {
   const supabaseUrl = (process.env.SUPABASE_URL || "").trim();
   const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
   if (!supabaseUrl || !serviceKey) {
-    const missing = [
-      !supabaseUrl && "SUPABASE_URL",
-      !serviceKey && "SUPABASE_SERVICE_ROLE_KEY",
-    ].filter(Boolean) as string[];
     return NextResponse.json(
-      {
-        error: `Chýba: ${missing.join(", ")}. Vercel → Project → Settings → Environment Variables.`,
-      },
+      { error: MISSING_SUPABASE_CONFIG },
       { status: 500, headers: jsonNoStoreHeaders }
     );
   }
@@ -96,7 +91,7 @@ export async function GET(request: Request) {
 
   if (skuRes.error) {
     return NextResponse.json(
-      { error: `[dashboard-sku] ${skuRes.error}` },
+      { error: formatRpcError(skuRes.error, "dashboard-sku") },
       { status: 500, headers: jsonNoStoreHeaders }
     );
   }
