@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chart as ChartJS, registerables } from "chart.js";
 import type { ChartData, ChartOptions } from "chart.js";
 import { Bar } from "react-chartjs-2";
@@ -77,6 +77,10 @@ function monthLabel(ym: string): string {
   return labels[parseInt(m, 10) - 1] ?? m;
 }
 
+function fmt(n: number): string {
+  return new Intl.NumberFormat("sk-SK", { maximumFractionDigits: 0 }).format(n) + " €";
+}
+
 const ACCOUNT_LABELS: Record<string, string> = {
   "501": "Materiál",
   "504": "Náklady na tovar",
@@ -92,6 +96,8 @@ export default function PnlPanel() {
   const [data, setData] = useState<PnlPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pdfExporting, setPdfExporting] = useState(false);
+  const pdfExportRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -111,6 +117,91 @@ export default function PnlPanel() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const buildMarkdown = useCallback((): string => {
+    if (!data) return "";
+    const { totals: t, monthly, topExpenses, meta } = data;
+    const mPct = t.total_revenue ? ((t.contribution_margin / t.total_revenue) * 100).toFixed(1) : "–";
+    const mkPct = t.total_revenue ? ((t.marketing_spend / t.total_revenue) * 100).toFixed(1) : "–";
+    let md = `# P&L — Contribution Margin ${meta.year}\n\n`;
+    md += `> ${meta.note}\n\n`;
+    md += `| KPI | Hodnota |\n|---|---|\n`;
+    md += `| Tržby | ${fmt(t.total_revenue)} |\n`;
+    md += `| COGS | ${fmt(t.cogs)} |\n`;
+    md += `| Hrubá marža | ${fmt(t.gross_profit)} |\n`;
+    md += `| OPEX | ${fmt(t.total_opex)} |\n`;
+    md += `| **Contribution margin** | **${fmt(t.contribution_margin)} (${mPct} %)** |\n`;
+    md += `| z toho marketing | ${fmt(t.marketing_spend)} (${mkPct} %) |\n\n`;
+    md += `## Mesačný prehľad\n\n`;
+    md += `| Mesiac | Tržby | COGS | Hrubá marža | OPEX | Marketing | CM | CM % |\n`;
+    md += `|---|---|---|---|---|---|---|---|\n`;
+    for (const m of monthly) {
+      const cm = m.contribution_margin;
+      const cmP = m.total_revenue ? ((cm / m.total_revenue) * 100).toFixed(1) : "–";
+      md += `| ${monthLabel(m.month_key)} | ${fmt(m.total_revenue)} | ${fmt(m.cogs)} | ${fmt(m.gross_profit)} | ${fmt(m.total_opex)} | ${fmt(m.marketing_spend)} | ${fmt(cm)} | ${cmP} % |\n`;
+    }
+    md += `\n## Top dodávatelia\n\n`;
+    md += `| Dodávateľ | Účet | Suma | Riadkov |\n|---|---|---|---|\n`;
+    for (const e of topExpenses) {
+      md += `| ${e.supplier} | ${ACCOUNT_LABELS[e.account_prefix] ?? e.account_prefix} | ${fmt(e.amount_eur)} | ${e.line_count} |\n`;
+    }
+    return md;
+  }, [data]);
+
+  const downloadMd = useCallback(() => {
+    const md = buildMarkdown();
+    if (!md) return;
+    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `pnl-${data!.meta.year}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [buildMarkdown, data]);
+
+  const downloadPdf = useCallback(async () => {
+    const root = pdfExportRef.current;
+    if (!root || !data) return;
+    setPdfExporting(true);
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+      const canvas = await html2canvas(root, {
+        scale: 1.75,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+        scrollX: 0,
+        scrollY: -window.scrollY,
+        windowWidth: root.scrollWidth,
+      });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const imgW = pageW;
+      const imgH = (canvas.height * imgW) / canvas.width;
+      let heightLeft = imgH;
+      let y = 0;
+      pdf.addImage(imgData, "PNG", 0, y, imgW, imgH);
+      heightLeft -= pageH;
+      while (heightLeft > 0) {
+        y = heightLeft - imgH;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 0, y, imgW, imgH);
+        heightLeft -= pageH;
+      }
+      pdf.save(`pnl-${data.meta.year}.pdf`);
+    } catch (e) {
+      console.error(e);
+      window.alert(e instanceof Error ? e.message : "Export do PDF zlyhal.");
+    } finally {
+      setPdfExporting(false);
+    }
+  }, [data]);
 
   const chartData = useMemo((): ChartData<"bar"> | null => {
     if (!data) return null;
@@ -187,6 +278,16 @@ export default function PnlPanel() {
 
   return (
     <section className="panel">
+      <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", marginBottom: "0.5rem" }}>
+        <button type="button" className="btn btn--outline btn--sm" onClick={downloadMd}>
+          Stiahnuť MD
+        </button>
+        <button type="button" className="btn btn--outline btn--sm" onClick={downloadPdf} disabled={pdfExporting}>
+          {pdfExporting ? "Generujem PDF…" : "Stiahnuť PDF"}
+        </button>
+      </div>
+
+      <div className="dashboard-pdf-root" ref={pdfExportRef}>
       <h2 className="panel__title">
         P&L — Contribution Margin {meta.year}
       </h2>
@@ -315,6 +416,7 @@ export default function PnlPanel() {
             ))}
           </tbody>
         </table>
+      </div>
       </div>
     </section>
   );
