@@ -92,6 +92,7 @@ type PnlXlsPayload = {
     staff_ytd: number;
   };
   monthly: PnlXlsMonth[];
+  topExpenses?: TopExpense[];
 };
 
 function transformXlsToPnlPayload(xls: PnlXlsPayload): PnlPayload {
@@ -150,7 +151,7 @@ function transformXlsToPnlPayload(xls: PnlXlsPayload): PnlPayload {
       staff_spend: mapped.reduce((s, m) => s + (m.staff_spend ?? 0), 0),
     },
     monthly: mapped,
-    topExpenses: [],
+    topExpenses: xls.topExpenses ?? [],
   };
 }
 
@@ -219,7 +220,7 @@ function transformHybridPayload(xls: PnlXlsPayload): PnlPayload {
       staff_spend: sumStaff,
     },
     monthly: mapped,
-    topExpenses: [],
+    topExpenses: xls.topExpenses ?? [],
   };
 }
 
@@ -787,7 +788,7 @@ export default function PnlPanel() {
       <CostStructureTable totals={t} monthly={monthly} />
 
       {/* All expenses */}
-      {mode === "accounting" && <SortableExpensesTable expenses={topExpenses} />}
+      {topExpenses?.length ? <SortableExpensesTable expenses={topExpenses} /> : null}
       </div>
     </section>
   );

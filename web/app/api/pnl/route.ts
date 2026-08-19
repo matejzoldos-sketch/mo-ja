@@ -17,7 +17,8 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const year = url.searchParams.get("year") ?? undefined;
   const mode = (url.searchParams.get("mode") ?? "accounting").toLowerCase();
-  const rpcName = mode === "xls" ? "get_pnl_xls_dashboard" : "get_pnl_dashboard";
+  const apiMode = mode === "hybrid" ? "xls" : mode;
+  const rpcName = apiMode === "xls" ? "get_pnl_xls_dashboard" : "get_pnl_dashboard";
 
   const supabaseUrl = (process.env.SUPABASE_URL || "").trim();
   const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
@@ -47,6 +48,32 @@ export async function GET(request: Request) {
         { status: 500, headers: jsonNoStoreHeaders }
       );
     }
+
+    // Always fetch topExpenses from accounting RPC so we can show
+    // the same supplier table + filters in all dashboard modes.
+    if (apiMode === "xls") {
+      const accountingRes = await supabasePostgrestRpc<Record<string, unknown>>(
+        supabaseUrl,
+        serviceKey,
+        "get_pnl_dashboard",
+        { ...(year ? { p_year: year } : {}) }
+      );
+      if (accountingRes.error || accountingRes.data == null) {
+        return NextResponse.json(
+          { ...(rpcRes.data as Record<string, unknown>), topExpenses: [] },
+          { headers: jsonNoStoreHeaders }
+        );
+      }
+
+      const topExpenses =
+        (accountingRes.data as Record<string, unknown>).topExpenses ?? [];
+
+      return NextResponse.json(
+        { ...(rpcRes.data as Record<string, unknown>), topExpenses },
+        { headers: jsonNoStoreHeaders }
+      );
+    }
+
     return NextResponse.json(rpcRes.data, { headers: jsonNoStoreHeaders });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
