@@ -59,11 +59,18 @@ totals AS (
     ), CURRENT_DATE) AS to_date
   FROM rows
 )
+),
+journal_last AS (
+  SELECT COALESCE(MAX(j.month_num), 0) AS last_actual_month
+  FROM public.accounting_journal_lines j
+  WHERE EXTRACT(YEAR FROM j.entry_date) = (SELECT yr FROM params)
+)
 SELECT json_build_object(
   'meta', json_build_object(
     'year', (SELECT yr FROM params),
     'from', (SELECT from_date FROM totals),
     'to', (SELECT to_date FROM totals),
+    'last_actual_month', (SELECT last_actual_month FROM journal_last),
     'note', 'Hodnoty prevzaté priamo z XLS sheet-u \"Výsledky\" + doplnený rozpad (Marketing/OPEX/Ostatné).'
   ),
   'totals', (SELECT row_to_json(t) FROM totals t),

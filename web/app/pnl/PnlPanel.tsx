@@ -42,6 +42,7 @@ type PnlPayload = {
     from: string;
     to: string;
     note: string;
+    last_actual_month?: number;
   };
   totals: {
     total_revenue: number;
@@ -74,6 +75,7 @@ type PnlXlsPayload = {
     year: number | string;
     from: string;
     to: string;
+    last_actual_month: number;
     note: string;
   };
   totals: {
@@ -97,6 +99,7 @@ function transformXlsToPnlPayload(xls: PnlXlsPayload): PnlPayload {
       from: xls.meta.from,
       to: xls.meta.to,
       note: xls.meta.note,
+      last_actual_month: xls.meta.last_actual_month,
     },
     totals: {
       total_revenue: xls.totals.revenue_ytd,
@@ -297,11 +300,11 @@ export default function PnlPanel() {
     if (!data) return null;
     const months = data.monthly;
     if (mode === "xls") {
-      const isPlan = months.map((m, i) =>
-        i > 0 &&
-        Math.round(m.total_revenue * 100) ===
-          Math.round(months[i - 1].total_revenue * 100)
-      );
+      const lastActual = data.meta.last_actual_month ?? 12;
+      const isPlan = months.map((m) => {
+        const monthNum = parseInt(m.month_key.split("-")[1], 10);
+        return monthNum > lastActual;
+      });
       return {
         labels: months.map((m, i) =>
           isPlan[i] ? `${monthLabel(m.month_key)} (plán)` : monthLabel(m.month_key)
@@ -600,10 +603,8 @@ export default function PnlPanel() {
                   ytd += row.contribution_margin;
                   if (row.month_key === m.month_key) break;
                 }
-                const isPlan =
-                  idx > 0 &&
-                  Math.round(m.total_revenue * 100) ===
-                    Math.round(monthly[idx - 1].total_revenue * 100);
+                const monthNum = parseInt(m.month_key.split("-")[1], 10);
+                const isPlan = (meta.last_actual_month ?? 12) < monthNum;
                 const planStyle: React.CSSProperties | undefined = isPlan
                   ? { background: "rgba(148,163,184,0.10)", fontStyle: "italic", opacity: 0.75 }
                   : undefined;
