@@ -204,7 +204,7 @@ export default function PnlPanel() {
           sub={formatPct(marginPct)}
           highlight={t.contribution_margin >= 0 ? "positive" : "negative"}
         />
-        <KpiCard label="z toho marketing" value={formatMoney(t.marketing_spend)} />
+        <KpiCard label="z toho marketing" value={formatMoney(t.marketing_spend)} sub={t.total_revenue ? formatPct(t.marketing_spend / t.total_revenue) + " z tržieb" : undefined} />
       </div>
 
       {/* Chart */}
