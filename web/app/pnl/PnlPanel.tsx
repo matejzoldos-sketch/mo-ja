@@ -70,6 +70,7 @@ type PnlXlsMonth = {
   marketing: number;
   opex: number;
   other_operating: number;
+  staff: number;
   margin_pct: number | null;
 };
 
@@ -88,6 +89,7 @@ type PnlXlsPayload = {
     marketing_ytd: number;
     opex_ytd: number;
     other_operating_ytd: number;
+    staff_ytd: number;
   };
   monthly: PnlXlsMonth[];
 };
@@ -118,7 +120,7 @@ function transformXlsToPnlPayload(xls: PnlXlsPayload): PnlPayload {
     financial: 0,
     total_opex: m.opex,
     marketing_spend: m.marketing,
-    staff_spend: 0,
+    staff_spend: m.staff ?? 0,
     contribution_margin: m.profit_month,
   }));
 
@@ -145,7 +147,7 @@ function transformXlsToPnlPayload(xls: PnlXlsPayload): PnlPayload {
       total_opex: sumOpex,
       contribution_margin: sumCm,
       marketing_spend: sumMk,
-      staff_spend: 0,
+      staff_spend: mapped.reduce((s, m) => s + (m.staff_spend ?? 0), 0),
     },
     monthly: mapped,
     topExpenses: [],

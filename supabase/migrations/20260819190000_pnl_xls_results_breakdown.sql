@@ -3,7 +3,8 @@
 ALTER TABLE public.pnl_xls_results_monthly
   ADD COLUMN IF NOT EXISTS marketing numeric NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS opex numeric NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS other_operating numeric NOT NULL DEFAULT 0;
+  ADD COLUMN IF NOT EXISTS other_operating numeric NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS staff numeric NOT NULL DEFAULT 0;
 
 CREATE OR REPLACE FUNCTION public.get_pnl_xls_dashboard(
   p_year text DEFAULT NULL
@@ -28,7 +29,8 @@ rows AS (
     x.profit_ytd,
     x.marketing,
     x.opex,
-    x.other_operating
+    x.other_operating,
+    x.staff
   FROM public.pnl_xls_results_monthly x
   JOIN params p ON p.yr = x.year
 ),
@@ -45,6 +47,7 @@ totals AS (
     COALESCE(SUM(marketing), 0) AS marketing_ytd,
     COALESCE(SUM(opex), 0) AS opex_ytd,
     COALESCE(SUM(other_operating), 0) AS other_operating_ytd,
+    COALESCE(SUM(staff), 0) AS staff_ytd,
     COALESCE((
       SELECT to_date(month_key || '-01', 'YYYY-MM-DD')::date
       FROM rows
@@ -58,7 +61,6 @@ totals AS (
       LIMIT 1
     ), CURRENT_DATE) AS to_date
   FROM rows
-)
 ),
 journal_last AS (
   SELECT COALESCE(MAX(j.month_num), 0) AS last_actual_month
@@ -85,6 +87,7 @@ SELECT json_build_object(
         'marketing', r.marketing,
         'opex', r.opex,
         'other_operating', r.other_operating,
+        'staff', r.staff,
         'margin_pct', CASE WHEN r.revenue <> 0 THEN r.profit_month / r.revenue ELSE null END
       )
       ORDER BY r.month_key

@@ -119,8 +119,9 @@ def extract_results(xlsx_path: Path, sheet_name: str = "Výsledky") -> list[dict
     r_marketing = _find_row_with_text_and_numbers(ws, "Marketing & Promo", month_cols)
     r_opex = _find_row_with_text_and_numbers(ws, "OPEX", month_cols)
     r_other = _find_row_with_text_and_numbers(ws, "Ostatné", month_cols)
+    r_staff = _find_row_with_text_and_numbers(ws, "Staff", month_cols)
 
-    if None in (r_revenue, r_costs, r_profit_m, r_profit_y, r_marketing, r_opex, r_other):
+    if None in (r_revenue, r_costs, r_profit_m, r_profit_y, r_marketing, r_opex, r_other, r_staff):
         raise SystemExit(
             "Nepodarilo sa nájsť riadky pre Výnosy/Náklady/Zisk (skontroluj štruktúru XLS template)."
         )
@@ -134,8 +135,9 @@ def extract_results(xlsx_path: Path, sheet_name: str = "Výsledky") -> list[dict
         marketing = _to_number(ws.cell(r_marketing, c).value)
         opex = _to_number(ws.cell(r_opex, c).value)
         other_operating = _to_number(ws.cell(r_other, c).value)
+        staff = _to_number(ws.cell(r_staff, c).value)
 
-        if None in (rev, costs, profit_m, profit_y, marketing, opex, other_operating):
+        if None in (rev, costs, profit_m, profit_y, marketing, opex, other_operating, staff):
             continue
 
         month_key = f"{year_int}-{month_num:02d}"
@@ -150,6 +152,7 @@ def extract_results(xlsx_path: Path, sheet_name: str = "Výsledky") -> list[dict
                     "marketing": round(marketing, 2),
                     "opex": round(opex, 2),
                     "other_operating": round(other_operating, 2),
+                    "staff": round(staff, 2),
             }
         )
 
