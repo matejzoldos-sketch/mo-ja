@@ -543,7 +543,7 @@ SELECT json_build_object(
       'to', b.d_to,
       'month', b.month_key,
       'launch_from', la.d_from,
-      'journal_note', 'Fees z denníka podľa YTD Marketing & Promo; Ads z Meta CSV. mROAS = Revenue / (Ads + Fees agentúry: Správa PPC). VK Google agentúra je vo Fees, nie v mROAS.',
+      'journal_note', 'Fees z denníka podľa YTD Marketing & Promo; Ads z Meta CSV. mROAS = Revenue / (Ads + Fees agentúry: Správa PPC + VK Marketing Google).',
       'compareFrom', pb.d_from,
       'compareTo', pb.d_to,
       'compareKind', pb.compare_kind,
