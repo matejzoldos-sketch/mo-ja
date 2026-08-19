@@ -57,6 +57,72 @@ type PnlPayload = {
   topExpenses: TopExpense[];
 };
 
+type PnlXlsMonth = {
+  month_key: string;
+  revenue: number;
+  costs: number;
+  profit_month: number;
+  profit_ytd: number;
+  margin_pct: number | null;
+};
+
+type PnlXlsPayload = {
+  meta: {
+    year: number | string;
+    from: string;
+    to: string;
+    note: string;
+  };
+  totals: {
+    revenue_ytd: number;
+    costs_ytd: number;
+    profit_ytd: number;
+  };
+  monthly: PnlXlsMonth[];
+};
+
+function transformXlsToPnlPayload(xls: PnlXlsPayload): PnlPayload {
+  return {
+    meta: {
+      year: String(xls.meta.year),
+      from: xls.meta.from,
+      to: xls.meta.to,
+      note: xls.meta.note,
+    },
+    totals: {
+      total_revenue: xls.totals.revenue_ytd,
+      cogs_journal: 0,
+      cogs_estimated: 0,
+      cogs: 0,
+      gross_profit: xls.totals.profit_ytd,
+      total_opex: xls.totals.costs_ytd,
+      contribution_margin: xls.totals.profit_ytd,
+      marketing_spend: 0,
+    },
+    monthly: xls.monthly.map((m) => ({
+      month_key: m.month_key,
+      sales_goods: m.revenue,
+      sales_services: 0,
+      other_revenue: 0,
+      total_revenue: m.revenue,
+      cogs_journal: 0,
+      cogs_estimated: 0,
+      cogs: 0,
+      gross_profit: m.profit_month,
+      material: m.costs,
+      representation: 0,
+      services: 0,
+      taxes_fees: 0,
+      other_operating: 0,
+      financial: 0,
+      total_opex: m.costs,
+      marketing_spend: 0,
+      contribution_margin: m.profit_month,
+    })),
+    topExpenses: [],
+  };
+}
+
 function formatMoney(n: number): string {
   return new Intl.NumberFormat("sk-SK", {
     style: "currency",
@@ -99,6 +165,7 @@ const ACCOUNT_LABELS: Record<string, string> = {
 
 export default function PnlPanel() {
   const [data, setData] = useState<PnlPayload | null>(null);
+  const [mode, setMode] = useState<"accounting" | "xls">("accounting");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [pdfExporting, setPdfExporting] = useState(false);
@@ -108,18 +175,25 @@ export default function PnlPanel() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/pnl", { credentials: "include" });
+      const res = await fetch(`/api/pnl?mode=${mode}`, {
+        credentials: "include",
+      });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
         throw new Error(body?.error ?? `HTTP ${res.status}`);
       }
-      setData(await res.json());
+      const body = await res.json();
+      if (mode === "xls") {
+        setData(transformXlsToPnlPayload(body as PnlXlsPayload));
+      } else {
+        setData(body as PnlPayload);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [mode]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -128,7 +202,9 @@ export default function PnlPanel() {
     const { totals: t, monthly, topExpenses, meta } = data;
     const mPct = t.total_revenue ? ((t.contribution_margin / t.total_revenue) * 100).toFixed(1) : "–";
     const mkPct = t.total_revenue ? ((t.marketing_spend / t.total_revenue) * 100).toFixed(1) : "–";
-    let md = `# P&L — Contribution Margin ${meta.year}\n\n`;
+    let md = `# ${
+      mode === "xls" ? `P&L (XLS Výsledky) ${meta.year}` : `P&L — Contribution Margin ${meta.year}`
+    }\n\n`;
     md += `> ${meta.note}\n\n`;
     md += `| KPI | Hodnota |\n|---|---|\n`;
     md += `| Tržby | ${fmt(t.total_revenue)} |\n`;
@@ -151,7 +227,7 @@ export default function PnlPanel() {
       md += `| ${e.supplier} | ${ACCOUNT_LABELS[e.account_prefix] ?? e.account_prefix} | ${fmt(e.amount_eur)} | ${e.line_count} |\n`;
     }
     return md;
-  }, [data]);
+  }, [data, mode]);
 
   const downloadMd = useCallback(() => {
     const md = buildMarkdown();
@@ -297,18 +373,57 @@ export default function PnlPanel() {
 
   return (
     <section className="panel">
-      <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", marginBottom: "0.5rem" }}>
-        <button type="button" className="btn btn--outline btn--sm" onClick={downloadMd}>
-          Stiahnuť MD
-        </button>
-        <button type="button" className="btn btn--outline btn--sm" onClick={downloadPdf} disabled={pdfExporting}>
-          {pdfExporting ? "Generujem PDF…" : "Stiahnuť PDF"}
-        </button>
+      <div
+        style={{
+          display: "flex",
+          gap: "0.75rem",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          marginBottom: "0.5rem",
+        }}
+      >
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          <span style={{ fontSize: "0.9rem", opacity: 0.85 }}>Zdroj</span>
+          <select
+            value={mode}
+            onChange={(e) => setMode(e.target.value as "accounting" | "xls")}
+            style={{
+              padding: "4px 8px",
+              borderRadius: 8,
+              border: "1px solid var(--border-strong)",
+              font: "inherit",
+              fontSize: "0.85rem",
+            }}
+            aria-label="Zdroj dát P&L"
+          >
+            <option value="accounting">Účtovníctvo (denník)</option>
+            <option value="xls">XLS (Výsledky)</option>
+          </select>
+        </div>
+
+        <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+          <button
+            type="button"
+            className="btn btn--outline btn--sm"
+            onClick={downloadMd}
+          >
+            Stiahnuť MD
+          </button>
+          <button
+            type="button"
+            className="btn btn--outline btn--sm"
+            onClick={downloadPdf}
+            disabled={pdfExporting}
+          >
+            {pdfExporting ? "Generujem PDF…" : "Stiahnuť PDF"}
+          </button>
+        </div>
       </div>
 
       <div className="dashboard-pdf-root" ref={pdfExportRef}>
       <h2 className="panel__title">
-        P&L — Contribution Margin {meta.year}
+        {mode === "xls" ? `P&L (XLS Výsledky) ${meta.year}` : `P&L — Contribution Margin ${meta.year}`}
       </h2>
       <p className="panel__note">{meta.note}</p>
 
@@ -439,16 +554,18 @@ export default function PnlPanel() {
         </table>
       </div>
 
-      <p style={{ fontSize: "0.75rem", opacity: 0.6, marginTop: "0.5rem" }}>
-        * COGS = vyššia z hodnôt: účet 504 z denníka vs. odhad 49,5 % tržieb za tovar.
-        Odhad vychádza z produktovej kalkulácie (marža ~50 % vrátane fulfillmentu, platobnej brány a prepravy).
-      </p>
+      {mode === "accounting" && (
+        <p style={{ fontSize: "0.75rem", opacity: 0.6, marginTop: "0.5rem" }}>
+          * COGS = vyššia z hodnôt: účet 504 z denníka vs. odhad 49,5 % tržieb za tovar.
+          Odhad vychádza z produktovej kalkulácie (marža ~50 % vrátane fulfillmentu, platobnej brány a prepravy).
+        </p>
+      )}
 
       {/* Cost structure vs benchmark */}
-      <CostStructureTable totals={t} monthly={monthly} />
+      {mode === "accounting" && <CostStructureTable totals={t} monthly={monthly} />}
 
       {/* All expenses */}
-      <SortableExpensesTable expenses={topExpenses} />
+      {mode === "accounting" && <SortableExpensesTable expenses={topExpenses} />}
       </div>
     </section>
   );

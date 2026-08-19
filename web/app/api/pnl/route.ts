@@ -16,6 +16,8 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const year = url.searchParams.get("year") ?? undefined;
+  const mode = (url.searchParams.get("mode") ?? "accounting").toLowerCase();
+  const rpcName = mode === "xls" ? "get_pnl_xls_dashboard" : "get_pnl_dashboard";
 
   const supabaseUrl = (process.env.SUPABASE_URL || "").trim();
   const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
@@ -30,7 +32,7 @@ export async function GET(request: Request) {
     const rpcRes = await supabasePostgrestRpc<Record<string, unknown>>(
       supabaseUrl,
       serviceKey,
-      "get_pnl_dashboard",
+      rpcName,
       { ...(year ? { p_year: year } : {}) }
     );
     if (rpcRes.error) {
