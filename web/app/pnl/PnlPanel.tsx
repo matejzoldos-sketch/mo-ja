@@ -63,6 +63,9 @@ type PnlXlsMonth = {
   costs: number;
   profit_month: number;
   profit_ytd: number;
+  marketing: number;
+  opex: number;
+  other_operating: number;
   margin_pct: number | null;
 };
 
@@ -77,11 +80,17 @@ type PnlXlsPayload = {
     revenue_ytd: number;
     costs_ytd: number;
     profit_ytd: number;
+    marketing_ytd: number;
+    opex_ytd: number;
+    other_operating_ytd: number;
   };
   monthly: PnlXlsMonth[];
 };
 
 function transformXlsToPnlPayload(xls: PnlXlsPayload): PnlPayload {
+  const cogsYtd = xls.totals.costs_ytd - xls.totals.opex_ytd;
+  const grossProfitYtd = xls.totals.revenue_ytd - cogsYtd;
+
   return {
     meta: {
       year: String(xls.meta.year),
@@ -93,11 +102,11 @@ function transformXlsToPnlPayload(xls: PnlXlsPayload): PnlPayload {
       total_revenue: xls.totals.revenue_ytd,
       cogs_journal: 0,
       cogs_estimated: 0,
-      cogs: 0,
-      gross_profit: xls.totals.profit_ytd,
-      total_opex: xls.totals.costs_ytd,
+      cogs: cogsYtd,
+      gross_profit: grossProfitYtd,
+      total_opex: xls.totals.opex_ytd,
       contribution_margin: xls.totals.profit_ytd,
-      marketing_spend: 0,
+      marketing_spend: xls.totals.marketing_ytd,
     },
     monthly: xls.monthly.map((m) => ({
       month_key: m.month_key,
@@ -107,16 +116,16 @@ function transformXlsToPnlPayload(xls: PnlXlsPayload): PnlPayload {
       total_revenue: m.revenue,
       cogs_journal: 0,
       cogs_estimated: 0,
-      cogs: 0,
-      gross_profit: m.profit_month,
-      material: m.costs,
+      cogs: m.costs - m.opex,
+      gross_profit: m.revenue - (m.costs - m.opex),
+      material: 0,
       representation: 0,
-      services: 0,
+      services: Math.max(0, m.opex - m.other_operating),
       taxes_fees: 0,
-      other_operating: 0,
+      other_operating: m.other_operating,
       financial: 0,
-      total_opex: m.costs,
-      marketing_spend: 0,
+      total_opex: m.opex,
+      marketing_spend: m.marketing,
       contribution_margin: m.profit_month,
     })),
     topExpenses: [],
@@ -308,7 +317,7 @@ export default function PnlPanel() {
           },
           {
             label: "Náklady",
-            data: months.map((m) => -m.total_opex),
+            data: months.map((m) => -(m.cogs + m.total_opex)),
             backgroundColor: months.map((_, i) =>
               isPlan[i] ? "rgba(239,68,68,0.2)" : "rgba(239,68,68,0.5)"
             ),
@@ -415,6 +424,39 @@ export default function PnlPanel() {
   const contributionMarginOk = inBench(marginPct, 10, 30);
   const marketingOk = inBench(marketingPct, 10, 30);
 
+  const xlsBreakdownMonthly =
+    mode === "xls"
+      ? (() => {
+          let lastIdx = -1;
+          for (let i = 0; i < monthly.length; i++) {
+            const m = monthly[i];
+            // Rozpad (marketing/opex/ostatné) máme v XLS len do momentu, kým sú vyplnené
+            // hodnoty v sheet-e (pri neskorších mesiacoch môžu byť bunky prázdne).
+            if (m.marketing_spend !== 0 || m.total_opex !== 0 || m.other_operating !== 0) {
+              lastIdx = i;
+            }
+          }
+          return lastIdx >= 0 ? monthly.slice(0, lastIdx + 1) : [];
+        })()
+      : monthly;
+
+  const xlsBreakdownTotals =
+    mode === "xls"
+      ? {
+          total_revenue: xlsBreakdownMonthly.reduce((s, m) => s + m.total_revenue, 0),
+          cogs_journal: 0,
+          cogs_estimated: 0,
+          cogs: xlsBreakdownMonthly.reduce((s, m) => s + m.cogs, 0),
+          gross_profit: xlsBreakdownMonthly.reduce((s, m) => s + m.gross_profit, 0),
+          total_opex: xlsBreakdownMonthly.reduce((s, m) => s + m.total_opex, 0),
+          contribution_margin: xlsBreakdownMonthly.reduce(
+            (s, m) => s + m.contribution_margin,
+            0
+          ),
+          marketing_spend: xlsBreakdownMonthly.reduce((s, m) => s + m.marketing_spend, 0),
+        }
+      : t;
+
   return (
     <section className="panel">
       <div
@@ -475,7 +517,10 @@ export default function PnlPanel() {
       {mode === "xls" ? (
         <div className="kpi-row" style={{ display: "flex", gap: "1rem", flexWrap: "wrap", margin: "1rem 0" }}>
           <KpiCard label="Výnosy (YTD)" value={formatMoney(t.total_revenue)} />
-          <KpiCard label="Náklady (YTD)" value={formatMoney(t.total_opex)} />
+          <KpiCard
+            label="Náklady (YTD)"
+            value={formatMoney(t.cogs + t.total_opex)}
+          />
           <KpiCard
             label="Zisk / strata (YTD)"
             value={formatMoney(t.contribution_margin)}
@@ -573,7 +618,7 @@ export default function PnlPanel() {
                       )}
                     </td>
                     <td className="num">{formatMoney(m.total_revenue)}</td>
-                    <td className="num">{formatMoney(m.total_opex)}</td>
+                    <td className="num">{formatMoney(m.cogs + m.total_opex)}</td>
                     <td
                       className="num"
                       style={{ fontWeight: 700, color: profit >= 0 ? "var(--clr-green, #16a34a)" : "var(--clr-red, #dc2626)" }}
@@ -595,7 +640,7 @@ export default function PnlPanel() {
               <tr style={{ fontWeight: 700 }}>
                 <td>YTD</td>
                 <td className="num">{formatMoney(t.total_revenue)}</td>
-                <td className="num">{formatMoney(t.total_opex)}</td>
+                <td className="num">{formatMoney(t.cogs + t.total_opex)}</td>
                 <td
                   className="num"
                   style={{ color: t.contribution_margin >= 0 ? "var(--clr-green, #16a34a)" : "var(--clr-red, #dc2626)" }}
@@ -703,7 +748,12 @@ export default function PnlPanel() {
       )}
 
       {/* Cost structure vs benchmark */}
-      {mode === "accounting" && <CostStructureTable totals={t} monthly={monthly} />}
+      {mode === "accounting" && (
+        <CostStructureTable totals={t} monthly={monthly} />
+      )}
+      {mode === "xls" && xlsBreakdownMonthly.length > 0 && (
+        <CostStructureTable totals={xlsBreakdownTotals} monthly={xlsBreakdownMonthly} />
+      )}
 
       {/* All expenses */}
       {mode === "accounting" && <SortableExpensesTable expenses={topExpenses} />}

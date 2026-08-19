@@ -67,6 +67,22 @@ def _find_costs_row(ws, month_cols: list[int], label_exact: str = "Náklady") ->
     return None
 
 
+def _find_row_with_text_and_numbers(
+    ws,
+    needle: str,
+    month_cols: list[int],
+    max_row: int = 250,
+) -> Optional[int]:
+    needle_l = needle.lower()
+    for r in range(1, min(ws.max_row, max_row) + 1):
+        v = ws.cell(r, 2).value
+        if isinstance(v, str) and needle_l in v.lower():
+            has_any_numbers = any(ws.cell(r, c).value is not None for c in month_cols)
+            if has_any_numbers:
+                return r
+    return None
+
+
 def extract_results(xlsx_path: Path, sheet_name: str = "Výsledky") -> list[dict]:
     wb = load_workbook(xlsx_path, read_only=True, data_only=True)
     if sheet_name not in wb.sheetnames:
@@ -100,8 +116,11 @@ def extract_results(xlsx_path: Path, sheet_name: str = "Výsledky") -> list[dict
     r_profit_m = _find_first_row_with_text(ws, "Výsledok za mesiac", col=2)
     r_profit_y = _find_first_row_with_text(ws, "Výsledok kumulatívne", col=2)
     r_costs = _find_costs_row(ws, month_cols)
+    r_marketing = _find_row_with_text_and_numbers(ws, "Marketing & Promo", month_cols)
+    r_opex = _find_row_with_text_and_numbers(ws, "OPEX", month_cols)
+    r_other = _find_row_with_text_and_numbers(ws, "Ostatné", month_cols)
 
-    if None in (r_revenue, r_costs, r_profit_m, r_profit_y):
+    if None in (r_revenue, r_costs, r_profit_m, r_profit_y, r_marketing, r_opex, r_other):
         raise SystemExit(
             "Nepodarilo sa nájsť riadky pre Výnosy/Náklady/Zisk (skontroluj štruktúru XLS template)."
         )
@@ -112,8 +131,11 @@ def extract_results(xlsx_path: Path, sheet_name: str = "Výsledky") -> list[dict
         costs = _to_number(ws.cell(r_costs, c).value)
         profit_m = _to_number(ws.cell(r_profit_m, c).value)
         profit_y = _to_number(ws.cell(r_profit_y, c).value)
+        marketing = _to_number(ws.cell(r_marketing, c).value)
+        opex = _to_number(ws.cell(r_opex, c).value)
+        other_operating = _to_number(ws.cell(r_other, c).value)
 
-        if None in (rev, costs, profit_m, profit_y):
+        if None in (rev, costs, profit_m, profit_y, marketing, opex, other_operating):
             continue
 
         month_key = f"{year_int}-{month_num:02d}"
@@ -125,6 +147,9 @@ def extract_results(xlsx_path: Path, sheet_name: str = "Výsledky") -> list[dict
                 "costs": round(costs, 2),
                 "profit_month": round(profit_m, 2),
                 "profit_ytd": round(profit_y, 2),
+                    "marketing": round(marketing, 2),
+                    "opex": round(opex, 2),
+                    "other_operating": round(other_operating, 2),
             }
         )
 
