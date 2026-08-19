@@ -321,6 +321,15 @@ export type MerMarkdownInput = {
     yoy_revenue_pct: number | null;
   }[];
   feesBreakdown: { month?: string; label: string; amount_eur: number }[];
+  marketingSuppliers?: {
+    label: string;
+    bucket: string;
+    role: string;
+    amount_eur: number;
+    line_count: number;
+    first_date: string;
+    last_date: string;
+  }[];
   unmappedExpenses: {
     label: string;
     line_text: string;
@@ -401,6 +410,29 @@ export function buildMarketingMerMarkdown(input: MerMarkdownInput): string {
           r.yoy_revenue_pct == null
             ? "—"
             : `${r.yoy_revenue_pct > 0 ? "+" : ""}${r.yoy_revenue_pct} %`,
+        ])
+      )
+    );
+    lines.push("");
+  }
+
+  if ((input.marketingSuppliers ?? []).length > 0) {
+    lines.push("## Marketingoví dodávatelia");
+    lines.push("");
+    lines.push(
+      mdTable(
+        ["Dodávateľ", "Zaradenie", "Suma", "Riadky", "Od", "Do"],
+        (input.marketingSuppliers ?? []).map((r) => [
+          r.label,
+          r.role === "agency"
+            ? "Agentúra (PPC)"
+            : r.role === "ads_skip"
+              ? "Ads (denník skip)"
+              : "Fees",
+          formatMoney(r.amount_eur, input.currency),
+          r.line_count,
+          r.first_date,
+          r.last_date,
         ])
       )
     );

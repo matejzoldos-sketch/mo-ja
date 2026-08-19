@@ -3,8 +3,8 @@
 Import účtovného denníka (CSV) → public.accounting_journal_lines.
 
 Použitie:
-  cd mo-ja/etl
-  python3 import_accounting_journal_csv.py --csv-path "../docs/Moja - Denník.csv"
+  python3 etl/import_accounting_journal_csv.py --csv-path "../docs/Moja - Denník.csv"
+  python3 etl/import_accounting_journal_csv.py --csv-path "../docs/MO-JA_report_2026.xlsx" --from-date 2026-06-01
 
 Vyžaduje:
   SUPABASE_URL
@@ -20,10 +20,10 @@ import logging
 import os
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from dotenv import load_dotenv
 from supabase import create_client
@@ -54,9 +54,13 @@ class JournalRow:
     source_row: int
 
 
-def parse_amount(raw: Optional[str]) -> Optional[float]:
+def parse_amount(raw: Optional[Union[str, int, float]]) -> Optional[float]:
     if raw is None:
         return None
+    if isinstance(raw, bool):
+        return None
+    if isinstance(raw, (int, float)):
+        return float(raw)
     s = str(raw).replace("€", "").replace("\xa0", " ").strip()
     if not s:
         return None
@@ -78,10 +82,14 @@ def parse_amount(raw: Optional[str]) -> Optional[float]:
         return None
 
 
-def parse_date(raw: Optional[str]) -> Optional[datetime]:
-    if not raw:
+def parse_date(raw: Optional[Union[str, datetime, date]]) -> Optional[datetime]:
+    if raw is None:
         return None
-    s = raw.strip()
+    if isinstance(raw, datetime):
+        return raw
+    if isinstance(raw, date):
+        return datetime(raw.year, raw.month, raw.day)
+    s = str(raw).strip()
     for fmt in ("%m/%d/%Y", "%d/%m/%Y", "%Y-%m-%d"):
         try:
             return datetime.strptime(s, fmt)
@@ -153,7 +161,7 @@ def parse_csv_rows(path: Path) -> List[JournalRow]:
             company = clean_optional(row.get("Firma"))
             partner = clean_optional(row.get("Meno"))
             month_raw = clean_text(row.get("Mesiac"))
-            month_num = int(month_raw) if month_raw.isdigit() else None
+            month_num = int(month_raw) if month_raw.isdigit() else dt.month
             entry_date = dt.date().isoformat()
 
             out.append(
@@ -185,6 +193,91 @@ def parse_csv_rows(path: Path) -> List[JournalRow]:
     return out
 
 
+def _cell(val: object) -> Optional[Union[str, int, float, datetime, date]]:
+    if val is None:
+        return None
+    if isinstance(val, (datetime, date, int, float)) and not isinstance(val, bool):
+        return val
+    return str(val)
+
+
+def parse_xlsx_rows(path: Path, sheet_name: str = "Denník") -> List[JournalRow]:
+    from openpyxl import load_workbook
+
+    wb = load_workbook(path, read_only=True, data_only=True)
+    if sheet_name not in wb.sheetnames:
+        wb.close()
+        raise SystemExit(
+            f"Hárok '{sheet_name}' nie je v {path.name}. Dostupné: {', '.join(wb.sheetnames)}"
+        )
+    ws = wb[sheet_name]
+    out: List[JournalRow] = []
+    headers: Optional[List[str]] = None
+
+    for row_num, raw in enumerate(ws.iter_rows(values_only=True), start=1):
+        if row_num == 1:
+            headers = [str(c).strip() if c is not None else "" for c in raw]
+            continue
+        if not headers:
+            continue
+        row = {
+            headers[i]: _cell(raw[i]) if i < len(raw) else None
+            for i in range(len(headers))
+            if headers[i]
+        }
+        dt = parse_date(row.get("Dátum"))
+        debit = clean_text(str(row.get("MD") or ""))
+        credit = clean_text(str(row.get("DAL") or ""))
+        doc = clean_text(str(row.get("Číslo") or ""))
+        text = clean_text(str(row.get("Text") or ""))
+        if not dt or not debit or not credit or not doc:
+            if any(v not in (None, "") for v in (row.get("Dátum"), debit, credit, doc)):
+                log.warning("Preskočený riadok %s: chýba dátum/účty/doklad", row_num)
+            continue
+        amount = parse_amount(row.get("Čiastka"))
+        if amount is None:
+            continue
+        company = clean_optional(str(row.get("Firma") or "") or None)
+        partner = clean_optional(str(row.get("Meno") or "") or None)
+        month_raw = clean_text(str(row.get("Mesiac") or ""))
+        month_num = int(month_raw) if month_raw.isdigit() else dt.month
+        entry_date = dt.date().isoformat()
+        out.append(
+            JournalRow(
+                line_hash=line_hash_for(
+                    entry_date,
+                    doc,
+                    debit,
+                    credit,
+                    amount,
+                    text,
+                    partner,
+                    company,
+                    row_num,
+                ),
+                entry_date=entry_date,
+                month_num=month_num,
+                doc_number=doc,
+                line_text=text,
+                debit_account=debit,
+                credit_account=credit,
+                amount_eur=round(amount, 2),
+                company_name=company,
+                partner_name=partner,
+                source_row=row_num,
+            )
+        )
+    wb.close()
+    return out
+
+
+def load_journal_rows(path: Path, sheet_name: str = "Denník") -> List[JournalRow]:
+    suffix = path.suffix.lower()
+    if suffix in {".xlsx", ".xlsm"}:
+        return parse_xlsx_rows(path, sheet_name=sheet_name)
+    return parse_csv_rows(path)
+
+
 def summarize_marketing(rows: List[JournalRow]) -> None:
     from collections import defaultdict
 
@@ -200,14 +293,16 @@ def summarize_marketing(rows: List[JournalRow]) -> None:
         if not acct.startswith("518") and not acct.startswith("5015"):
             return None
         if re.search(
-            r"shopify|web\s*shop|stripe|visuel|údržba webu|le\s*soft|čechovsk|projektov|ids\s*health|danetax|mof invest|swiss point",
+            r"shopify|web\s*shop|stripe|visuel|údržba webu|le\s*soft|čechovsk|projektov|ids\s*health|danetax|mof invest|swiss point|lidet|feminea|superfaktura|ytd s|finančný reporting|advokát|matej vida|gs1",
             hay,
         ):
+            return "exclude"
+        if re.search(r"leri", hay) and re.search(r"konzult", hay):
             return "exclude"
         if re.search(r"meta\s*platforms|meta\s*reklamy", hay):
             return "ads_skip"
         if re.search(
-            r"filip|žitňansk|ppc|bcreativum|mailer|manychat|canva|agnw|dizajn|kurečkov|ideamaking|copywriting|asaprint|letáky|birne",
+            r"filip|žitňansk|ppc|vk\s*marketing|nastavenie google ads|bartoš|bcreativum|mailer|manychat|canva|agnw|dizajn|kurečkov|ideamaking|copywriting|asaprint|letáky|birne|zelina|promo vide|knižnica|maskér|steli|hup-zagreb|studio echt|upterdam|serica|e-commerce",
             hay,
         ):
             return "fees"
@@ -286,13 +381,21 @@ def main() -> None:
 
     ap = argparse.ArgumentParser(description="Import účtovného denníka do mo-ja Supabase")
     ap.add_argument("--csv-path", type=Path, default=DEFAULT_CSV)
+    ap.add_argument("--sheet", default="Denník", help="Hárok pri xlsx (default Denník)")
+    ap.add_argument(
+        "--from-date",
+        default=None,
+        help="Importovať len riadky s dátumom >= YYYY-MM-DD (kvôli posunu source_row)",
+    )
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
     if not args.csv_path.is_file():
         raise SystemExit(f"Súbor neexistuje: {args.csv_path}")
 
-    rows = parse_csv_rows(args.csv_path)
+    rows = load_journal_rows(args.csv_path, sheet_name=args.sheet)
+    if args.from_date:
+        rows = [r for r in rows if r.entry_date >= args.from_date]
     dates = [r.entry_date for r in rows]
     log.info("Načítaných %s riadkov z %s", len(rows), args.csv_path)
     if dates:

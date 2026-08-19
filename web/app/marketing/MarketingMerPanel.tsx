@@ -71,6 +71,15 @@ type MerPayload = {
   kpisPrevious?: MerKpis | null;
   monthly: MerMonthRow[];
   feesBreakdown: { month?: string; label: string; amount_eur: number }[];
+  marketingSuppliers?: {
+    label: string;
+    bucket: string;
+    role: "fees" | "agency" | "ads_skip" | string;
+    amount_eur: number;
+    line_count: number;
+    first_date: string;
+    last_date: string;
+  }[];
   unmappedExpenses: {
     label: string;
     line_text: string;
@@ -90,6 +99,18 @@ function formatMoney(n: number, currency = "EUR"): string {
 function formatRatio(n: number | null | undefined, suffix = "×"): string {
   if (n == null) return "—";
   return `${n.toFixed(2)}${suffix}`;
+}
+
+function supplierRoleLabel(role: string): string {
+  if (role === "agency") return "Agentúra (PPC)";
+  if (role === "ads_skip") return "Ads (denník skip)";
+  return "Fees";
+}
+
+function formatIsoDateSk(iso: string | null | undefined): string {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}/.test(iso)) return "—";
+  const [y, m, d] = iso.slice(0, 10).split("-");
+  return `${Number(d)}. ${Number(m)}. ${y}`;
 }
 
 export default function MarketingMerPanel() {
@@ -163,6 +184,7 @@ export default function MarketingMerPanel() {
       kpis,
       monthly: data.monthly,
       feesBreakdown: data.feesBreakdown,
+      marketingSuppliers: data.marketingSuppliers ?? [],
       unmappedExpenses: data.unmappedExpenses,
     });
     downloadMarketingMarkdown(
@@ -392,8 +414,9 @@ export default function MarketingMerPanel() {
           Graf a tabuľka: {SERIES_LABEL}
         </p>
         <p className="dashboard-meta dashboard-meta--hint">
-          Ads = Meta CSV · Fees = denník (518/5015) · mROAS = Revenue / (Ads +
-          Fees agentúry: Správa PPC) · Meta FP v denníku sa nepočíta dvakrát.
+          Ads = Meta CSV · Fees = denník 518/5015 podľa YTD Marketing & Promo ·
+          mROAS = Revenue / (Ads + Správa PPC) · VK Google agentúra je vo Fees,
+          nie v mROAS · Meta FP v denníku sa nepočíta dvakrát.
         </p>
 
         <div className="kpi-grid kpi-grid--marketing-mer">
@@ -576,6 +599,62 @@ export default function MarketingMerPanel() {
             </table>
           </div>
         </section>
+
+        {(data.marketingSuppliers ?? []).length > 0 ? (
+          <section className="dashboard-card" style={{ marginTop: "1.25rem" }}>
+            <h2 className="dashboard-card__title">
+              Marketingoví dodávatelia · {SERIES_LABEL}
+            </h2>
+            <p className="dashboard-meta dashboard-meta--hint">
+              Fees idú do MER. Agentúra (PPC) ide aj do mROAS. Ads skip = Meta
+              faktúry v denníku (spend z CSV). Mimo MER: LIDET, LeRi konzultácie,
+              YTD, SuperFaktura, právne, GS1, Visuel/web.
+            </p>
+            <div className="table-wrap">
+              <table className="data-table data-table--compact">
+                <thead>
+                  <tr>
+                    <th>Dodávateľ</th>
+                    <th>Zaradenie</th>
+                    <th>Suma</th>
+                    <th>Riadky</th>
+                    <th>Od</th>
+                    <th>Do</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(data.marketingSuppliers ?? []).map((row) => (
+                    <tr key={`${row.role}-${row.label}`}>
+                      <td>{row.label}</td>
+                      <td>{supplierRoleLabel(row.role)}</td>
+                      <td>{formatMoney(row.amount_eur, currency)}</td>
+                      <td>{row.line_count.toLocaleString("sk-SK")}</td>
+                      <td>{formatIsoDateSk(row.first_date)}</td>
+                      <td>{formatIsoDateSk(row.last_date)}</td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td>
+                      <strong>Fees spolu</strong>
+                    </td>
+                    <td />
+                    <td>
+                      <strong>
+                        {formatMoney(
+                          (data.marketingSuppliers ?? [])
+                            .filter((r) => r.role !== "ads_skip")
+                            .reduce((sum, r) => sum + Number(r.amount_eur || 0), 0),
+                          currency
+                        )}
+                      </strong>
+                    </td>
+                    <td colSpan={3} />
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ) : null}
 
         {feesByMonth ? (
           <section className="dashboard-card" style={{ marginTop: "1.25rem" }}>

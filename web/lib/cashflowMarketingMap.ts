@@ -19,12 +19,14 @@ export type MarketingMatchTx = {
 export type MarketingBucket =
   | "BCreativum"
   | "Bc. Filip Žitňanský"
+  | "Google agentúra (VK)"
   | "Dizajn manuál"
   | "Meta"
   | "Google Ads"
   | "Mailer"
   | "InputFlow"
   | "ManyChat"
+  | "Video"
   | "Web"
   | "Reklamný materiál"
   | "Cestovné"
@@ -39,6 +41,10 @@ type MatchRule = {
 const MARKETING_RULES: MatchRule[] = [
   // Isté — paid media / tools / dodávatelia
   { bucket: "Meta", pattern: /\bfacebk\b|\bfacebook\b|fb\.me\/ads/i },
+  {
+    bucket: "Google agentúra (VK)",
+    pattern: /vk\s*marketing/i,
+  },
   { bucket: "Google Ads", pattern: /\bgoogle\s*ads/i },
   {
     bucket: "Mailer",
@@ -59,6 +65,10 @@ const MARKETING_RULES: MatchRule[] = [
     pattern: /žitňansk|zitnansk|sk8511000000002946195397/i,
   },
   {
+    bucket: "Video",
+    pattern: /zelina|promo vide/i,
+  },
+  {
     bucket: "Dizajn manuál",
     pattern: /\bagnw\b|dizajn\s*manu|sk5009000000005059540928/i,
   },
@@ -72,17 +82,17 @@ const MARKETING_RULES: MatchRule[] = [
   {
     bucket: "Cestovné",
     pattern:
-      /\bhotel\b|ecommerceday|konferencia\s*echt|upterdam|zonar|albrecht/i,
+      /\bhotel\b|ecommerceday|e-commerce day|hup-zagreb|studio echt|konferencia\s*echt|upterdam|serica|zonar|albrecht/i,
   },
   {
     bucket: "Ostatné (marketing)",
-    pattern: /\bcanva\b|birne\s*studio/i,
+    pattern: /\bcanva\b|birne\s*studio|knižnica|maskér|steli/i,
   },
 ];
 
 /** Explicitne mimo marketing MER (aj keď by inak sedeli na iné pravidlo). */
 const NON_MARKETING_EXCLUSIONS =
-  /shopify|web\s*shop|le\s*soft|čechovsk|cechovsk|projektov|ids\s*health|sk3809000000000449179450/i;
+  /shopify|web\s*shop|le\s*soft|čechovsk|cechovsk|projektov|ids\s*health|lidet|feminea|superfaktura|\bytd\b|finančný reporting|advokát|matej vida|\bgs1\b|sk3809000000000449179450/i;
 
 function marketingHaystack(tx: MarketingMatchTx, rawLabel: string): string {
   return [
@@ -106,6 +116,7 @@ export function matchMarketingBucket(
   if (tx.amount >= 0) return null;
   const hay = marketingHaystack(tx, rawLabel);
   if (NON_MARKETING_EXCLUSIONS.test(hay)) return null;
+  if (/leri/i.test(hay) && /konzult/i.test(hay)) return null;
   // Výbery / mzdy cez Škutila nepatria do marketingu (ani keď je v poznámke „letaky“).
   if (/skutil|škutil/i.test(hay)) return null;
   for (const rule of MARKETING_RULES) {
