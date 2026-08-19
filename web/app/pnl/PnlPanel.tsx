@@ -280,6 +280,20 @@ export default function PnlPanel() {
 
   const { totals: t, monthly, topExpenses, meta } = data;
   const marginPct = t.total_revenue ? t.contribution_margin / t.total_revenue : 0;
+  const revenue = t.total_revenue || 0;
+  const cogsPct = revenue ? t.cogs / revenue : 0;
+  const grossMarginPct = revenue ? t.gross_profit / revenue : 0;
+  const opexPct = revenue ? t.total_opex / revenue : 0;
+  const marketingPct = revenue ? t.marketing_spend / revenue : 0;
+
+  const inBench = (pctFraction: number, minPct: number, maxPct: number) =>
+    pctFraction * 100 >= minPct && pctFraction * 100 <= maxPct;
+
+  const cogsOk = inBench(cogsPct, 30, 55);
+  const grossMarginOk = inBench(grossMarginPct, 45, 70);
+  const opexOk = inBench(opexPct, 20, 50);
+  const contributionMarginOk = inBench(marginPct, 10, 30);
+  const marketingOk = inBench(marketingPct, 10, 30);
 
   return (
     <section className="panel">
@@ -301,16 +315,38 @@ export default function PnlPanel() {
       {/* KPI scorecards */}
       <div className="kpi-row" style={{ display: "flex", gap: "1rem", flexWrap: "wrap", margin: "1rem 0" }}>
         <KpiCard label="Tržby" value={formatMoney(t.total_revenue)} />
-        <KpiCard label="COGS" value={formatMoney(t.cogs)} negative sub={t.cogs_journal < t.cogs_estimated ? "odhad 49,5 % z tovaru" : "z denníka (504)"} />
-        <KpiCard label="Hrubá marža" value={formatMoney(t.gross_profit)} />
-        <KpiCard label="OPEX" value={formatMoney(t.total_opex)} negative />
+        <KpiCard
+          label="COGS"
+          value={formatMoney(t.cogs)}
+          highlight={cogsOk ? "positive" : "negative"}
+          sub={`${formatPct(cogsPct)} · benchmark 30–55 % · ${
+            t.cogs_journal < t.cogs_estimated ? "odhad 49,5 % z tovaru" : "z denníka (504)"
+          }`}
+        />
+        <KpiCard
+          label="Hrubá marža"
+          value={formatMoney(t.gross_profit)}
+          highlight={grossMarginOk ? "positive" : "negative"}
+          sub={`${formatPct(grossMarginPct)} · benchmark 45–70 %`}
+        />
+        <KpiCard
+          label="OPEX"
+          value={formatMoney(t.total_opex)}
+          highlight={opexOk ? "positive" : "negative"}
+          sub={`${formatPct(opexPct)} · benchmark 20–50 %`}
+        />
         <KpiCard
           label="Contribution margin"
           value={formatMoney(t.contribution_margin)}
-          sub={formatPct(marginPct)}
-          highlight={t.contribution_margin >= 0 ? "positive" : "negative"}
+          sub={`${formatPct(marginPct)} · benchmark 10–30 %`}
+          highlight={contributionMarginOk ? "positive" : "negative"}
         />
-        <KpiCard label="z toho marketing" value={formatMoney(t.marketing_spend)} sub={t.total_revenue ? formatPct(t.marketing_spend / t.total_revenue) + " z tržieb" : undefined} />
+        <KpiCard
+          label="z toho marketing"
+          value={formatMoney(t.marketing_spend)}
+          highlight={marketingOk ? "positive" : "negative"}
+          sub={`${t.total_revenue ? formatPct(marketingPct) : "–"} z tržieb · benchmark 10–30 %`}
+        />
       </div>
 
       {/* Chart */}
