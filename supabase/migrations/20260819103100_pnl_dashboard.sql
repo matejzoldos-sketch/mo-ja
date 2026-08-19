@@ -121,7 +121,7 @@ monthly AS (
   LEFT JOIN marketing_monthly mk ON mk.month_key = m.month_key
 ),
 
--- Top expenses detail (top 20 suppliers by amount)
+-- All expenses by supplier
 top_expenses AS (
   SELECT
     l.label AS supplier,
@@ -132,7 +132,6 @@ top_expenses AS (
   WHERE l.debit_account ~ '^5'
   GROUP BY 1, 2
   ORDER BY 3 DESC
-  LIMIT 20
 ),
 
 totals AS (

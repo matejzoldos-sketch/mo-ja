@@ -405,20 +405,72 @@ export default function PnlPanel() {
       {/* Cost structure vs benchmark */}
       <CostStructureTable totals={t} monthly={monthly} />
 
-      {/* Top expenses */}
-      <h3 style={{ marginTop: "2rem" }}>Top 20 dodávateľov (náklady)</h3>
+      {/* All expenses */}
+      <SortableExpensesTable expenses={topExpenses} />
+      </div>
+    </section>
+  );
+}
+
+type SortKey = "supplier" | "account_prefix" | "amount_eur" | "line_count";
+type SortDir = "asc" | "desc";
+
+function SortableExpensesTable({ expenses }: { expenses: TopExpense[] }) {
+  const [sortKey, setSortKey] = useState<SortKey>("amount_eur");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  const sorted = useMemo(() => {
+    const copy = [...expenses];
+    copy.sort((a, b) => {
+      const av = a[sortKey];
+      const bv = b[sortKey];
+      if (typeof av === "number" && typeof bv === "number") {
+        return sortDir === "asc" ? av - bv : bv - av;
+      }
+      const as = String(av).toLowerCase();
+      const bs = String(bv).toLowerCase();
+      return sortDir === "asc" ? as.localeCompare(bs) : bs.localeCompare(as);
+    });
+    return copy;
+  }, [expenses, sortKey, sortDir]);
+
+  const toggle = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(key === "supplier" || key === "account_prefix" ? "asc" : "desc");
+    }
+  };
+
+  const arrow = (key: SortKey) =>
+    sortKey === key ? (sortDir === "asc" ? " ▲" : " ▼") : "";
+
+  const thStyle: React.CSSProperties = { cursor: "pointer", userSelect: "none" };
+
+  return (
+    <div style={{ marginTop: "2rem" }}>
+      <h3>Všetci dodávatelia (náklady)</h3>
       <div className="table-wrap" style={{ overflowX: "auto" }}>
         <table className="data-table">
           <thead>
             <tr>
-              <th>Dodávateľ</th>
-              <th>Účet</th>
-              <th className="num">Suma</th>
-              <th className="num">Riadkov</th>
+              <th style={thStyle} onClick={() => toggle("supplier")}>
+                Dodávateľ{arrow("supplier")}
+              </th>
+              <th style={thStyle} onClick={() => toggle("account_prefix")}>
+                Účet{arrow("account_prefix")}
+              </th>
+              <th className="num" style={thStyle} onClick={() => toggle("amount_eur")}>
+                Suma{arrow("amount_eur")}
+              </th>
+              <th className="num" style={thStyle} onClick={() => toggle("line_count")}>
+                Riadkov{arrow("line_count")}
+              </th>
             </tr>
           </thead>
           <tbody>
-            {topExpenses.map((e, i) => (
+            {sorted.map((e, i) => (
               <tr key={i}>
                 <td>{e.supplier}</td>
                 <td>{ACCOUNT_LABELS[e.account_prefix] ?? e.account_prefix}</td>
@@ -429,8 +481,7 @@ export default function PnlPanel() {
           </tbody>
         </table>
       </div>
-      </div>
-    </section>
+    </div>
   );
 }
 
