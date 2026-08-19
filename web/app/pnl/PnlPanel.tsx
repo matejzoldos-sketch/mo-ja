@@ -287,6 +287,35 @@ export default function PnlPanel() {
   const chartData = useMemo((): ChartData<"bar"> | null => {
     if (!data) return null;
     const months = data.monthly;
+    if (mode === "xls") {
+      return {
+        labels: months.map((m) => monthLabel(m.month_key)),
+        datasets: [
+          {
+            label: "Výnosy",
+            data: months.map((m) => m.total_revenue),
+            backgroundColor: "rgba(34,197,94,0.7)",
+            stack: "revenue",
+          },
+          {
+            label: "Náklady",
+            data: months.map((m) => -m.total_opex),
+            backgroundColor: "rgba(239,68,68,0.5)",
+            stack: "costs",
+          },
+          {
+            label: "Zisk/strata",
+            data: months.map((m) => m.contribution_margin),
+            backgroundColor: months.map((m) =>
+              m.contribution_margin >= 0
+                ? "rgba(59,130,246,0.7)"
+                : "rgba(239,68,68,0.7)"
+            ),
+            stack: "margin",
+          },
+        ],
+      };
+    }
     return {
       labels: months.map((m) => monthLabel(m.month_key)),
       datasets: [
@@ -320,7 +349,7 @@ export default function PnlPanel() {
         },
       ],
     };
-  }, [data]);
+  }, [data, mode]);
 
   const chartOpts = useMemo(
     (): ChartOptions<"bar"> => ({
@@ -428,41 +457,58 @@ export default function PnlPanel() {
       <p className="panel__note">{meta.note}</p>
 
       {/* KPI scorecards */}
-      <div className="kpi-row" style={{ display: "flex", gap: "1rem", flexWrap: "wrap", margin: "1rem 0" }}>
-        <KpiCard label="Tržby" value={formatMoney(t.total_revenue)} />
-        <KpiCard
-          label="COGS"
-          value={formatMoney(t.cogs)}
-          highlight={cogsOk ? "positive" : "negative"}
-          sub={`${formatPct(cogsPct)} · benchmark 30–55 % · ${
-            t.cogs_journal < t.cogs_estimated ? "odhad 49,5 % z tovaru" : "z denníka (504)"
-          }`}
-        />
-        <KpiCard
-          label="Hrubá marža"
-          value={formatMoney(t.gross_profit)}
-          highlight={grossMarginOk ? "positive" : "negative"}
-          sub={`${formatPct(grossMarginPct)} · benchmark 45–70 %`}
-        />
-        <KpiCard
-          label="OPEX"
-          value={formatMoney(t.total_opex)}
-          highlight={opexOk ? "positive" : "negative"}
-          sub={`${formatPct(opexPct)} · benchmark 20–50 %`}
-        />
-        <KpiCard
-          label="Contribution margin"
-          value={formatMoney(t.contribution_margin)}
-          sub={`${formatPct(marginPct)} · benchmark 10–30 %`}
-          highlight={contributionMarginOk ? "positive" : "negative"}
-        />
-        <KpiCard
-          label="z toho marketing"
-          value={formatMoney(t.marketing_spend)}
-          highlight={marketingOk ? "positive" : "negative"}
-          sub={`${t.total_revenue ? formatPct(marketingPct) : "–"} z tržieb · benchmark 10–30 %`}
-        />
-      </div>
+      {mode === "xls" ? (
+        <div className="kpi-row" style={{ display: "flex", gap: "1rem", flexWrap: "wrap", margin: "1rem 0" }}>
+          <KpiCard label="Výnosy (YTD)" value={formatMoney(t.total_revenue)} />
+          <KpiCard label="Náklady (YTD)" value={formatMoney(t.total_opex)} />
+          <KpiCard
+            label="Zisk / strata (YTD)"
+            value={formatMoney(t.contribution_margin)}
+            highlight={t.contribution_margin >= 0 ? "positive" : "negative"}
+          />
+          <KpiCard
+            label="Marža"
+            value={revenue ? formatPct(marginPct) : "–"}
+            highlight={t.contribution_margin >= 0 ? "positive" : "negative"}
+          />
+        </div>
+      ) : (
+        <div className="kpi-row" style={{ display: "flex", gap: "1rem", flexWrap: "wrap", margin: "1rem 0" }}>
+          <KpiCard label="Tržby" value={formatMoney(t.total_revenue)} />
+          <KpiCard
+            label="COGS"
+            value={formatMoney(t.cogs)}
+            highlight={cogsOk ? "positive" : "negative"}
+            sub={`${formatPct(cogsPct)} · benchmark 30–55 % · ${
+              t.cogs_journal < t.cogs_estimated ? "odhad 49,5 % z tovaru" : "z denníka (504)"
+            }`}
+          />
+          <KpiCard
+            label="Hrubá marža"
+            value={formatMoney(t.gross_profit)}
+            highlight={grossMarginOk ? "positive" : "negative"}
+            sub={`${formatPct(grossMarginPct)} · benchmark 45–70 %`}
+          />
+          <KpiCard
+            label="OPEX"
+            value={formatMoney(t.total_opex)}
+            highlight={opexOk ? "positive" : "negative"}
+            sub={`${formatPct(opexPct)} · benchmark 20–50 %`}
+          />
+          <KpiCard
+            label="Contribution margin"
+            value={formatMoney(t.contribution_margin)}
+            sub={`${formatPct(marginPct)} · benchmark 10–30 %`}
+            highlight={contributionMarginOk ? "positive" : "negative"}
+          />
+          <KpiCard
+            label="z toho marketing"
+            value={formatMoney(t.marketing_spend)}
+            highlight={marketingOk ? "positive" : "negative"}
+            sub={`${t.total_revenue ? formatPct(marketingPct) : "–"} z tržieb · benchmark 10–30 %`}
+          />
+        </div>
+      )}
 
       {/* Chart */}
       {chartData && (
@@ -473,85 +519,146 @@ export default function PnlPanel() {
 
       {/* Monthly table */}
       <div className="table-wrap" style={{ overflowX: "auto" }}>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Mesiac</th>
-              <th className="num">Tržby tovar</th>
-              <th className="num">Tržby služby</th>
-              <th className="num">Spolu tržby</th>
-              <th className="num" title="COGS = max(denník 504, odhad 49,5 % tržieb za tovar)">COGS*</th>
-              <th className="num">Hrubá marža</th>
-              <th className="num">Služby (518 bez marketingu)</th>
-              <th className="num">Marketing</th>
-              <th className="num">Ostatné</th>
-              <th className="num">OPEX spolu</th>
-              <th className="num" style={{ fontWeight: 700 }}>CM</th>
-              <th className="num">CM %</th>
-            </tr>
-          </thead>
-          <tbody>
-            {monthly.map((m) => {
-              const cm = m.contribution_margin;
-              const cmPct = m.total_revenue ? cm / m.total_revenue : 0;
-              const other = m.material + m.representation + m.taxes_fees + m.other_operating + m.financial;
-              const servicesNonMarketing = Math.max(0, m.services - m.marketing_spend);
-              return (
-                <tr key={m.month_key}>
-                  <td>{monthLabel(m.month_key)}</td>
-                  <td className="num">{formatMoney(m.sales_goods)}</td>
-                  <td className="num">{formatMoney(m.sales_services)}</td>
-                  <td className="num">{formatMoney(m.total_revenue)}</td>
-                  <td className="num">{formatMoney(m.cogs)}</td>
-                  <td className="num">{formatMoney(m.gross_profit)}</td>
-                  <td className="num">{formatMoney(servicesNonMarketing)}</td>
-                  <td className="num">{formatMoney(m.marketing_spend)}</td>
-                  <td className="num">{formatMoney(other)}</td>
-                  <td className="num">{formatMoney(m.total_opex)}</td>
-                  <td
-                    className="num"
-                    style={{ fontWeight: 700, color: cm >= 0 ? "var(--clr-green, #16a34a)" : "var(--clr-red, #dc2626)" }}
-                  >
-                    {formatMoney(cm)}
-                  </td>
-                  <td className="num">{formatPct(cmPct)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-          <tfoot>
-            <tr style={{ fontWeight: 700 }}>
-              <td>YTD</td>
-              <td className="num">{formatMoney(monthly.reduce((s, m) => s + m.sales_goods, 0))}</td>
-              <td className="num">{formatMoney(monthly.reduce((s, m) => s + m.sales_services, 0))}</td>
-              <td className="num">{formatMoney(t.total_revenue)}</td>
-              <td className="num">{formatMoney(t.cogs)}</td>
-              <td className="num">{formatMoney(t.gross_profit)}</td>
-              <td className="num">
-                {formatMoney(
-                  monthly.reduce((s, m) => s + Math.max(0, m.services - m.marketing_spend), 0)
-                )}
-              </td>
-              <td className="num">{formatMoney(t.marketing_spend)}</td>
-              <td className="num">
-                {formatMoney(
-                  monthly.reduce(
-                    (s, m) => s + m.material + m.representation + m.taxes_fees + m.other_operating + m.financial,
-                    0
-                  )
-                )}
-              </td>
-              <td className="num">{formatMoney(t.total_opex)}</td>
-              <td
-                className="num"
-                style={{ color: t.contribution_margin >= 0 ? "var(--clr-green, #16a34a)" : "var(--clr-red, #dc2626)" }}
-              >
-                {formatMoney(t.contribution_margin)}
-              </td>
-              <td className="num">{formatPct(marginPct)}</td>
-            </tr>
-          </tfoot>
-        </table>
+        {mode === "xls" ? (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Mesiac</th>
+                <th className="num">Výnosy</th>
+                <th className="num">Náklady</th>
+                <th className="num" style={{ fontWeight: 700 }}>Zisk / strata</th>
+                <th className="num">Zisk YTD</th>
+                <th className="num">Marža %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {monthly.map((m) => {
+                const profit = m.contribution_margin;
+                const mPctRow = m.total_revenue ? profit / m.total_revenue : 0;
+                let ytd = 0;
+                for (const row of monthly) {
+                  ytd += row.contribution_margin;
+                  if (row.month_key === m.month_key) break;
+                }
+                return (
+                  <tr key={m.month_key}>
+                    <td>{monthLabel(m.month_key)}</td>
+                    <td className="num">{formatMoney(m.total_revenue)}</td>
+                    <td className="num">{formatMoney(m.total_opex)}</td>
+                    <td
+                      className="num"
+                      style={{ fontWeight: 700, color: profit >= 0 ? "var(--clr-green, #16a34a)" : "var(--clr-red, #dc2626)" }}
+                    >
+                      {formatMoney(profit)}
+                    </td>
+                    <td
+                      className="num"
+                      style={{ color: ytd >= 0 ? "var(--clr-green, #16a34a)" : "var(--clr-red, #dc2626)" }}
+                    >
+                      {formatMoney(ytd)}
+                    </td>
+                    <td className="num">{formatPct(mPctRow)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr style={{ fontWeight: 700 }}>
+                <td>YTD</td>
+                <td className="num">{formatMoney(t.total_revenue)}</td>
+                <td className="num">{formatMoney(t.total_opex)}</td>
+                <td
+                  className="num"
+                  style={{ color: t.contribution_margin >= 0 ? "var(--clr-green, #16a34a)" : "var(--clr-red, #dc2626)" }}
+                >
+                  {formatMoney(t.contribution_margin)}
+                </td>
+                <td className="num" />
+                <td className="num">{formatPct(marginPct)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Mesiac</th>
+                <th className="num">Tržby tovar</th>
+                <th className="num">Tržby služby</th>
+                <th className="num">Spolu tržby</th>
+                <th className="num" title="COGS = max(denník 504, odhad 49,5 % tržieb za tovar)">COGS*</th>
+                <th className="num">Hrubá marža</th>
+                <th className="num">Služby (518 bez marketingu)</th>
+                <th className="num">Marketing</th>
+                <th className="num">Ostatné</th>
+                <th className="num">OPEX spolu</th>
+                <th className="num" style={{ fontWeight: 700 }}>CM</th>
+                <th className="num">CM %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {monthly.map((m) => {
+                const cm = m.contribution_margin;
+                const cmPct = m.total_revenue ? cm / m.total_revenue : 0;
+                const other = m.material + m.representation + m.taxes_fees + m.other_operating + m.financial;
+                const servicesNonMarketing = Math.max(0, m.services - m.marketing_spend);
+                return (
+                  <tr key={m.month_key}>
+                    <td>{monthLabel(m.month_key)}</td>
+                    <td className="num">{formatMoney(m.sales_goods)}</td>
+                    <td className="num">{formatMoney(m.sales_services)}</td>
+                    <td className="num">{formatMoney(m.total_revenue)}</td>
+                    <td className="num">{formatMoney(m.cogs)}</td>
+                    <td className="num">{formatMoney(m.gross_profit)}</td>
+                    <td className="num">{formatMoney(servicesNonMarketing)}</td>
+                    <td className="num">{formatMoney(m.marketing_spend)}</td>
+                    <td className="num">{formatMoney(other)}</td>
+                    <td className="num">{formatMoney(m.total_opex)}</td>
+                    <td
+                      className="num"
+                      style={{ fontWeight: 700, color: cm >= 0 ? "var(--clr-green, #16a34a)" : "var(--clr-red, #dc2626)" }}
+                    >
+                      {formatMoney(cm)}
+                    </td>
+                    <td className="num">{formatPct(cmPct)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr style={{ fontWeight: 700 }}>
+                <td>YTD</td>
+                <td className="num">{formatMoney(monthly.reduce((s, m) => s + m.sales_goods, 0))}</td>
+                <td className="num">{formatMoney(monthly.reduce((s, m) => s + m.sales_services, 0))}</td>
+                <td className="num">{formatMoney(t.total_revenue)}</td>
+                <td className="num">{formatMoney(t.cogs)}</td>
+                <td className="num">{formatMoney(t.gross_profit)}</td>
+                <td className="num">
+                  {formatMoney(
+                    monthly.reduce((s, m) => s + Math.max(0, m.services - m.marketing_spend), 0)
+                  )}
+                </td>
+                <td className="num">{formatMoney(t.marketing_spend)}</td>
+                <td className="num">
+                  {formatMoney(
+                    monthly.reduce(
+                      (s, m) => s + m.material + m.representation + m.taxes_fees + m.other_operating + m.financial,
+                      0
+                    )
+                  )}
+                </td>
+                <td className="num">{formatMoney(t.total_opex)}</td>
+                <td
+                  className="num"
+                  style={{ color: t.contribution_margin >= 0 ? "var(--clr-green, #16a34a)" : "var(--clr-red, #dc2626)" }}
+                >
+                  {formatMoney(t.contribution_margin)}
+                </td>
+                <td className="num">{formatPct(marginPct)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        )}
       </div>
 
       {mode === "accounting" && (
