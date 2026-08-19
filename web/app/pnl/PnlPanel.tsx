@@ -128,7 +128,7 @@ export default function PnlPanel() {
     const { totals: t, monthly, topExpenses, meta } = data;
     const mPct = t.total_revenue ? ((t.contribution_margin / t.total_revenue) * 100).toFixed(1) : "–";
     const mkPct = t.total_revenue ? ((t.marketing_spend / t.total_revenue) * 100).toFixed(1) : "–";
-    let md = `# P&L (Contribution Margin) ${meta.year}\n\n`;
+    let md = `# P&L — Contribution Margin ${meta.year}\n\n`;
     md += `> ${meta.note}\n\n`;
     md += `| KPI | Hodnota |\n|---|---|\n`;
     md += `| Tržby | ${fmt(t.total_revenue)} |\n`;
@@ -294,7 +294,7 @@ export default function PnlPanel() {
 
       <div className="dashboard-pdf-root" ref={pdfExportRef}>
       <h2 className="panel__title">
-        P&L (Contribution Margin) {meta.year}
+        P&L — Contribution Margin {meta.year}
       </h2>
       <p className="panel__note">{meta.note}</p>
 
