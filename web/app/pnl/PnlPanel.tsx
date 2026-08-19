@@ -588,7 +588,6 @@ function CostStructureTable({
               <th className="num">Suma</th>
               <th className="num">% z tržieb</th>
               <th className="num">D2C benchmark</th>
-              <th style={{ minWidth: 160 }}>Pozícia v benchmarku</th>
             </tr>
           </thead>
           <tbody>
@@ -604,35 +603,6 @@ function CostStructureTable({
                   </td>
                   <td className="num" style={{ fontSize: "0.8rem", opacity: 0.7 }}>
                     {r.benchLabel}
-                  </td>
-                  <td>
-                    <div style={{
-                      position: "relative",
-                      height: 18,
-                      background: "var(--clr-surface, #f1f5f9)",
-                      borderRadius: 4,
-                      overflow: "hidden",
-                    }}>
-                      <div style={{
-                        position: "absolute",
-                        left: `${r.benchMin}%`,
-                        width: `${r.benchMax - r.benchMin}%`,
-                        height: "100%",
-                        background: "rgba(34,197,94,0.15)",
-                        borderLeft: "1px solid rgba(34,197,94,0.4)",
-                        borderRight: "1px solid rgba(34,197,94,0.4)",
-                      }} />
-                      <div style={{
-                        position: "absolute",
-                        left: `${Math.min(pct100, 100)}%`,
-                        top: 0,
-                        width: 3,
-                        height: "100%",
-                        background: color,
-                        borderRadius: 2,
-                        transform: "translateX(-1.5px)",
-                      }} />
-                    </div>
                   </td>
                 </tr>
               );
