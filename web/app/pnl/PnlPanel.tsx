@@ -446,7 +446,7 @@ function SortableExpensesTable({ expenses }: { expenses: TopExpense[] }) {
       return sortDir === "asc" ? as.localeCompare(bs) : bs.localeCompare(as);
     });
     return copy;
-  }, [expenses, sortKey, sortDir]);
+  }, [filtered, sortKey, sortDir]);
 
   const toggle = (key: SortKey) => {
     if (sortKey === key) {
