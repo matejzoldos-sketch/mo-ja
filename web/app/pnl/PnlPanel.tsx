@@ -573,7 +573,12 @@ export default function PnlPanel() {
                 >
                   {formatMoney(t.contribution_margin)}
                 </td>
-                <td className="num" />
+                <td
+                  className="num"
+                  style={{ color: t.contribution_margin >= 0 ? "var(--clr-green, #16a34a)" : "var(--clr-red, #dc2626)" }}
+                >
+                  {formatMoney(t.contribution_margin)}
+                </td>
                 <td className="num">{formatPct(marginPct)}</td>
               </tr>
             </tfoot>
