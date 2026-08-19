@@ -402,6 +402,9 @@ export default function PnlPanel() {
         Odhad vychádza z produktovej kalkulácie (marža ~50 % vrátane fulfillmentu, platobnej brány a prepravy).
       </p>
 
+      {/* Cost structure vs benchmark */}
+      <CostStructureTable totals={t} monthly={monthly} />
+
       {/* Top expenses */}
       <h3 style={{ marginTop: "2rem" }}>Top 20 dodávateľov (náklady)</h3>
       <div className="table-wrap" style={{ overflowX: "auto" }}>
@@ -463,6 +466,180 @@ function KpiCard({
         {value}
       </div>
       {sub && <div style={{ fontSize: "0.75rem", opacity: 0.6 }}>{sub}</div>}
+    </div>
+  );
+}
+
+type BenchmarkRow = {
+  label: string;
+  value: number;
+  pct: number;
+  benchMin: number;
+  benchMax: number;
+  benchLabel: string;
+  invert?: boolean;
+};
+
+const BENCH_GREEN = "#16a34a";
+const BENCH_YELLOW = "#ca8a04";
+const BENCH_RED = "#dc2626";
+
+function benchColor(pct: number, min: number, max: number, invert?: boolean): string {
+  if (invert) {
+    if (pct <= min) return BENCH_GREEN;
+    if (pct <= max) return BENCH_YELLOW;
+    return BENCH_RED;
+  }
+  if (pct >= min) return BENCH_GREEN;
+  if (pct >= max) return BENCH_YELLOW;
+  return BENCH_RED;
+}
+
+function CostStructureTable({
+  totals: t,
+  monthly,
+}: {
+  totals: PnlPayload["totals"];
+  monthly: PnlMonth[];
+}) {
+  const rev = t.total_revenue || 1;
+  const totalServices = monthly.reduce((s, m) => s + m.services, 0);
+  const totalOther = monthly.reduce(
+    (s, m) => s + m.material + m.representation + m.taxes_fees + m.other_operating + m.financial,
+    0
+  );
+
+  const rows: BenchmarkRow[] = [
+    {
+      label: "COGS (náklady na tovar)",
+      value: t.cogs,
+      pct: t.cogs / rev,
+      benchMin: 30,
+      benchMax: 55,
+      benchLabel: "30–55 %",
+      invert: true,
+    },
+    {
+      label: "Hrubá marža",
+      value: t.gross_profit,
+      pct: t.gross_profit / rev,
+      benchMin: 45,
+      benchMax: 70,
+      benchLabel: "45–70 %",
+    },
+    {
+      label: "Marketing",
+      value: t.marketing_spend,
+      pct: t.marketing_spend / rev,
+      benchMin: 10,
+      benchMax: 30,
+      benchLabel: "10–30 %",
+      invert: true,
+    },
+    {
+      label: "Služby (518 bez marketingu)",
+      value: totalServices - t.marketing_spend,
+      pct: (totalServices - t.marketing_spend) / rev,
+      benchMin: 5,
+      benchMax: 20,
+      benchLabel: "5–20 %",
+      invert: true,
+    },
+    {
+      label: "Ostatné prevádzkové",
+      value: totalOther,
+      pct: totalOther / rev,
+      benchMin: 2,
+      benchMax: 10,
+      benchLabel: "2–10 %",
+      invert: true,
+    },
+    {
+      label: "OPEX spolu",
+      value: t.total_opex,
+      pct: t.total_opex / rev,
+      benchMin: 20,
+      benchMax: 50,
+      benchLabel: "20–50 %",
+      invert: true,
+    },
+    {
+      label: "Contribution margin",
+      value: t.contribution_margin,
+      pct: t.contribution_margin / rev,
+      benchMin: 10,
+      benchMax: 30,
+      benchLabel: "10–30 %",
+    },
+  ];
+
+  return (
+    <div style={{ marginTop: "2rem" }}>
+      <h3>Nákladová štruktúra vs. D2C e-commerce benchmark</h3>
+      <p style={{ fontSize: "0.75rem", opacity: 0.6, marginBottom: "0.75rem" }}>
+        Benchmarky sú orientačné pre D2C e-commerce (supplement/beauty) s vlastným fulfillmentom.
+        Zelená = v norme, žltá = na hranici, červená = mimo normy.
+      </p>
+      <div className="table-wrap" style={{ overflowX: "auto" }}>
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Kategória</th>
+              <th className="num">Suma</th>
+              <th className="num">% z tržieb</th>
+              <th className="num">D2C benchmark</th>
+              <th style={{ minWidth: 160 }}>Vizuál</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => {
+              const pct100 = r.pct * 100;
+              const color = benchColor(pct100, r.benchMin, r.benchMax, r.invert);
+              return (
+                <tr key={i}>
+                  <td>{r.label}</td>
+                  <td className="num">{formatMoney(r.value)}</td>
+                  <td className="num" style={{ fontWeight: 700, color }}>
+                    {formatPct(r.pct)}
+                  </td>
+                  <td className="num" style={{ fontSize: "0.8rem", opacity: 0.7 }}>
+                    {r.benchLabel}
+                  </td>
+                  <td>
+                    <div style={{
+                      position: "relative",
+                      height: 18,
+                      background: "var(--clr-surface, #f1f5f9)",
+                      borderRadius: 4,
+                      overflow: "hidden",
+                    }}>
+                      <div style={{
+                        position: "absolute",
+                        left: `${r.benchMin}%`,
+                        width: `${r.benchMax - r.benchMin}%`,
+                        height: "100%",
+                        background: "rgba(34,197,94,0.15)",
+                        borderLeft: "1px solid rgba(34,197,94,0.4)",
+                        borderRight: "1px solid rgba(34,197,94,0.4)",
+                      }} />
+                      <div style={{
+                        position: "absolute",
+                        left: `${Math.min(pct100, 100)}%`,
+                        top: 0,
+                        width: 3,
+                        height: "100%",
+                        background: color,
+                        borderRadius: 2,
+                        transform: "translateX(-1.5px)",
+                      }} />
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
