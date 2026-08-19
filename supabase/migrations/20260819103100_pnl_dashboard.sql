@@ -127,7 +127,11 @@ top_expenses AS (
     l.label AS supplier,
     LEFT(l.debit_account, 3) AS account_prefix,
     ROUND(SUM(l.amount_eur), 2) AS amount_eur,
-    COUNT(*)::int AS line_count
+    COUNT(*)::int AS line_count,
+    bool_or(
+      l.debit_account ~ '^518|^5015'
+      AND public.classify_journal_marketing_expense(l.line_text, l.label, l.label, l.debit_account) IN ('fees', 'ads_skip')
+    ) AS is_marketing
   FROM lines l
   WHERE l.debit_account ~ '^5'
   GROUP BY 1, 2

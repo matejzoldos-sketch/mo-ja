@@ -33,6 +33,7 @@ type TopExpense = {
   account_prefix: string;
   amount_eur: number;
   line_count: number;
+  is_marketing: boolean;
 };
 
 type PnlPayload = {
@@ -412,7 +413,7 @@ export default function PnlPanel() {
   );
 }
 
-type SortKey = "supplier" | "account_prefix" | "amount_eur" | "line_count";
+type SortKey = "supplier" | "account_prefix" | "amount_eur" | "line_count" | "is_marketing";
 type SortDir = "asc" | "desc";
 
 function SortableExpensesTable({ expenses }: { expenses: TopExpense[] }) {
@@ -424,6 +425,9 @@ function SortableExpensesTable({ expenses }: { expenses: TopExpense[] }) {
     copy.sort((a, b) => {
       const av = a[sortKey];
       const bv = b[sortKey];
+      if (typeof av === "boolean" && typeof bv === "boolean") {
+        return sortDir === "asc" ? +av - +bv : +bv - +av;
+      }
       if (typeof av === "number" && typeof bv === "number") {
         return sortDir === "asc" ? av - bv : bv - av;
       }
@@ -461,6 +465,9 @@ function SortableExpensesTable({ expenses }: { expenses: TopExpense[] }) {
               <th style={thStyle} onClick={() => toggle("account_prefix")}>
                 Účet{arrow("account_prefix")}
               </th>
+              <th style={thStyle} onClick={() => toggle("is_marketing")}>
+                Typ{arrow("is_marketing")}
+              </th>
               <th className="num" style={thStyle} onClick={() => toggle("amount_eur")}>
                 Suma{arrow("amount_eur")}
               </th>
@@ -471,9 +478,20 @@ function SortableExpensesTable({ expenses }: { expenses: TopExpense[] }) {
           </thead>
           <tbody>
             {sorted.map((e, i) => (
-              <tr key={i}>
+              <tr key={i} style={e.is_marketing ? { background: "rgba(234,179,8,0.08)" } : undefined}>
                 <td>{e.supplier}</td>
                 <td>{ACCOUNT_LABELS[e.account_prefix] ?? e.account_prefix}</td>
+                <td>
+                  <span style={{
+                    fontSize: "0.7rem",
+                    padding: "2px 6px",
+                    borderRadius: 4,
+                    background: e.is_marketing ? "rgba(234,179,8,0.2)" : "rgba(100,116,139,0.1)",
+                    color: e.is_marketing ? "#92400e" : "#475569",
+                  }}>
+                    {e.is_marketing ? "marketing" : "prevádzka"}
+                  </span>
+                </td>
                 <td className="num">{formatMoney(e.amount_eur)}</td>
                 <td className="num">{e.line_count}</td>
               </tr>
