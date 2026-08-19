@@ -25,6 +25,7 @@ type PnlMonth = {
   financial: number;
   total_opex: number;
   marketing_spend: number;
+  staff_spend: number;
   contribution_margin: number;
 };
 
@@ -34,6 +35,7 @@ type TopExpense = {
   amount_eur: number;
   line_count: number;
   is_marketing: boolean;
+  is_staff: boolean;
 };
 
 type PnlPayload = {
@@ -53,6 +55,7 @@ type PnlPayload = {
     total_opex: number;
     contribution_margin: number;
     marketing_spend: number;
+    staff_spend: number;
   };
   monthly: PnlMonth[];
   topExpenses: TopExpense[];
@@ -115,6 +118,7 @@ function transformXlsToPnlPayload(xls: PnlXlsPayload): PnlPayload {
     financial: 0,
     total_opex: m.opex,
     marketing_spend: m.marketing,
+    staff_spend: 0,
     contribution_margin: m.profit_month,
   }));
 
@@ -141,6 +145,7 @@ function transformXlsToPnlPayload(xls: PnlXlsPayload): PnlPayload {
       total_opex: sumOpex,
       contribution_margin: sumCm,
       marketing_spend: sumMk,
+      staff_spend: 0,
     },
     monthly: mapped,
     topExpenses: [],
@@ -507,7 +512,7 @@ export default function PnlPanel() {
             value={formatMoney(t.cogs)}
             highlight={cogsOk ? "positive" : "negative"}
             sub={`${formatPct(cogsPct)} · benchmark 30–55 % · ${
-              t.cogs_journal < t.cogs_estimated ? "odhad 49,5 % z tovaru" : "z denníka (504)"
+              t.cogs_journal < t.cogs_estimated ? "odhad 35,6 % z tovaru" : "z denníka (504)"
             }`}
           />
           <KpiCard
@@ -618,9 +623,10 @@ export default function PnlPanel() {
                 <th className="num">Tržby tovar</th>
                 <th className="num">Tržby služby</th>
                 <th className="num">Spolu tržby</th>
-                <th className="num" title="COGS = max(denník 504, odhad 49,5 % tržieb za tovar)">COGS*</th>
+                <th className="num" title="COGS = max(denník 504, odhad 35,6 % tržieb za tovar)">COGS*</th>
                 <th className="num">Hrubá marža</th>
-                <th className="num">Služby (518 bez marketingu)</th>
+                <th className="num">Služby (518 bez mk, staff)</th>
+                <th className="num">Staff</th>
                 <th className="num">Marketing</th>
                 <th className="num">Ostatné</th>
                 <th className="num">OPEX spolu</th>
@@ -633,7 +639,7 @@ export default function PnlPanel() {
                 const cm = m.contribution_margin;
                 const cmPct = m.total_revenue ? cm / m.total_revenue : 0;
                 const other = m.material + m.representation + m.taxes_fees + m.other_operating + m.financial;
-                const servicesNonMarketing = Math.max(0, m.services - m.marketing_spend);
+                const servicesClean = Math.max(0, m.services - m.marketing_spend - (m.staff_spend ?? 0));
                 return (
                   <tr key={m.month_key}>
                     <td>{monthLabel(m.month_key)}</td>
@@ -642,7 +648,8 @@ export default function PnlPanel() {
                     <td className="num">{formatMoney(m.total_revenue)}</td>
                     <td className="num">{formatMoney(m.cogs)}</td>
                     <td className="num">{formatMoney(m.gross_profit)}</td>
-                    <td className="num">{formatMoney(servicesNonMarketing)}</td>
+                    <td className="num">{formatMoney(servicesClean)}</td>
+                    <td className="num">{formatMoney(m.staff_spend ?? 0)}</td>
                     <td className="num">{formatMoney(m.marketing_spend)}</td>
                     <td className="num">{formatMoney(other)}</td>
                     <td className="num">{formatMoney(m.total_opex)}</td>
@@ -667,9 +674,10 @@ export default function PnlPanel() {
                 <td className="num">{formatMoney(t.gross_profit)}</td>
                 <td className="num">
                   {formatMoney(
-                    monthly.reduce((s, m) => s + Math.max(0, m.services - m.marketing_spend), 0)
+                    monthly.reduce((s, m) => s + Math.max(0, m.services - m.marketing_spend - (m.staff_spend ?? 0)), 0)
                   )}
                 </td>
+                <td className="num">{formatMoney(t.staff_spend ?? 0)}</td>
                 <td className="num">{formatMoney(t.marketing_spend)}</td>
                 <td className="num">
                   {formatMoney(
@@ -695,7 +703,7 @@ export default function PnlPanel() {
 
       {mode === "accounting" && (
         <p style={{ fontSize: "0.75rem", opacity: 0.6, marginTop: "0.5rem" }}>
-          * COGS = vyššia z hodnôt: účet 504 z denníka vs. odhad 49,5 % tržieb za tovar.
+          * COGS = vyššia z hodnôt: účet 504 z denníka vs. odhad 35,6 % tržieb za tovar (nákupná cena Orin).
           Odhad vychádza z produktovej kalkulácie (marža ~50 % vrátane fulfillmentu, platobnej brány a prepravy).
         </p>
       )}
@@ -722,7 +730,7 @@ function SortableExpensesTable({ expenses }: { expenses: TopExpense[] }) {
   const [sortKey, setSortKey] = useState<SortKey>("amount_eur");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [typeFilter, setTypeFilter] = useState<
-    "all" | "marketing" | "non_marketing"
+    "all" | "marketing" | "staff" | "non_marketing"
   >("all");
   const [accountFilter, setAccountFilter] = useState<string>("all");
 
@@ -737,7 +745,8 @@ function SortableExpensesTable({ expenses }: { expenses: TopExpense[] }) {
         return false;
       }
       if (typeFilter === "marketing" && !e.is_marketing) return false;
-      if (typeFilter === "non_marketing" && e.is_marketing) return false;
+      if (typeFilter === "staff" && !e.is_staff) return false;
+      if (typeFilter === "non_marketing" && (e.is_marketing || e.is_staff)) return false;
       return true;
     });
   }, [expenses, accountFilter, typeFilter]);
@@ -837,6 +846,7 @@ function SortableExpensesTable({ expenses }: { expenses: TopExpense[] }) {
                 >
                   <option value="all">Všetky typy</option>
                   <option value="marketing">marketing</option>
+                  <option value="staff">staff</option>
                   <option value="non_marketing">prevádzka</option>
                 </select>
               </th>
@@ -846,7 +856,7 @@ function SortableExpensesTable({ expenses }: { expenses: TopExpense[] }) {
           </thead>
           <tbody>
             {sorted.map((e, i) => (
-              <tr key={i} style={e.is_marketing ? { background: "rgba(234,179,8,0.08)" } : undefined}>
+              <tr key={i} style={e.is_marketing ? { background: "rgba(234,179,8,0.08)" } : e.is_staff ? { background: "rgba(99,102,241,0.06)" } : undefined}>
                 <td>{e.supplier}</td>
                 <td>{ACCOUNT_LABELS[e.account_prefix] ?? e.account_prefix}</td>
                 <td>
@@ -854,10 +864,10 @@ function SortableExpensesTable({ expenses }: { expenses: TopExpense[] }) {
                     fontSize: "0.7rem",
                     padding: "2px 6px",
                     borderRadius: 4,
-                    background: e.is_marketing ? "rgba(234,179,8,0.2)" : "rgba(100,116,139,0.1)",
-                    color: e.is_marketing ? "#92400e" : "#475569",
+                    background: e.is_marketing ? "rgba(234,179,8,0.2)" : e.is_staff ? "rgba(99,102,241,0.15)" : "rgba(100,116,139,0.1)",
+                    color: e.is_marketing ? "#92400e" : e.is_staff ? "#4338ca" : "#475569",
                   }}>
-                    {e.is_marketing ? "marketing" : "prevádzka"}
+                    {e.is_marketing ? "marketing" : e.is_staff ? "staff" : "prevádzka"}
                   </span>
                 </td>
                 <td className="num">{formatMoney(e.amount_eur)}</td>
@@ -979,12 +989,21 @@ function CostStructureTable({
       invert: true,
     },
     {
-      label: "Služby (518 bez marketingu)",
-      value: totalServices - t.marketing_spend,
-      pct: (totalServices - t.marketing_spend) / rev,
+      label: "Staff (mzdy cez služby)",
+      value: t.staff_spend ?? 0,
+      pct: (t.staff_spend ?? 0) / rev,
+      benchMin: 15,
+      benchMax: 35,
+      benchLabel: "15–35 %",
+      invert: true,
+    },
+    {
+      label: "Služby (518 bez mk, staff)",
+      value: totalServices - t.marketing_spend - (t.staff_spend ?? 0),
+      pct: (totalServices - t.marketing_spend - (t.staff_spend ?? 0)) / rev,
       benchMin: 5,
-      benchMax: 20,
-      benchLabel: "5–20 %",
+      benchMax: 15,
+      benchLabel: "5–15 %",
       invert: true,
     },
     {

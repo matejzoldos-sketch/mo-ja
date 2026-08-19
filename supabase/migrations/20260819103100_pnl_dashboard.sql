@@ -77,6 +77,23 @@ expense_monthly AS (
   GROUP BY 1
 ),
 
+-- Staff subset of 518 (people paid via services, mapped from XLS "Staff" category)
+staff_monthly AS (
+  SELECT
+    l.month_key,
+    ROUND(SUM(l.amount_eur), 2) AS staff_spend
+  FROM lines l
+  WHERE l.debit_account ~ '^518'
+    AND (
+      lower(l.label) LIKE '%lidet%'
+      OR lower(l.label) LIKE '%leri s.r.o%'
+      OR lower(l.label) LIKE '%zelina%'
+      OR l.label ~ 'echovsk'
+      OR l.label ~ 'ure.kov'
+    )
+  GROUP BY 1
+),
+
 -- Marketing subset of 518
 marketing_monthly AS (
   SELECT
@@ -106,9 +123,9 @@ monthly AS (
     COALESCE(r.other_revenue, 0) AS other_revenue,
     COALESCE(r.total_revenue, 0) AS total_revenue,
     COALESCE(c.cogs, 0) AS cogs_journal,
-    ROUND(COALESCE(r.sales_goods, 0) * 0.495, 2) AS cogs_estimated,
-    GREATEST(COALESCE(c.cogs, 0), ROUND(COALESCE(r.sales_goods, 0) * 0.495, 2)) AS cogs,
-    (COALESCE(r.total_revenue, 0) - GREATEST(COALESCE(c.cogs, 0), ROUND(COALESCE(r.sales_goods, 0) * 0.495, 2))) AS gross_profit,
+    ROUND(COALESCE(r.sales_goods, 0) * 0.356, 2) AS cogs_estimated,
+    GREATEST(COALESCE(c.cogs, 0), ROUND(COALESCE(r.sales_goods, 0) * 0.356, 2)) AS cogs,
+    (COALESCE(r.total_revenue, 0) - GREATEST(COALESCE(c.cogs, 0), ROUND(COALESCE(r.sales_goods, 0) * 0.356, 2))) AS gross_profit,
     COALESCE(e.material, 0) AS material,
     COALESCE(e.representation, 0) AS representation,
     COALESCE(e.services, 0) AS services,
@@ -117,12 +134,14 @@ monthly AS (
     COALESCE(e.financial, 0) AS financial,
     COALESCE(e.total_opex, 0) AS total_opex,
     COALESCE(mk.marketing_spend, 0) AS marketing_spend,
-    (COALESCE(r.total_revenue, 0) - GREATEST(COALESCE(c.cogs, 0), ROUND(COALESCE(r.sales_goods, 0) * 0.495, 2)) - COALESCE(e.total_opex, 0)) AS contribution_margin
+    COALESCE(st.staff_spend, 0) AS staff_spend,
+    (COALESCE(r.total_revenue, 0) - GREATEST(COALESCE(c.cogs, 0), ROUND(COALESCE(r.sales_goods, 0) * 0.356, 2)) - COALESCE(e.total_opex, 0)) AS contribution_margin
   FROM months m
   LEFT JOIN revenue_monthly r ON r.month_key = m.month_key
   LEFT JOIN cogs_monthly c ON c.month_key = m.month_key
   LEFT JOIN expense_monthly e ON e.month_key = m.month_key
   LEFT JOIN marketing_monthly mk ON mk.month_key = m.month_key
+  LEFT JOIN staff_monthly st ON st.month_key = m.month_key
 ),
 
 -- All expenses by supplier
@@ -141,7 +160,17 @@ top_expenses AS (
         lower(l.label) LIKE '%meta%platforms%'
         OR lower(l.label) LIKE '%meta%reklamy%'
       )
-    ) AS is_marketing
+    ) AS is_marketing,
+    bool_or(
+      l.debit_account ~ '^518'
+      AND (
+        lower(l.label) LIKE '%lidet%'
+        OR lower(l.label) LIKE '%leri s.r.o%'
+        OR lower(l.label) LIKE '%zelina%'
+        OR l.label ~ 'echovsk'
+        OR l.label ~ 'ure.kov'
+      )
+    ) AS is_staff
   FROM lines l
   WHERE l.debit_account ~ '^5'
   GROUP BY 1, 2
@@ -157,7 +186,8 @@ totals AS (
     ROUND(SUM(gross_profit), 2) AS gross_profit,
     ROUND(SUM(total_opex), 2) AS total_opex,
     ROUND(SUM(contribution_margin), 2) AS contribution_margin,
-    ROUND(SUM(marketing_spend), 2) AS marketing_spend
+    ROUND(SUM(marketing_spend), 2) AS marketing_spend,
+    ROUND(SUM(staff_spend), 2) AS staff_spend
   FROM monthly
 )
 
@@ -166,7 +196,7 @@ SELECT json_build_object(
     'year', (SELECT yr FROM params),
     'from', (SELECT d_from FROM year_bounds),
     'to', (SELECT d_to FROM year_bounds),
-    'note', 'Čiastočný P&L z účtovného denníka. COGS odhadnuté na 49,5 % tržieb za tovar (marža ~50 % podľa produktovej kalkulácie). Chýbajú: mzdy (52x), odpisy (55x), daň z príjmov (59x).'
+    'note', 'P&L z dennika. COGS = 35,6 % trzieb za tovar (Shopify). Staff = dodavatelia klasifikovani podla XLS ako mzdy. Chybaju: mzdy (52x), odpisy (55x), dan z prijmov (59x).'
   ),
   'totals', (SELECT row_to_json(t) FROM totals t),
   'monthly', COALESCE(
