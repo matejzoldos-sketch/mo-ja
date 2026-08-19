@@ -288,28 +288,43 @@ export default function PnlPanel() {
     if (!data) return null;
     const months = data.monthly;
     if (mode === "xls") {
+      const isPlan = months.map((m, i) =>
+        i > 0 &&
+        Math.round(m.total_revenue * 100) ===
+          Math.round(months[i - 1].total_revenue * 100)
+      );
       return {
-        labels: months.map((m) => monthLabel(m.month_key)),
+        labels: months.map((m, i) =>
+          isPlan[i] ? `${monthLabel(m.month_key)} (plán)` : monthLabel(m.month_key)
+        ),
         datasets: [
           {
             label: "Výnosy",
             data: months.map((m) => m.total_revenue),
-            backgroundColor: "rgba(34,197,94,0.7)",
+            backgroundColor: months.map((_, i) =>
+              isPlan[i] ? "rgba(34,197,94,0.3)" : "rgba(34,197,94,0.7)"
+            ),
             stack: "revenue",
           },
           {
             label: "Náklady",
             data: months.map((m) => -m.total_opex),
-            backgroundColor: "rgba(239,68,68,0.5)",
+            backgroundColor: months.map((_, i) =>
+              isPlan[i] ? "rgba(239,68,68,0.2)" : "rgba(239,68,68,0.5)"
+            ),
             stack: "costs",
           },
           {
             label: "Zisk/strata",
             data: months.map((m) => m.contribution_margin),
-            backgroundColor: months.map((m) =>
-              m.contribution_margin >= 0
-                ? "rgba(59,130,246,0.7)"
-                : "rgba(239,68,68,0.7)"
+            backgroundColor: months.map((m, i) =>
+              isPlan[i]
+                ? m.contribution_margin >= 0
+                  ? "rgba(59,130,246,0.3)"
+                  : "rgba(239,68,68,0.3)"
+                : m.contribution_margin >= 0
+                  ? "rgba(59,130,246,0.7)"
+                  : "rgba(239,68,68,0.7)"
             ),
             stack: "margin",
           },
@@ -532,7 +547,7 @@ export default function PnlPanel() {
               </tr>
             </thead>
             <tbody>
-              {monthly.map((m) => {
+              {monthly.map((m, idx) => {
                 const profit = m.contribution_margin;
                 const mPctRow = m.total_revenue ? profit / m.total_revenue : 0;
                 let ytd = 0;
@@ -540,9 +555,23 @@ export default function PnlPanel() {
                   ytd += row.contribution_margin;
                   if (row.month_key === m.month_key) break;
                 }
+                const isPlan =
+                  idx > 0 &&
+                  Math.round(m.total_revenue * 100) ===
+                    Math.round(monthly[idx - 1].total_revenue * 100);
+                const planStyle: React.CSSProperties | undefined = isPlan
+                  ? { background: "rgba(148,163,184,0.10)", fontStyle: "italic", opacity: 0.75 }
+                  : undefined;
                 return (
-                  <tr key={m.month_key}>
-                    <td>{monthLabel(m.month_key)}</td>
+                  <tr key={m.month_key} style={planStyle}>
+                    <td>
+                      {monthLabel(m.month_key)}
+                      {isPlan && (
+                        <span style={{ fontSize: "0.65rem", marginLeft: 4, opacity: 0.6 }}>
+                          plán
+                        </span>
+                      )}
+                    </td>
                     <td className="num">{formatMoney(m.total_revenue)}</td>
                     <td className="num">{formatMoney(m.total_opex)}</td>
                     <td
