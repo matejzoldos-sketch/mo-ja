@@ -331,7 +331,7 @@ export default function PnlPanel() {
               <th className="num">Spolu tržby</th>
               <th className="num" title="COGS = max(denník 504, odhad 49,5 % tržieb za tovar)">COGS*</th>
               <th className="num">Hrubá marža</th>
-              <th className="num">Služby (518)</th>
+              <th className="num">Služby (518 bez marketingu)</th>
               <th className="num">Marketing</th>
               <th className="num">Ostatné</th>
               <th className="num">OPEX spolu</th>
@@ -344,6 +344,7 @@ export default function PnlPanel() {
               const cm = m.contribution_margin;
               const cmPct = m.total_revenue ? cm / m.total_revenue : 0;
               const other = m.material + m.representation + m.taxes_fees + m.other_operating + m.financial;
+              const servicesNonMarketing = Math.max(0, m.services - m.marketing_spend);
               return (
                 <tr key={m.month_key}>
                   <td>{monthLabel(m.month_key)}</td>
@@ -352,7 +353,7 @@ export default function PnlPanel() {
                   <td className="num">{formatMoney(m.total_revenue)}</td>
                   <td className="num">{formatMoney(m.cogs)}</td>
                   <td className="num">{formatMoney(m.gross_profit)}</td>
-                  <td className="num">{formatMoney(m.services)}</td>
+                  <td className="num">{formatMoney(servicesNonMarketing)}</td>
                   <td className="num">{formatMoney(m.marketing_spend)}</td>
                   <td className="num">{formatMoney(other)}</td>
                   <td className="num">{formatMoney(m.total_opex)}</td>
@@ -375,7 +376,11 @@ export default function PnlPanel() {
               <td className="num">{formatMoney(t.total_revenue)}</td>
               <td className="num">{formatMoney(t.cogs)}</td>
               <td className="num">{formatMoney(t.gross_profit)}</td>
-              <td className="num">{formatMoney(monthly.reduce((s, m) => s + m.services, 0))}</td>
+              <td className="num">
+                {formatMoney(
+                  monthly.reduce((s, m) => s + Math.max(0, m.services - m.marketing_spend), 0)
+                )}
+              </td>
               <td className="num">{formatMoney(t.marketing_spend)}</td>
               <td className="num">
                 {formatMoney(
