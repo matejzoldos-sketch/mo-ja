@@ -588,7 +588,7 @@ function CostStructureTable({
               <th className="num">Suma</th>
               <th className="num">% z tržieb</th>
               <th className="num">D2C benchmark</th>
-              <th style={{ minWidth: 160 }}>Vizuál</th>
+              <th style={{ minWidth: 160 }}>Pozícia v benchmarku</th>
             </tr>
           </thead>
           <tbody>
