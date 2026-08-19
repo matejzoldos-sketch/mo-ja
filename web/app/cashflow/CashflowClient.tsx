@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Chart as ChartJS,
   ArcElement,
@@ -96,6 +96,8 @@ export default function CashflowClient() {
   const [err, setErr] = useState<string | null>(null);
   const [creditMonth, setCreditMonth] = useState("");
   const [debitMonth, setDebitMonth] = useState("");
+  const [pdfExporting, setPdfExporting] = useState(false);
+  const pdfExportRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -198,6 +200,81 @@ export default function CashflowClient() {
     [currency]
   );
 
+  const buildMarkdown = useCallback((): string => {
+    if (!data) return "";
+    const c = data.meta.currency;
+    const fm = (n: number) => formatMoney(n, c);
+    let md = `# Cash Flow — ${data.meta.accountLabel}\n\n`;
+    md += `> Pohyby od ${data.meta.periodStart.slice(0, 10)} · sync banky ${data.meta.lastSync ?? "–"}\n\n`;
+    md += `| KPI | Hodnota |\n|---|---|\n`;
+    md += `| Aktuálny zostatok | ${fm(data.kpis.currentBalance)} |\n`;
+    md += `| Netto od 1. 1. | ${fm(data.kpis.ytdNet)} |\n`;
+    md += `| Stav k 1. 1. | ${fm(data.kpis.openingAtPeriodStart)} |\n`;
+    md += `| Počet pohybov | ${data.kpis.transactionCount} |\n\n`;
+    md += `## Súhrn po mesiacoch\n\n`;
+    md += `| Mesiac | Počiatočný | + príjmy | − výdaje | Netto | Zostatok |\n`;
+    md += `|---|---|---|---|---|---|\n`;
+    for (const m of data.months) {
+      md += `| ${m.label} | ${fm(m.opening)} | ${fm(m.credit)} | ${fm(m.debit)} | ${fm(m.net)} | ${fm(m.closing)} |\n`;
+    }
+    return md;
+  }, [data]);
+
+  const downloadMd = useCallback(() => {
+    const md = buildMarkdown();
+    if (!md) return;
+    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `cashflow-${new Date().toISOString().slice(0, 10)}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [buildMarkdown]);
+
+  const downloadPdf = useCallback(async () => {
+    const root = pdfExportRef.current;
+    if (!root || !data) return;
+    setPdfExporting(true);
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+      const canvas = await html2canvas(root, {
+        scale: 1.75,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+        scrollX: 0,
+        scrollY: -window.scrollY,
+        windowWidth: root.scrollWidth,
+      });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const imgW = pageW;
+      const imgH = (canvas.height * imgW) / canvas.width;
+      let heightLeft = imgH;
+      let y = 0;
+      pdf.addImage(imgData, "PNG", 0, y, imgW, imgH);
+      heightLeft -= pageH;
+      while (heightLeft > 0) {
+        y = heightLeft - imgH;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 0, y, imgW, imgH);
+        heightLeft -= pageH;
+      }
+      pdf.save(`cashflow-${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch (e) {
+      console.error(e);
+      window.alert(e instanceof Error ? e.message : "Export do PDF zlyhal.");
+    } finally {
+      setPdfExporting(false);
+    }
+  }, [data]);
+
   return (
     <>
       <header className="site-header site-header--sklad">
@@ -219,6 +296,16 @@ export default function CashflowClient() {
 
         {data ? (
           <>
+            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", marginBottom: "0.5rem" }}>
+              <button type="button" className="btn btn--outline btn--sm" onClick={downloadMd}>
+                Stiahnuť MD
+              </button>
+              <button type="button" className="btn btn--outline btn--sm" onClick={downloadPdf} disabled={pdfExporting}>
+                {pdfExporting ? "Generujem PDF…" : "Stiahnuť PDF"}
+              </button>
+            </div>
+
+            <div className="dashboard-pdf-root" ref={pdfExportRef}>
             <p className="dashboard-period-hint">
               Účet {data.meta.accountLabel} · pohyby od{" "}
               {data.meta.periodStart.slice(0, 10)} · sync banky{" "}
@@ -380,6 +467,7 @@ export default function CashflowClient() {
               currency={currency}
               monthOptions={monthOptions}
             />
+            </div>
           </>
         ) : null}
       </main>
