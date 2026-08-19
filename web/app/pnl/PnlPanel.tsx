@@ -419,9 +419,19 @@ type SortDir = "asc" | "desc";
 function SortableExpensesTable({ expenses }: { expenses: TopExpense[] }) {
   const [sortKey, setSortKey] = useState<SortKey>("amount_eur");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [filterMode, setFilterMode] = useState<
+    "all" | "services_non_marketing"
+  >("all");
+
+  const filtered = useMemo(() => {
+    if (filterMode === "services_non_marketing") {
+      return expenses.filter((e) => e.account_prefix === "518" && !e.is_marketing);
+    }
+    return expenses;
+  }, [expenses, filterMode]);
 
   const sorted = useMemo(() => {
-    const copy = [...expenses];
+    const copy = [...filtered];
     copy.sort((a, b) => {
       const av = a[sortKey];
       const bv = b[sortKey];
@@ -455,6 +465,20 @@ function SortableExpensesTable({ expenses }: { expenses: TopExpense[] }) {
   return (
     <div style={{ marginTop: "2rem" }}>
       <h3>Všetci dodávatelia (náklady)</h3>
+      <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", margin: "0.5rem 0 0.75rem" }}>
+        <label style={{ fontSize: "0.9rem", opacity: 0.8 }} htmlFor="pnl-expenses-filter">
+          Filter
+        </label>
+        <select
+          id="pnl-expenses-filter"
+          value={filterMode}
+          onChange={(e) => setFilterMode(e.target.value as typeof filterMode)}
+          style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid var(--border-strong)" }}
+        >
+          <option value="all">Všetci dodávatelia</option>
+          <option value="services_non_marketing">Služby (518) bez marketingu</option>
+        </select>
+      </div>
       <div className="table-wrap" style={{ overflowX: "auto" }}>
         <table className="data-table">
           <thead>
