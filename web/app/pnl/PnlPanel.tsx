@@ -13,6 +13,8 @@ type PnlMonth = {
   sales_services: number;
   other_revenue: number;
   total_revenue: number;
+  cogs_journal: number;
+  cogs_estimated: number;
   cogs: number;
   gross_profit: number;
   material: number;
@@ -42,6 +44,8 @@ type PnlPayload = {
   };
   totals: {
     total_revenue: number;
+    cogs_journal: number;
+    cogs_estimated: number;
     cogs: number;
     gross_profit: number;
     total_opex: number;
@@ -296,7 +300,7 @@ export default function PnlPanel() {
       {/* KPI scorecards */}
       <div className="kpi-row" style={{ display: "flex", gap: "1rem", flexWrap: "wrap", margin: "1rem 0" }}>
         <KpiCard label="Tržby" value={formatMoney(t.total_revenue)} />
-        <KpiCard label="COGS" value={formatMoney(t.cogs)} negative />
+        <KpiCard label="COGS" value={formatMoney(t.cogs)} negative sub={t.cogs_journal < t.cogs_estimated ? "odhad 49,5 % z tovaru" : "z denníka (504)"} />
         <KpiCard label="Hrubá marža" value={formatMoney(t.gross_profit)} />
         <KpiCard label="OPEX" value={formatMoney(t.total_opex)} negative />
         <KpiCard
@@ -324,7 +328,7 @@ export default function PnlPanel() {
               <th className="num">Tržby tovar</th>
               <th className="num">Tržby služby</th>
               <th className="num">Spolu tržby</th>
-              <th className="num">COGS</th>
+              <th className="num" title="COGS = max(denník 504, odhad 49,5 % tržieb za tovar)">COGS*</th>
               <th className="num">Hrubá marža</th>
               <th className="num">Služby (518)</th>
               <th className="num">Marketing</th>
@@ -392,6 +396,11 @@ export default function PnlPanel() {
           </tfoot>
         </table>
       </div>
+
+      <p style={{ fontSize: "0.75rem", opacity: 0.6, marginTop: "0.5rem" }}>
+        * COGS = vyššia z hodnôt: účet 504 z denníka vs. odhad 49,5 % tržieb za tovar.
+        Odhad vychádza z produktovej kalkulácie (marža ~50 % vrátane fulfillmentu, platobnej brány a prepravy).
+      </p>
 
       {/* Top expenses */}
       <h3 style={{ marginTop: "2rem" }}>Top 20 dodávateľov (náklady)</h3>

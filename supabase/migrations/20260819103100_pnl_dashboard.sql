@@ -101,8 +101,10 @@ monthly AS (
     COALESCE(r.sales_services, 0) AS sales_services,
     COALESCE(r.other_revenue, 0) AS other_revenue,
     COALESCE(r.total_revenue, 0) AS total_revenue,
-    COALESCE(c.cogs, 0) AS cogs,
-    (COALESCE(r.total_revenue, 0) - COALESCE(c.cogs, 0)) AS gross_profit,
+    COALESCE(c.cogs, 0) AS cogs_journal,
+    ROUND(COALESCE(r.sales_goods, 0) * 0.495, 2) AS cogs_estimated,
+    GREATEST(COALESCE(c.cogs, 0), ROUND(COALESCE(r.sales_goods, 0) * 0.495, 2)) AS cogs,
+    (COALESCE(r.total_revenue, 0) - GREATEST(COALESCE(c.cogs, 0), ROUND(COALESCE(r.sales_goods, 0) * 0.495, 2))) AS gross_profit,
     COALESCE(e.material, 0) AS material,
     COALESCE(e.representation, 0) AS representation,
     COALESCE(e.services, 0) AS services,
@@ -111,7 +113,7 @@ monthly AS (
     COALESCE(e.financial, 0) AS financial,
     COALESCE(e.total_opex, 0) AS total_opex,
     COALESCE(mk.marketing_spend, 0) AS marketing_spend,
-    (COALESCE(r.total_revenue, 0) - COALESCE(c.cogs, 0) - COALESCE(e.total_opex, 0)) AS contribution_margin
+    (COALESCE(r.total_revenue, 0) - GREATEST(COALESCE(c.cogs, 0), ROUND(COALESCE(r.sales_goods, 0) * 0.495, 2)) - COALESCE(e.total_opex, 0)) AS contribution_margin
   FROM months m
   LEFT JOIN revenue_monthly r ON r.month_key = m.month_key
   LEFT JOIN cogs_monthly c ON c.month_key = m.month_key
@@ -136,6 +138,8 @@ top_expenses AS (
 totals AS (
   SELECT
     ROUND(SUM(total_revenue), 2) AS total_revenue,
+    ROUND(SUM(cogs_journal), 2) AS cogs_journal,
+    ROUND(SUM(cogs_estimated), 2) AS cogs_estimated,
     ROUND(SUM(cogs), 2) AS cogs,
     ROUND(SUM(gross_profit), 2) AS gross_profit,
     ROUND(SUM(total_opex), 2) AS total_opex,
@@ -149,7 +153,7 @@ SELECT json_build_object(
     'year', (SELECT yr FROM params),
     'from', (SELECT d_from FROM year_bounds),
     'to', (SELECT d_to FROM year_bounds),
-    'note', 'Čiastočný P&L z účtovného denníka. Chýbajú: mzdy (52x), odpisy (55x), daň z príjmov (59x).'
+    'note', 'Čiastočný P&L z účtovného denníka. COGS odhadnuté na 49,5 % tržieb za tovar (marža ~50 % podľa produktovej kalkulácie). Chýbajú: mzdy (52x), odpisy (55x), daň z príjmov (59x).'
   ),
   'totals', (SELECT row_to_json(t) FROM totals t),
   'monthly', COALESCE(
