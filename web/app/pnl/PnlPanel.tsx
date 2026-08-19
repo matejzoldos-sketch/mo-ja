@@ -158,7 +158,7 @@ export default function PnlPanel() {
         legend: { position: "bottom", labels: { boxWidth: 12 } },
         tooltip: {
           callbacks: {
-            label: (ctx) => `${ctx.dataset.label}: ${formatMoney(ctx.parsed.y)}`,
+            label: (ctx) => `${ctx.dataset.label}: ${formatMoney(ctx.parsed.y ?? 0)}`,
           },
         },
       },
