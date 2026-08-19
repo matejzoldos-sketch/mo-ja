@@ -8,7 +8,8 @@ export type DashboardSection =
   | "sklad"
   | "insighty"
   | "marketing"
-  | "scaling";
+  | "scaling"
+  | "pnl";
 
 const SECTIONS: {
   id: DashboardSection;
@@ -22,6 +23,7 @@ const SECTIONS: {
   { id: "insighty", label: "Insighty", path: "/insighty", subtitle: "Insighty" },
   { id: "marketing", label: "Marketing", path: "/marketing", subtitle: "Marketing" },
   { id: "scaling", label: "Spend", path: "/scaling", subtitle: "Spend rozhodnutie" },
+  { id: "pnl", label: "P&L", path: "/pnl", subtitle: "Výkaz ziskov a strát" },
 ];
 
 /** Dočasne skryté v hlavnom menu — stránka /insighty ostáva dostupná priamo. */
@@ -35,6 +37,7 @@ function sectionFromPathname(pathname: string): DashboardSection {
   if (pathname === "/insighty") return "insighty";
   if (pathname === "/marketing") return "marketing";
   if (pathname === "/scaling") return "scaling";
+  if (pathname === "/pnl") return "pnl";
   return "predaj";
 }
 
