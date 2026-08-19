@@ -90,47 +90,59 @@ type PnlXlsPayload = {
 };
 
 function transformXlsToPnlPayload(xls: PnlXlsPayload): PnlPayload {
-  const cogsYtd = xls.totals.costs_ytd - xls.totals.opex_ytd;
-  const grossProfitYtd = xls.totals.revenue_ytd - cogsYtd;
+  const lastActual = xls.meta.last_actual_month ?? 12;
+
+  const actualMonths = xls.monthly.filter((m) => {
+    const monthNum = parseInt(m.month_key.split("-")[1], 10);
+    return monthNum <= lastActual;
+  });
+
+  const mapped: PnlMonth[] = actualMonths.map((m) => ({
+    month_key: m.month_key,
+    sales_goods: m.revenue,
+    sales_services: 0,
+    other_revenue: 0,
+    total_revenue: m.revenue,
+    cogs_journal: 0,
+    cogs_estimated: 0,
+    cogs: m.costs - m.opex,
+    gross_profit: m.revenue - (m.costs - m.opex),
+    material: 0,
+    representation: 0,
+    services: Math.max(0, m.opex - m.other_operating),
+    taxes_fees: 0,
+    other_operating: m.other_operating,
+    financial: 0,
+    total_opex: m.opex,
+    marketing_spend: m.marketing,
+    contribution_margin: m.profit_month,
+  }));
+
+  const sumRev = mapped.reduce((s, m) => s + m.total_revenue, 0);
+  const sumCogs = mapped.reduce((s, m) => s + m.cogs, 0);
+  const sumOpex = mapped.reduce((s, m) => s + m.total_opex, 0);
+  const sumCm = mapped.reduce((s, m) => s + m.contribution_margin, 0);
+  const sumMk = mapped.reduce((s, m) => s + m.marketing_spend, 0);
 
   return {
     meta: {
       year: String(xls.meta.year),
       from: xls.meta.from,
       to: xls.meta.to,
-      note: xls.meta.note,
-      last_actual_month: xls.meta.last_actual_month,
+      note: `Hodnoty z XLS „Výsledky" (Jan–${monthLabel(actualMonths[actualMonths.length - 1]?.month_key ?? "01")} ${xls.meta.year}, skutočnosť podľa denníka).`,
+      last_actual_month: lastActual,
     },
     totals: {
-      total_revenue: xls.totals.revenue_ytd,
+      total_revenue: sumRev,
       cogs_journal: 0,
       cogs_estimated: 0,
-      cogs: cogsYtd,
-      gross_profit: grossProfitYtd,
-      total_opex: xls.totals.opex_ytd,
-      contribution_margin: xls.totals.profit_ytd,
-      marketing_spend: xls.totals.marketing_ytd,
+      cogs: sumCogs,
+      gross_profit: sumRev - sumCogs,
+      total_opex: sumOpex,
+      contribution_margin: sumCm,
+      marketing_spend: sumMk,
     },
-    monthly: xls.monthly.map((m) => ({
-      month_key: m.month_key,
-      sales_goods: m.revenue,
-      sales_services: 0,
-      other_revenue: 0,
-      total_revenue: m.revenue,
-      cogs_journal: 0,
-      cogs_estimated: 0,
-      cogs: m.costs - m.opex,
-      gross_profit: m.revenue - (m.costs - m.opex),
-      material: 0,
-      representation: 0,
-      services: Math.max(0, m.opex - m.other_operating),
-      taxes_fees: 0,
-      other_operating: m.other_operating,
-      financial: 0,
-      total_opex: m.opex,
-      marketing_spend: m.marketing,
-      contribution_margin: m.profit_month,
-    })),
+    monthly: mapped,
     topExpenses: [],
   };
 }
@@ -300,43 +312,28 @@ export default function PnlPanel() {
     if (!data) return null;
     const months = data.monthly;
     if (mode === "xls") {
-      const lastActual = data.meta.last_actual_month ?? 12;
-      const isPlan = months.map((m) => {
-        const monthNum = parseInt(m.month_key.split("-")[1], 10);
-        return monthNum > lastActual;
-      });
       return {
-        labels: months.map((m, i) =>
-          isPlan[i] ? `${monthLabel(m.month_key)} (plán)` : monthLabel(m.month_key)
-        ),
+        labels: months.map((m) => monthLabel(m.month_key)),
         datasets: [
           {
             label: "Výnosy",
             data: months.map((m) => m.total_revenue),
-            backgroundColor: months.map((_, i) =>
-              isPlan[i] ? "rgba(34,197,94,0.3)" : "rgba(34,197,94,0.7)"
-            ),
+            backgroundColor: "rgba(34,197,94,0.7)",
             stack: "revenue",
           },
           {
             label: "Náklady",
             data: months.map((m) => -(m.cogs + m.total_opex)),
-            backgroundColor: months.map((_, i) =>
-              isPlan[i] ? "rgba(239,68,68,0.2)" : "rgba(239,68,68,0.5)"
-            ),
+            backgroundColor: "rgba(239,68,68,0.5)",
             stack: "costs",
           },
           {
             label: "Zisk/strata",
             data: months.map((m) => m.contribution_margin),
-            backgroundColor: months.map((m, i) =>
-              isPlan[i]
-                ? m.contribution_margin >= 0
-                  ? "rgba(59,130,246,0.3)"
-                  : "rgba(239,68,68,0.3)"
-                : m.contribution_margin >= 0
-                  ? "rgba(59,130,246,0.7)"
-                  : "rgba(239,68,68,0.7)"
+            backgroundColor: months.map((m) =>
+              m.contribution_margin >= 0
+                ? "rgba(59,130,246,0.7)"
+                : "rgba(239,68,68,0.7)"
             ),
             stack: "margin",
           },
@@ -426,39 +423,6 @@ export default function PnlPanel() {
   const opexOk = inBench(opexPct, 20, 50);
   const contributionMarginOk = inBench(marginPct, 10, 30);
   const marketingOk = inBench(marketingPct, 10, 30);
-
-  const xlsBreakdownMonthly =
-    mode === "xls"
-      ? (() => {
-          let lastIdx = -1;
-          for (let i = 0; i < monthly.length; i++) {
-            const m = monthly[i];
-            // Rozpad (marketing/opex/ostatné) máme v XLS len do momentu, kým sú vyplnené
-            // hodnoty v sheet-e (pri neskorších mesiacoch môžu byť bunky prázdne).
-            if (m.marketing_spend !== 0 || m.total_opex !== 0 || m.other_operating !== 0) {
-              lastIdx = i;
-            }
-          }
-          return lastIdx >= 0 ? monthly.slice(0, lastIdx + 1) : [];
-        })()
-      : monthly;
-
-  const xlsBreakdownTotals =
-    mode === "xls"
-      ? {
-          total_revenue: xlsBreakdownMonthly.reduce((s, m) => s + m.total_revenue, 0),
-          cogs_journal: 0,
-          cogs_estimated: 0,
-          cogs: xlsBreakdownMonthly.reduce((s, m) => s + m.cogs, 0),
-          gross_profit: xlsBreakdownMonthly.reduce((s, m) => s + m.gross_profit, 0),
-          total_opex: xlsBreakdownMonthly.reduce((s, m) => s + m.total_opex, 0),
-          contribution_margin: xlsBreakdownMonthly.reduce(
-            (s, m) => s + m.contribution_margin,
-            0
-          ),
-          marketing_spend: xlsBreakdownMonthly.reduce((s, m) => s + m.marketing_spend, 0),
-        }
-      : t;
 
   return (
     <section className="panel">
@@ -595,7 +559,7 @@ export default function PnlPanel() {
               </tr>
             </thead>
             <tbody>
-              {monthly.map((m, idx) => {
+              {monthly.map((m) => {
                 const profit = m.contribution_margin;
                 const mPctRow = m.total_revenue ? profit / m.total_revenue : 0;
                 let ytd = 0;
@@ -603,21 +567,9 @@ export default function PnlPanel() {
                   ytd += row.contribution_margin;
                   if (row.month_key === m.month_key) break;
                 }
-                const monthNum = parseInt(m.month_key.split("-")[1], 10);
-                const isPlan = (meta.last_actual_month ?? 12) < monthNum;
-                const planStyle: React.CSSProperties | undefined = isPlan
-                  ? { background: "rgba(148,163,184,0.10)", fontStyle: "italic", opacity: 0.75 }
-                  : undefined;
                 return (
-                  <tr key={m.month_key} style={planStyle}>
-                    <td>
-                      {monthLabel(m.month_key)}
-                      {isPlan && (
-                        <span style={{ fontSize: "0.65rem", marginLeft: 4, opacity: 0.6 }}>
-                          plán
-                        </span>
-                      )}
-                    </td>
+                  <tr key={m.month_key}>
+                    <td>{monthLabel(m.month_key)}</td>
                     <td className="num">{formatMoney(m.total_revenue)}</td>
                     <td className="num">{formatMoney(m.cogs + m.total_opex)}</td>
                     <td
@@ -752,14 +704,8 @@ export default function PnlPanel() {
       {mode === "accounting" && (
         <CostStructureTable totals={t} monthly={monthly} />
       )}
-      {mode === "xls" && xlsBreakdownMonthly.length > 0 && (
-        <>
-          <CostStructureTable totals={xlsBreakdownTotals} monthly={xlsBreakdownMonthly} />
-          <p style={{ fontSize: "0.75rem", opacity: 0.6, marginTop: "0.25rem" }}>
-            Rozpad nákladov dostupný do: {monthLabel(xlsBreakdownMonthly[xlsBreakdownMonthly.length - 1].month_key)}{" "}
-            {meta.year} (neskoršie mesiace nemajú v XLS vyplnené kategórie)
-          </p>
-        </>
+      {mode === "xls" && monthly.length > 0 && (
+        <CostStructureTable totals={t} monthly={monthly} />
       )}
 
       {/* All expenses */}
