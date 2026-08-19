@@ -419,16 +419,26 @@ type SortDir = "asc" | "desc";
 function SortableExpensesTable({ expenses }: { expenses: TopExpense[] }) {
   const [sortKey, setSortKey] = useState<SortKey>("amount_eur");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
-  const [filterMode, setFilterMode] = useState<
-    "all" | "services_non_marketing"
+  const [typeFilter, setTypeFilter] = useState<
+    "all" | "marketing" | "non_marketing"
   >("all");
+  const [accountFilter, setAccountFilter] = useState<string>("all");
+
+  const accountOptions = useMemo(() => {
+    const s = new Set(expenses.map((e) => e.account_prefix));
+    return Array.from(s).sort();
+  }, [expenses]);
 
   const filtered = useMemo(() => {
-    if (filterMode === "services_non_marketing") {
-      return expenses.filter((e) => e.account_prefix === "518" && !e.is_marketing);
-    }
-    return expenses;
-  }, [expenses, filterMode]);
+    return expenses.filter((e) => {
+      if (accountFilter !== "all" && e.account_prefix !== accountFilter) {
+        return false;
+      }
+      if (typeFilter === "marketing" && !e.is_marketing) return false;
+      if (typeFilter === "non_marketing" && e.is_marketing) return false;
+      return true;
+    });
+  }, [expenses, accountFilter, typeFilter]);
 
   const sorted = useMemo(() => {
     const copy = [...filtered];
@@ -465,20 +475,6 @@ function SortableExpensesTable({ expenses }: { expenses: TopExpense[] }) {
   return (
     <div style={{ marginTop: "2rem" }}>
       <h3>Všetci dodávatelia (náklady)</h3>
-      <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", margin: "0.5rem 0 0.75rem" }}>
-        <label style={{ fontSize: "0.9rem", opacity: 0.8 }} htmlFor="pnl-expenses-filter">
-          Filter
-        </label>
-        <select
-          id="pnl-expenses-filter"
-          value={filterMode}
-          onChange={(e) => setFilterMode(e.target.value as typeof filterMode)}
-          style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid var(--border-strong)" }}
-        >
-          <option value="all">Všetci dodávatelia</option>
-          <option value="services_non_marketing">Služby (518) bez marketingu</option>
-        </select>
-      </div>
       <div className="table-wrap" style={{ overflowX: "auto" }}>
         <table className="data-table">
           <thead>
@@ -498,6 +494,52 @@ function SortableExpensesTable({ expenses }: { expenses: TopExpense[] }) {
               <th className="num" style={thStyle} onClick={() => toggle("line_count")}>
                 Riadkov{arrow("line_count")}
               </th>
+            </tr>
+            <tr>
+              <th />
+              <th>
+                <select
+                  value={accountFilter}
+                  onChange={(e) => setAccountFilter(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "4px 6px",
+                    borderRadius: 6,
+                    border: "1px solid var(--border-strong)",
+                    font: "inherit",
+                    fontSize: "0.8rem",
+                  }}
+                  aria-label="Filter účtu"
+                >
+                  <option value="all">Všetky účty</option>
+                  {accountOptions.map((a) => (
+                    <option key={a} value={a}>
+                      {ACCOUNT_LABELS[a] ?? a} ({a})
+                    </option>
+                  ))}
+                </select>
+              </th>
+              <th>
+                <select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value as typeof typeFilter)}
+                  style={{
+                    width: "100%",
+                    padding: "4px 6px",
+                    borderRadius: 6,
+                    border: "1px solid var(--border-strong)",
+                    font: "inherit",
+                    fontSize: "0.8rem",
+                  }}
+                  aria-label="Filter typu"
+                >
+                  <option value="all">Všetky typy</option>
+                  <option value="marketing">marketing</option>
+                  <option value="non_marketing">prevádzka</option>
+                </select>
+              </th>
+              <th />
+              <th />
             </tr>
           </thead>
           <tbody>
@@ -523,6 +565,11 @@ function SortableExpensesTable({ expenses }: { expenses: TopExpense[] }) {
           </tbody>
         </table>
       </div>
+
+      <p style={{ fontSize: "0.8rem", opacity: 0.65, marginTop: "0.5rem" }}>
+        Vyfiltrované: {formatMoney(filtered.reduce((s, e) => s + e.amount_eur, 0))} · skupín:{" "}
+        {filtered.length}
+      </p>
     </div>
   );
 }
