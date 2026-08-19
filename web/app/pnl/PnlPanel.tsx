@@ -154,6 +154,75 @@ function transformXlsToPnlPayload(xls: PnlXlsPayload): PnlPayload {
   };
 }
 
+const COGS_RATE = 0.356;
+
+function transformHybridPayload(xls: PnlXlsPayload): PnlPayload {
+  const lastActual = xls.meta.last_actual_month ?? 12;
+
+  const actualMonths = xls.monthly.filter((m) => {
+    const monthNum = parseInt(m.month_key.split("-")[1], 10);
+    return monthNum <= lastActual;
+  });
+
+  const mapped: PnlMonth[] = actualMonths.map((m) => {
+    const cogs = Math.round(m.revenue * COGS_RATE * 100) / 100;
+    const grossProfit = m.revenue - cogs;
+    const opex = m.opex;
+    const cm = grossProfit - opex;
+    return {
+      month_key: m.month_key,
+      sales_goods: m.revenue,
+      sales_services: 0,
+      other_revenue: 0,
+      total_revenue: m.revenue,
+      cogs_journal: 0,
+      cogs_estimated: cogs,
+      cogs,
+      gross_profit: grossProfit,
+      material: 0,
+      representation: 0,
+      services: Math.max(0, m.opex - m.other_operating - (m.staff ?? 0) - m.marketing),
+      taxes_fees: 0,
+      other_operating: m.other_operating,
+      financial: 0,
+      total_opex: opex,
+      marketing_spend: m.marketing,
+      staff_spend: m.staff ?? 0,
+      contribution_margin: cm,
+    };
+  });
+
+  const sumRev = mapped.reduce((s, m) => s + m.total_revenue, 0);
+  const sumCogs = mapped.reduce((s, m) => s + m.cogs, 0);
+  const sumOpex = mapped.reduce((s, m) => s + m.total_opex, 0);
+  const sumCm = mapped.reduce((s, m) => s + m.contribution_margin, 0);
+  const sumMk = mapped.reduce((s, m) => s + m.marketing_spend, 0);
+  const sumStaff = mapped.reduce((s, m) => s + m.staff_spend, 0);
+
+  return {
+    meta: {
+      year: String(xls.meta.year),
+      from: xls.meta.from,
+      to: xls.meta.to,
+      note: `Hybrid: tržby a OPEX z XLS, COGS = ${(COGS_RATE * 100).toFixed(1)} % z tržieb za tovar (Shopify). Jan–${monthLabel(actualMonths[actualMonths.length - 1]?.month_key ?? "01")} ${xls.meta.year}.`,
+      last_actual_month: lastActual,
+    },
+    totals: {
+      total_revenue: sumRev,
+      cogs_journal: 0,
+      cogs_estimated: sumCogs,
+      cogs: sumCogs,
+      gross_profit: sumRev - sumCogs,
+      total_opex: sumOpex,
+      contribution_margin: sumCm,
+      marketing_spend: sumMk,
+      staff_spend: sumStaff,
+    },
+    monthly: mapped,
+    topExpenses: [],
+  };
+}
+
 function formatMoney(n: number): string {
   return new Intl.NumberFormat("sk-SK", {
     style: "currency",
@@ -196,7 +265,7 @@ const ACCOUNT_LABELS: Record<string, string> = {
 
 export default function PnlPanel() {
   const [data, setData] = useState<PnlPayload | null>(null);
-  const [mode, setMode] = useState<"accounting" | "xls">("accounting");
+  const [mode, setMode] = useState<"accounting" | "xls" | "hybrid">("accounting");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [pdfExporting, setPdfExporting] = useState(false);
@@ -206,7 +275,8 @@ export default function PnlPanel() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/pnl?mode=${mode}`, {
+      const apiMode = mode === "hybrid" ? "xls" : mode;
+      const res = await fetch(`/api/pnl?mode=${apiMode}`, {
         credentials: "include",
       });
       if (!res.ok) {
@@ -214,7 +284,9 @@ export default function PnlPanel() {
         throw new Error(body?.error ?? `HTTP ${res.status}`);
       }
       const body = await res.json();
-      if (mode === "xls") {
+      if (mode === "hybrid") {
+        setData(transformHybridPayload(body as PnlXlsPayload));
+      } else if (mode === "xls") {
         setData(transformXlsToPnlPayload(body as PnlXlsPayload));
       } else {
         setData(body as PnlPayload);
@@ -234,7 +306,7 @@ export default function PnlPanel() {
     const mPct = t.total_revenue ? ((t.contribution_margin / t.total_revenue) * 100).toFixed(1) : "–";
     const mkPct = t.total_revenue ? ((t.marketing_spend / t.total_revenue) * 100).toFixed(1) : "–";
     let md = `# ${
-      mode === "xls" ? `P&L (XLS Výsledky) ${meta.year}` : `P&L — Contribution Margin ${meta.year}`
+      mode === "xls" ? `P&L (XLS Výsledky) ${meta.year}` : mode === "hybrid" ? `P&L — Hybrid ${meta.year}` : `P&L — Contribution Margin ${meta.year}`
     }\n\n`;
     md += `> ${meta.note}\n\n`;
     md += `| KPI | Hodnota |\n|---|---|\n`;
@@ -447,7 +519,7 @@ export default function PnlPanel() {
           <span style={{ fontSize: "0.9rem", opacity: 0.85 }}>Zdroj</span>
           <select
             value={mode}
-            onChange={(e) => setMode(e.target.value as "accounting" | "xls")}
+            onChange={(e) => setMode(e.target.value as "accounting" | "xls" | "hybrid")}
             style={{
               padding: "4px 8px",
               borderRadius: 8,
@@ -459,6 +531,7 @@ export default function PnlPanel() {
           >
             <option value="accounting">Účtovníctvo (denník)</option>
             <option value="xls">XLS (Výsledky)</option>
+            <option value="hybrid">Hybrid (XLS + COGS Shopify)</option>
           </select>
         </div>
 
@@ -483,7 +556,7 @@ export default function PnlPanel() {
 
       <div className="dashboard-pdf-root" ref={pdfExportRef}>
       <h2 className="panel__title">
-        {mode === "xls" ? `P&L (XLS Výsledky) ${meta.year}` : `P&L — Contribution Margin ${meta.year}`}
+        {mode === "xls" ? `P&L (XLS Výsledky) ${meta.year}` : mode === "hybrid" ? `P&L — Hybrid ${meta.year}` : `P&L — Contribution Margin ${meta.year}`}
       </h2>
       <p className="panel__note">{meta.note}</p>
 
@@ -711,12 +784,7 @@ export default function PnlPanel() {
       )}
 
       {/* Cost structure vs benchmark */}
-      {mode === "accounting" && (
-        <CostStructureTable totals={t} monthly={monthly} />
-      )}
-      {mode === "xls" && monthly.length > 0 && (
-        <CostStructureTable totals={t} monthly={monthly} />
-      )}
+      <CostStructureTable totals={t} monthly={monthly} />
 
       {/* All expenses */}
       {mode === "accounting" && <SortableExpensesTable expenses={topExpenses} />}
