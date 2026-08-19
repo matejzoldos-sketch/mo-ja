@@ -27,7 +27,11 @@ lines AS (
     j.credit_account,
     j.amount_eur,
     j.line_text,
-    COALESCE(NULLIF(trim(j.partner_name), ''), NULLIF(trim(j.company_name), ''), '?') AS label
+    COALESCE(
+      NULLIF(trim(j.partner_name), ''),
+      NULLIF(trim(j.company_name), ''),
+      left(coalesce(j.line_text, ''), 80)
+    ) AS label
   FROM accounting_journal_lines j
   CROSS JOIN year_bounds yb
   WHERE j.entry_date >= yb.d_from
