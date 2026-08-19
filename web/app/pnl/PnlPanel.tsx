@@ -752,7 +752,13 @@ export default function PnlPanel() {
         <CostStructureTable totals={t} monthly={monthly} />
       )}
       {mode === "xls" && xlsBreakdownMonthly.length > 0 && (
-        <CostStructureTable totals={xlsBreakdownTotals} monthly={xlsBreakdownMonthly} />
+        <>
+          <CostStructureTable totals={xlsBreakdownTotals} monthly={xlsBreakdownMonthly} />
+          <p style={{ fontSize: "0.75rem", opacity: 0.6, marginTop: "0.25rem" }}>
+            Rozpad nákladov dostupný do: {monthLabel(xlsBreakdownMonthly[xlsBreakdownMonthly.length - 1].month_key)}{" "}
+            {meta.year} (neskoršie mesiace nemajú v XLS vyplnené kategórie)
+          </p>
+        </>
       )}
 
       {/* All expenses */}
