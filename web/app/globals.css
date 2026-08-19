@@ -180,6 +180,8 @@ a:hover {
   padding: 8px 10px;
   cursor: pointer;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   text-align: center;
 }
 

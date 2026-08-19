@@ -23,7 +23,7 @@ const SECTIONS: {
   { id: "insighty", label: "Insighty", path: "/insighty", subtitle: "Insighty" },
   { id: "marketing", label: "Marketing", path: "/marketing", subtitle: "Marketing" },
   { id: "scaling", label: "Spend", path: "/scaling", subtitle: "Spend rozhodnutie" },
-  { id: "pnl", label: "P&L", path: "/pnl", subtitle: "Výkaz ziskov a strát" },
+  { id: "pnl", label: "P&L (Contribution Margin)", path: "/pnl", subtitle: "Výkaz ziskov a strát (CM)" },
 ];
 
 /** Dočasne skryté v hlavnom menu — stránka /insighty ostáva dostupná priamo. */
