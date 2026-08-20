@@ -101,6 +101,28 @@ function formatRatio(n: number | null | undefined, suffix = "×"): string {
   return `${n.toFixed(2)}${suffix}`;
 }
 
+/** Agency fee as % of Meta ads spend. Benchmark typically 10–20 %. */
+function feePctOfMedia(
+  adsSpend: number | null | undefined,
+  agencyFees: number | null | undefined
+): number | null {
+  const ads = adsSpend ?? 0;
+  if (ads <= 0) return null;
+  return ((agencyFees ?? 0) / ads) * 100;
+}
+
+function formatPctOfMedia(n: number | null | undefined): string {
+  if (n == null) return "—";
+  return `${n.toFixed(1)} %`;
+}
+
+function feePctBenchColor(pct: number | null): string | undefined {
+  if (pct == null) return undefined;
+  if (pct >= 10 && pct <= 20) return "var(--clr-green, #16a34a)";
+  if (pct > 20 && pct <= 30) return "var(--clr-amber, #ca8a04)";
+  return "var(--clr-red, #dc2626)";
+}
+
 function supplierRoleLabel(role: string): string {
   if (role === "agency") return "Agentúra (PPC)";
   if (role === "ads_skip") return "Ads (denník skip)";
@@ -170,6 +192,16 @@ export default function MarketingMerPanel() {
   );
   const ratioFmt = useCallback((v: number) => formatRatio(v), []);
   const intFmt = useCallback((v: number) => String(Math.round(v)), []);
+  const pctFmt = useCallback((v: number) => formatPctOfMedia(v), []);
+
+  const feePctMedia = useMemo(
+    () => (kpis ? feePctOfMedia(kpis.ads_spend, kpis.agency_fees_spend) : null),
+    [kpis]
+  );
+  const feePctMediaPrev = useMemo(
+    () => (prev ? feePctOfMedia(prev.ads_spend, prev.agency_fees_spend) : null),
+    [prev]
+  );
 
   const downloadMd = useCallback(() => {
     if (!data || !kpis) return;
@@ -483,6 +515,25 @@ export default function MarketingMerPanel() {
             />
           </div>
           <div className="kpi-card">
+            <span className="kpi-card__label">Fee % of media</span>
+            <strong
+              className="kpi-card__value"
+              style={{ color: feePctBenchColor(feePctMedia) }}
+            >
+              {formatPctOfMedia(feePctMedia)}
+            </strong>
+            <KpiPeriodCompare
+              current={feePctMedia}
+              previous={feePctMediaPrev}
+              formatValue={pctFmt}
+              higherIsBetter={false}
+              periodLabel={compareLabel}
+            />
+            <span className="kpi-card__hint" style={{ fontSize: "0.75rem", opacity: 0.65 }}>
+              Agentúra / Ads · benchmark 10–20 %
+            </span>
+          </div>
+          <div className="kpi-card">
             <span className="kpi-card__label">Total MKT</span>
             <strong className="kpi-card__value">
               {formatMoney(kpis.total_mkt_spend, currency)}
@@ -557,6 +608,7 @@ export default function MarketingMerPanel() {
                   <th>Ads</th>
                   <th>Fees</th>
                   <th title="Správa PPC / agentúra">Fees agentúra</th>
+                  <th title="Agentúra fees / Ads spend · benchmark 10–20 %">Fee % media</th>
                   <th>Total MKT</th>
                   <th>MER</th>
                   <th>Ad ROAS</th>
@@ -578,6 +630,18 @@ export default function MarketingMerPanel() {
                     <td>{formatMoney(row.fees_spend, currency)}</td>
                     <td>
                       {formatMoney(row.agency_fees_spend ?? 0, currency)}
+                    </td>
+                    <td
+                      style={{
+                        color: feePctBenchColor(
+                          feePctOfMedia(row.ads_spend, row.agency_fees_spend)
+                        ),
+                        fontWeight: 600,
+                      }}
+                    >
+                      {formatPctOfMedia(
+                        feePctOfMedia(row.ads_spend, row.agency_fees_spend)
+                      )}
                     </td>
                     <td>{formatMoney(row.total_mkt_spend, currency)}</td>
                     <td>{formatRatio(row.mer)}</td>

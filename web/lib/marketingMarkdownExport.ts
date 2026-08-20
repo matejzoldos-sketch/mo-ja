@@ -377,6 +377,12 @@ export function buildMarketingMerMarkdown(input: MerMarkdownInput): string {
           "Fees agentúra",
           formatMoney(input.kpis.agency_fees_spend ?? 0, input.currency),
         ],
+        [
+          "Fee % of media",
+          input.kpis.ads_spend > 0
+            ? `${(((input.kpis.agency_fees_spend ?? 0) / input.kpis.ads_spend) * 100).toFixed(1)} % (benchmark 10–20 %)`
+            : "—",
+        ],
         ["Total MKT", formatMoney(input.kpis.total_mkt_spend, input.currency)],
         ["MER", formatRatioMd(input.kpis.mer)],
         ["Ad ROAS", formatRatioMd(input.kpis.ad_roas)],
@@ -391,7 +397,7 @@ export function buildMarketingMerMarkdown(input: MerMarkdownInput): string {
     lines.push("");
     lines.push(
       mdTable(
-        ["Mesiac", "Revenue", "Orders", "AOV", "Ads", "Fees", "Fees agentúra", "Total MKT", "MER", "Ad ROAS", "mROAS", "MoM Rev", "YoY Rev"],
+        ["Mesiac", "Revenue", "Orders", "AOV", "Ads", "Fees", "Fees agentúra", "Fee % media", "Total MKT", "MER", "Ad ROAS", "mROAS", "MoM Rev", "YoY Rev"],
         input.monthly.map((r) => [
           r.month,
           formatMoney(r.revenue, input.currency),
@@ -400,6 +406,9 @@ export function buildMarketingMerMarkdown(input: MerMarkdownInput): string {
           formatMoney(r.ads_spend, input.currency),
           formatMoney(r.fees_spend, input.currency),
           formatMoney(r.agency_fees_spend ?? 0, input.currency),
+          r.ads_spend > 0
+            ? `${(((r.agency_fees_spend ?? 0) / r.ads_spend) * 100).toFixed(1)} %`
+            : "—",
           formatMoney(r.total_mkt_spend, input.currency),
           formatRatioMd(r.mer),
           formatRatioMd(r.ad_roas),
