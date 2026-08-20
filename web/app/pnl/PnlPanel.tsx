@@ -274,7 +274,7 @@ const ACCOUNT_LABELS: Record<string, string> = {
 
 export default function PnlPanel() {
   const [data, setData] = useState<PnlPayload | null>(null);
-  const [mode, setMode] = useState<"accounting" | "xls" | "hybrid">("accounting");
+  const [mode, setMode] = useState<"accounting" | "xls" | "hybrid">("hybrid");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [pdfExporting, setPdfExporting] = useState(false);
