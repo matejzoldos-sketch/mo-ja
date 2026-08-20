@@ -502,6 +502,7 @@ export default function PnlPanel() {
   const grossMarginPct = revenue ? t.gross_profit / revenue : 0;
   const opexPct = revenue ? t.total_opex / revenue : 0;
   const marketingPct = revenue ? t.marketing_spend / revenue : 0;
+  const staffPct = revenue ? (t.staff_spend ?? 0) / revenue : 0;
 
   const inBench = (pctFraction: number, minPct: number, maxPct: number) =>
     pctFraction * 100 >= minPct && pctFraction * 100 <= maxPct;
@@ -511,6 +512,7 @@ export default function PnlPanel() {
   const opexOk = inBench(opexPct, 20, 50);
   const contributionMarginOk = inBench(marginPct, 10, 30);
   const marketingOk = inBench(marketingPct, 10, 30);
+  const staffOk = inBench(staffPct, 15, 35);
 
   return (
     <section className="panel">
@@ -622,6 +624,12 @@ export default function PnlPanel() {
             value={formatMoney(t.marketing_spend)}
             highlight={marketingOk ? "positive" : "negative"}
             sub={`${t.total_revenue ? formatPct(marketingPct) : "–"} z tržieb · benchmark 10–30 %`}
+          />
+          <KpiCard
+            label="z toho staff"
+            value={formatMoney(t.staff_spend ?? 0)}
+            highlight={staffOk ? "positive" : "negative"}
+            sub={`${t.total_revenue ? formatPct(staffPct) : "–"} z tržieb · benchmark 15–35 %`}
           />
         </div>
       )}
