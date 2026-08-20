@@ -793,14 +793,16 @@ export default function PnlPanel() {
       )}
 
       {/* Cost structure vs benchmark */}
-      <CostStructureTable totals={t} monthly={monthly} />
+      <CostStructureTable
+        totals={t}
+        monthly={monthly}
+        lastMonthLabel={monthLabel(meta.last_month_key ?? monthly[monthly.length - 1]?.month_key ?? "01")}
+      />
 
       {/* All expenses */}
-      {topExpenses?.length || data.topExpensesLastMonth?.length ? (
+      {topExpenses?.length ? (
         <SortableExpensesTable
-          expensesYtd={topExpenses ?? []}
-          expensesLastMonth={data.topExpensesLastMonth ?? []}
-          lastMonthLabel={monthLabel(meta.last_month_key ?? monthly[monthly.length - 1]?.month_key ?? "01")}
+          expenses={topExpenses}
           title={
             mode === "accounting"
               ? "Všetci dodávatelia (náklady)"
@@ -822,27 +824,20 @@ type SortKey = "supplier" | "account_prefix" | "amount_eur" | "line_count" | "is
 type SortDir = "asc" | "desc";
 
 function SortableExpensesTable({
-  expensesYtd,
-  expensesLastMonth,
-  lastMonthLabel,
+  expenses,
   title = "Všetci dodávatelia (náklady)",
   sourceNote,
 }: {
-  expensesYtd: TopExpense[];
-  expensesLastMonth: TopExpense[];
-  lastMonthLabel: string;
+  expenses: TopExpense[];
   title?: string;
   sourceNote?: string;
 }) {
-  const [period, setPeriod] = useState<"ytd" | "last_month">("ytd");
   const [sortKey, setSortKey] = useState<SortKey>("amount_eur");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [typeFilter, setTypeFilter] = useState<
     "all" | "marketing" | "staff" | "non_marketing"
   >("all");
   const [accountFilter, setAccountFilter] = useState<string>("all");
-
-  const expenses = period === "ytd" ? expensesYtd : expensesLastMonth;
 
   const accountOptions = useMemo(() => {
     const s = new Set(expenses.map((e) => e.account_prefix));
@@ -892,44 +887,12 @@ function SortableExpensesTable({
     sortKey === key ? (sortDir === "asc" ? " ▲" : " ▼") : "";
 
   const thStyle: React.CSSProperties = { cursor: "pointer", userSelect: "none" };
-  const periodBtn = (active: boolean): React.CSSProperties => ({
-    padding: "4px 10px",
-    borderRadius: 6,
-    border: "1px solid var(--border-strong)",
-    background: active ? "rgba(59,130,246,0.15)" : "transparent",
-    font: "inherit",
-    fontSize: "0.8rem",
-    cursor: "pointer",
-    fontWeight: active ? 600 : 400,
-  });
 
   return (
     <div style={{ marginTop: "2rem" }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "0.75rem",
-          flexWrap: "wrap",
-        }}
-      >
-        <h3 style={{ margin: 0 }}>{title}</h3>
-        <div style={{ display: "flex", gap: "0.35rem" }} role="group" aria-label="Obdobie rozpadu">
-          <button type="button" style={periodBtn(period === "ytd")} onClick={() => setPeriod("ytd")}>
-            YTD
-          </button>
-          <button
-            type="button"
-            style={periodBtn(period === "last_month")}
-            onClick={() => setPeriod("last_month")}
-          >
-            {lastMonthLabel}
-          </button>
-        </div>
-      </div>
+      <h3>{title}</h3>
       {sourceNote ? (
-        <p style={{ fontSize: "0.8rem", opacity: 0.7, marginTop: "0.4rem" }}>{sourceNote}</p>
+        <p style={{ fontSize: "0.8rem", opacity: 0.7, marginTop: 0 }}>{sourceNote}</p>
       ) : null}
       <div className="table-wrap" style={{ overflowX: "auto" }}>
         <table className="data-table">
@@ -1093,15 +1056,38 @@ function benchColor(pct: number, min: number, max: number, invert?: boolean): st
 }
 
 function CostStructureTable({
-  totals: t,
+  totals: ytdTotals,
   monthly,
+  lastMonthLabel,
 }: {
   totals: PnlPayload["totals"];
   monthly: PnlMonth[];
+  lastMonthLabel: string;
 }) {
+  const [period, setPeriod] = useState<"ytd" | "last_month">("ytd");
+
+  const lastMonth = monthly[monthly.length - 1] ?? null;
+
+  const t = useMemo(() => {
+    if (period === "ytd" || !lastMonth) return ytdTotals;
+    return {
+      total_revenue: lastMonth.total_revenue,
+      cogs_journal: lastMonth.cogs_journal,
+      cogs_estimated: lastMonth.cogs_estimated,
+      cogs: lastMonth.cogs,
+      gross_profit: lastMonth.gross_profit,
+      total_opex: lastMonth.total_opex,
+      contribution_margin: lastMonth.contribution_margin,
+      marketing_spend: lastMonth.marketing_spend,
+      staff_spend: lastMonth.staff_spend ?? 0,
+    };
+  }, [period, ytdTotals, lastMonth]);
+
+  const monthsForAgg = period === "ytd" || !lastMonth ? monthly : [lastMonth];
+
   const rev = t.total_revenue || 1;
-  const totalServices = monthly.reduce((s, m) => s + m.services, 0);
-  const totalOther = monthly.reduce(
+  const totalServices = monthsForAgg.reduce((s, m) => s + m.services, 0);
+  const totalOther = monthsForAgg.reduce(
     (s, m) => s + m.material + m.representation + m.taxes_fees + m.other_operating + m.financial,
     0
   );
@@ -1179,10 +1165,43 @@ function CostStructureTable({
     },
   ];
 
+  const periodBtn = (active: boolean): React.CSSProperties => ({
+    padding: "4px 10px",
+    borderRadius: 6,
+    border: "1px solid var(--border-strong)",
+    background: active ? "rgba(59,130,246,0.15)" : "transparent",
+    font: "inherit",
+    fontSize: "0.8rem",
+    cursor: "pointer",
+    fontWeight: active ? 600 : 400,
+  });
+
   return (
     <div style={{ marginTop: "2rem" }}>
-      <h3>Nákladová štruktúra vs. D2C e-commerce benchmark</h3>
-      <p style={{ fontSize: "0.75rem", opacity: 0.6, marginBottom: "0.75rem" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "0.75rem",
+          flexWrap: "wrap",
+        }}
+      >
+        <h3 style={{ margin: 0 }}>Nákladová štruktúra vs. D2C e-commerce benchmark</h3>
+        <div style={{ display: "flex", gap: "0.35rem" }} role="group" aria-label="Obdobie nákladovej štruktúry">
+          <button type="button" style={periodBtn(period === "ytd")} onClick={() => setPeriod("ytd")}>
+            YTD
+          </button>
+          <button
+            type="button"
+            style={periodBtn(period === "last_month")}
+            onClick={() => setPeriod("last_month")}
+          >
+            {lastMonthLabel}
+          </button>
+        </div>
+      </div>
+      <p style={{ fontSize: "0.75rem", opacity: 0.6, marginBottom: "0.75rem", marginTop: "0.4rem" }}>
         Benchmarky sú orientačné pre D2C e-commerce (supplement/beauty) s vlastným fulfillmentom.
         Zelená = v norme, žltá = na hranici, červená = mimo normy.
       </p>
