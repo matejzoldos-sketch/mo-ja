@@ -538,9 +538,9 @@ export default function PnlPanel() {
             }}
             aria-label="Zdroj dát P&L"
           >
+            <option value="hybrid">Hybrid (XLS + COGS Shopify)</option>
             <option value="accounting">Účtovníctvo (denník)</option>
             <option value="xls">XLS (Výsledky)</option>
-            <option value="hybrid">Hybrid (XLS + COGS Shopify)</option>
           </select>
         </div>
 
