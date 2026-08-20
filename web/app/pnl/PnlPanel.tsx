@@ -188,7 +188,7 @@ function transformHybridPayload(xls: PnlXlsPayload): PnlPayload {
       gross_profit: grossProfit,
       material: 0,
       representation: 0,
-      services: Math.max(0, m.opex - m.other_operating - (m.staff ?? 0) - m.marketing),
+      services: Math.max(0, m.opex - m.other_operating),
       taxes_fees: 0,
       other_operating: m.other_operating,
       financial: 0,
@@ -1091,6 +1091,10 @@ function CostStructureTable({
     (s, m) => s + m.material + m.representation + m.taxes_fees + m.other_operating + m.financial,
     0
   );
+  const servicesNonMkStaff = Math.max(
+    0,
+    totalServices - t.marketing_spend - (t.staff_spend ?? 0)
+  );
 
   const rows: BenchmarkRow[] = [
     {
@@ -1130,8 +1134,8 @@ function CostStructureTable({
     },
     {
       label: "Služby (518 bez mk, staff)",
-      value: totalServices - t.marketing_spend - (t.staff_spend ?? 0),
-      pct: (totalServices - t.marketing_spend - (t.staff_spend ?? 0)) / rev,
+      value: servicesNonMkStaff,
+      pct: servicesNonMkStaff / rev,
       benchMin: 5,
       benchMax: 15,
       benchLabel: "5–15 %",
