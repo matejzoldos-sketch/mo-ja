@@ -522,6 +522,19 @@ export default function MarketingMerPanel() {
             >
               {formatPctOfMedia(feePctMedia)}
             </strong>
+            <span
+              className="kpi-card__hint"
+              style={{
+                display: "block",
+                marginTop: "0.15rem",
+                fontSize: "0.8rem",
+                fontWeight: 500,
+                color: feePctBenchColor(feePctMedia) ?? "inherit",
+                opacity: 0.9,
+              }}
+            >
+              benchmark 10–20 %
+            </span>
             <KpiPeriodCompare
               current={feePctMedia}
               previous={feePctMediaPrev}
@@ -529,9 +542,6 @@ export default function MarketingMerPanel() {
               higherIsBetter={false}
               periodLabel={compareLabel}
             />
-            <span className="kpi-card__hint" style={{ fontSize: "0.75rem", opacity: 0.65 }}>
-              Agentúra / Ads · benchmark 10–20 %
-            </span>
           </div>
           <div className="kpi-card">
             <span className="kpi-card__label">Total MKT</span>
@@ -608,7 +618,12 @@ export default function MarketingMerPanel() {
                   <th>Ads</th>
                   <th>Fees</th>
                   <th title="Správa PPC / agentúra">Fees agentúra</th>
-                  <th title="Agentúra fees / Ads spend · benchmark 10–20 %">Fee % media</th>
+                  <th title="Agentúra fees / Ads spend">
+                    Fee % media
+                    <div style={{ fontWeight: 400, fontSize: "0.7rem", opacity: 0.75 }}>
+                      bench. 10–20 %
+                    </div>
+                  </th>
                   <th>Total MKT</th>
                   <th>MER</th>
                   <th>Ad ROAS</th>
