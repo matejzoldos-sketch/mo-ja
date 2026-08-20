@@ -788,7 +788,21 @@ export default function PnlPanel() {
       <CostStructureTable totals={t} monthly={monthly} />
 
       {/* All expenses */}
-      {topExpenses?.length ? <SortableExpensesTable expenses={topExpenses} /> : null}
+      {topExpenses?.length ? (
+        <SortableExpensesTable
+          expenses={topExpenses}
+          title={
+            mode === "accounting"
+              ? "Všetci dodávatelia (náklady)"
+              : "Nákladové položky (z XLS)"
+          }
+          sourceNote={
+            mode === "accounting"
+              ? undefined
+              : "Položky zo sheetu Výsledky (XLS). Filtruje podľa Staff / Marketing / prevádzka podľa sekcie v XLS."
+          }
+        />
+      ) : null}
       </div>
     </section>
   );
@@ -797,7 +811,15 @@ export default function PnlPanel() {
 type SortKey = "supplier" | "account_prefix" | "amount_eur" | "line_count" | "is_marketing";
 type SortDir = "asc" | "desc";
 
-function SortableExpensesTable({ expenses }: { expenses: TopExpense[] }) {
+function SortableExpensesTable({
+  expenses,
+  title = "Všetci dodávatelia (náklady)",
+  sourceNote,
+}: {
+  expenses: TopExpense[];
+  title?: string;
+  sourceNote?: string;
+}) {
   const [sortKey, setSortKey] = useState<SortKey>("amount_eur");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [typeFilter, setTypeFilter] = useState<
@@ -856,7 +878,10 @@ function SortableExpensesTable({ expenses }: { expenses: TopExpense[] }) {
 
   return (
     <div style={{ marginTop: "2rem" }}>
-      <h3>Všetci dodávatelia (náklady)</h3>
+      <h3>{title}</h3>
+      {sourceNote ? (
+        <p style={{ fontSize: "0.8rem", opacity: 0.7, marginTop: 0 }}>{sourceNote}</p>
+      ) : null}
       <div className="table-wrap" style={{ overflowX: "auto" }}>
         <table className="data-table">
           <thead>

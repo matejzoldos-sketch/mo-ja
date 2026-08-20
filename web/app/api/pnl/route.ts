@@ -49,31 +49,7 @@ export async function GET(request: Request) {
       );
     }
 
-    // Always fetch topExpenses from accounting RPC so we can show
-    // the same supplier table + filters in all dashboard modes.
-    if (apiMode === "xls") {
-      const accountingRes = await supabasePostgrestRpc<Record<string, unknown>>(
-        supabaseUrl,
-        serviceKey,
-        "get_pnl_dashboard",
-        { ...(year ? { p_year: year } : {}) }
-      );
-      if (accountingRes.error || accountingRes.data == null) {
-        return NextResponse.json(
-          { ...(rpcRes.data as Record<string, unknown>), topExpenses: [] },
-          { headers: jsonNoStoreHeaders }
-        );
-      }
-
-      const topExpenses =
-        (accountingRes.data as Record<string, unknown>).topExpenses ?? [];
-
-      return NextResponse.json(
-        { ...(rpcRes.data as Record<string, unknown>), topExpenses },
-        { headers: jsonNoStoreHeaders }
-      );
-    }
-
+    // XLS / hybrid RPC already returns topExpenses from XLS sheet.
     return NextResponse.json(rpcRes.data, { headers: jsonNoStoreHeaders });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
