@@ -45,6 +45,7 @@ type PnlPayload = {
     to: string;
     note: string;
     last_actual_month?: number;
+    last_month_key?: string;
   };
   totals: {
     total_revenue: number;
@@ -59,6 +60,7 @@ type PnlPayload = {
   };
   monthly: PnlMonth[];
   topExpenses: TopExpense[];
+  topExpensesLastMonth?: TopExpense[];
 };
 
 type PnlXlsMonth = {
@@ -80,6 +82,7 @@ type PnlXlsPayload = {
     from: string;
     to: string;
     last_actual_month: number;
+    last_month_key?: string;
     note: string;
   };
   totals: {
@@ -93,6 +96,7 @@ type PnlXlsPayload = {
   };
   monthly: PnlXlsMonth[];
   topExpenses?: TopExpense[];
+  topExpensesLastMonth?: TopExpense[];
 };
 
 function transformXlsToPnlPayload(xls: PnlXlsPayload): PnlPayload {
@@ -138,6 +142,7 @@ function transformXlsToPnlPayload(xls: PnlXlsPayload): PnlPayload {
       to: xls.meta.to,
       note: `Hodnoty z XLS „Výsledky" (Jan–${monthLabel(actualMonths[actualMonths.length - 1]?.month_key ?? "01")} ${xls.meta.year}, skutočnosť podľa denníka).`,
       last_actual_month: lastActual,
+      last_month_key: xls.meta.last_month_key ?? actualMonths[actualMonths.length - 1]?.month_key,
     },
     totals: {
       total_revenue: sumRev,
@@ -152,6 +157,7 @@ function transformXlsToPnlPayload(xls: PnlXlsPayload): PnlPayload {
     },
     monthly: mapped,
     topExpenses: xls.topExpenses ?? [],
+    topExpensesLastMonth: xls.topExpensesLastMonth ?? [],
   };
 }
 
@@ -207,6 +213,7 @@ function transformHybridPayload(xls: PnlXlsPayload): PnlPayload {
       to: xls.meta.to,
       note: `Hybrid: tržby a OPEX z XLS, COGS = ${(COGS_RATE * 100).toFixed(1)} % z tržieb za tovar (Shopify). Jan–${monthLabel(actualMonths[actualMonths.length - 1]?.month_key ?? "01")} ${xls.meta.year}.`,
       last_actual_month: lastActual,
+      last_month_key: xls.meta.last_month_key ?? actualMonths[actualMonths.length - 1]?.month_key,
     },
     totals: {
       total_revenue: sumRev,
@@ -221,6 +228,7 @@ function transformHybridPayload(xls: PnlXlsPayload): PnlPayload {
     },
     monthly: mapped,
     topExpenses: xls.topExpenses ?? [],
+    topExpensesLastMonth: xls.topExpensesLastMonth ?? [],
   };
 }
 
@@ -788,9 +796,11 @@ export default function PnlPanel() {
       <CostStructureTable totals={t} monthly={monthly} />
 
       {/* All expenses */}
-      {topExpenses?.length ? (
+      {topExpenses?.length || data.topExpensesLastMonth?.length ? (
         <SortableExpensesTable
-          expenses={topExpenses}
+          expensesYtd={topExpenses ?? []}
+          expensesLastMonth={data.topExpensesLastMonth ?? []}
+          lastMonthLabel={monthLabel(meta.last_month_key ?? monthly[monthly.length - 1]?.month_key ?? "01")}
           title={
             mode === "accounting"
               ? "Všetci dodávatelia (náklady)"
@@ -812,20 +822,27 @@ type SortKey = "supplier" | "account_prefix" | "amount_eur" | "line_count" | "is
 type SortDir = "asc" | "desc";
 
 function SortableExpensesTable({
-  expenses,
+  expensesYtd,
+  expensesLastMonth,
+  lastMonthLabel,
   title = "Všetci dodávatelia (náklady)",
   sourceNote,
 }: {
-  expenses: TopExpense[];
+  expensesYtd: TopExpense[];
+  expensesLastMonth: TopExpense[];
+  lastMonthLabel: string;
   title?: string;
   sourceNote?: string;
 }) {
+  const [period, setPeriod] = useState<"ytd" | "last_month">("ytd");
   const [sortKey, setSortKey] = useState<SortKey>("amount_eur");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [typeFilter, setTypeFilter] = useState<
     "all" | "marketing" | "staff" | "non_marketing"
   >("all");
   const [accountFilter, setAccountFilter] = useState<string>("all");
+
+  const expenses = period === "ytd" ? expensesYtd : expensesLastMonth;
 
   const accountOptions = useMemo(() => {
     const s = new Set(expenses.map((e) => e.account_prefix));
@@ -875,12 +892,44 @@ function SortableExpensesTable({
     sortKey === key ? (sortDir === "asc" ? " ▲" : " ▼") : "";
 
   const thStyle: React.CSSProperties = { cursor: "pointer", userSelect: "none" };
+  const periodBtn = (active: boolean): React.CSSProperties => ({
+    padding: "4px 10px",
+    borderRadius: 6,
+    border: "1px solid var(--border-strong)",
+    background: active ? "rgba(59,130,246,0.15)" : "transparent",
+    font: "inherit",
+    fontSize: "0.8rem",
+    cursor: "pointer",
+    fontWeight: active ? 600 : 400,
+  });
 
   return (
     <div style={{ marginTop: "2rem" }}>
-      <h3>{title}</h3>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "0.75rem",
+          flexWrap: "wrap",
+        }}
+      >
+        <h3 style={{ margin: 0 }}>{title}</h3>
+        <div style={{ display: "flex", gap: "0.35rem" }} role="group" aria-label="Obdobie rozpadu">
+          <button type="button" style={periodBtn(period === "ytd")} onClick={() => setPeriod("ytd")}>
+            YTD
+          </button>
+          <button
+            type="button"
+            style={periodBtn(period === "last_month")}
+            onClick={() => setPeriod("last_month")}
+          >
+            {lastMonthLabel}
+          </button>
+        </div>
+      </div>
       {sourceNote ? (
-        <p style={{ fontSize: "0.8rem", opacity: 0.7, marginTop: 0 }}>{sourceNote}</p>
+        <p style={{ fontSize: "0.8rem", opacity: 0.7, marginTop: "0.4rem" }}>{sourceNote}</p>
       ) : null}
       <div className="table-wrap" style={{ overflowX: "auto" }}>
         <table className="data-table">
