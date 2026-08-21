@@ -169,7 +169,7 @@ export function buildCashflowRunway(
     yearEnd[id] = forecastMonths.length
       ? forecastMonths[forecastMonths.length - 1].close[id]
       : lastClose;
-    let min = lastClose;
+    let min = forecastMonths[0]?.close[id] ?? lastClose;
     for (const row of forecastMonths) {
       min = Math.min(min, row.close[id]);
       if (firstBelowZero[id] == null && row.close[id] < 0) {
@@ -199,13 +199,13 @@ export function runwayUntilLabel(
   const hit = runway.firstBelowZero[id];
   if (hit) {
     const month = hit.replace(/\s+\d{4}$/, "").toLowerCase();
-    if (runway.minFromNow[id] < 0 && runway.forecastMonths[0]?.close[id] < 0) {
-      return `< 1 mes. (${month})`;
+    if (runway.yearEnd[id] >= 0) {
+      return `Nula v ${month}, potom späť`;
     }
-    return hit;
+    return `Nula v ${month}`;
   }
-  if (runway.minFromNow[id] < CASHFLOW_RUNWAY_BUFFER_EUR) {
-    return "do 31. 12., pod 3 k€";
+  if (runway.yearEnd[id] < CASHFLOW_RUNWAY_BUFFER_EUR) {
+    return "Bez nuly, vankúš pod 3 k€";
   }
-  return "do 31. 12.";
+  return "Bez nuly do 31. 12.";
 }

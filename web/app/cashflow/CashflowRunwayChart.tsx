@@ -210,7 +210,8 @@ export default function CashflowRunwayChart({ months, currency }: Props) {
       <p className="chart-card__subtitle">
         Plná čiara = zostatok na konci mesiaca (aktuálny mesiac do dnes).
         Čiarkované = forecast sep–dec 2026 na hlavnom účte. Čiary nula a 3 000 €
-        sú prahy. Zdroj skutočnosti: Tatra · forecast nie je bankový prísľub.
+        sú prahy. Karty pod grafom: kedy forecast prvýkrát klesne pod 0 €;
+        druhý riadok je zostatok 31. 12.
       </p>
       <div className="cashflow-runway-wrap">
         <Line data={data} options={options} />
@@ -221,9 +222,9 @@ export default function CashflowRunwayChart({ months, currency }: Props) {
             const ye = runway.yearEnd[id];
             const hit = runway.firstBelowZero[id];
             const tone =
-              ye < 0 || hit
+              hit && ye < 0
                 ? "cashflow-runway-kpi--neg"
-                : ye < CASHFLOW_RUNWAY_BUFFER_EUR
+                : hit || ye < CASHFLOW_RUNWAY_BUFFER_EUR
                   ? "cashflow-runway-kpi--warn"
                   : "cashflow-runway-kpi--pos";
             return (
@@ -235,7 +236,7 @@ export default function CashflowRunwayChart({ months, currency }: Props) {
                   {runwayUntilLabel(runway, id)}
                 </span>
                 <span className="cashflow-runway-kpi__meta">
-                  31. 12. {formatMoney(ye, currency)}
+                  Zostatok 31. 12. {formatMoney(ye, currency)}
                 </span>
               </div>
             );
