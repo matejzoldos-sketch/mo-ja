@@ -506,10 +506,12 @@ export default function PnlPanel() {
   if (error) return <p className="msg msg--error">Chyba: {error}</p>;
   if (!data) return null;
 
-  const { totals: t, monthly, topExpenses, meta } = data;
+  const { totals: t, monthly, topExpenses, topExpensesLastMonth, meta } = data;
   const marginPct = t.total_revenue ? t.contribution_margin / t.total_revenue : 0;
   const revenue = t.total_revenue || 0;
   const cogsPct = revenue ? t.cogs / revenue : 0;
+  const goodsRevYtd = monthly.reduce((s, m) => s + (m.sales_goods || 0), 0);
+  const cogsPctOfGoods = goodsRevYtd > 0 ? t.cogs / goodsRevYtd : null;
   const grossMarginPct = revenue ? t.gross_profit / revenue : 0;
   const opexPct = revenue ? t.total_opex / revenue : 0;
   const marketingPct = revenue ? t.marketing_spend / revenue : 0;
@@ -608,7 +610,9 @@ export default function PnlPanel() {
             label="COGS"
             value={formatMoney(t.cogs)}
             highlight={cogsOk ? "positive" : "negative"}
-            sub={`${formatPct(cogsPct)} · benchmark 30–55 % · ${
+            sub={`${formatPct(cogsPct)} z tržieb${
+              cogsPctOfGoods != null ? ` · ${formatPct(cogsPctOfGoods)} z tovaru` : ""
+            } · benchmark 30–55 % · ${
               t.cogs_journal < t.cogs_estimated
                 ? `odhad ${(COGS_RATE * 100).toFixed(0)} % z tovaru`
                 : "z denníka (504)"
@@ -821,6 +825,8 @@ export default function PnlPanel() {
         totals={t}
         monthly={monthly}
         lastMonthLabel={monthLabel(meta.last_month_key ?? monthly[monthly.length - 1]?.month_key ?? "01")}
+        topExpenses={topExpenses}
+        topExpensesLastMonth={topExpensesLastMonth}
       />
 
       {/* All expenses */}
@@ -1062,6 +1068,14 @@ type BenchmarkRow = {
   benchMax: number;
   benchLabel: string;
   invert?: boolean;
+  skipBench?: boolean;
+};
+
+type BenchSection = {
+  title: string;
+  hint: string;
+  pctHeader: string;
+  rows: BenchmarkRow[];
 };
 
 const BENCH_GREEN = "#16a34a";
@@ -1079,14 +1093,25 @@ function benchColor(pct: number, min: number, max: number, invert?: boolean): st
   return BENCH_RED;
 }
 
+function pupopsStaffAmount(expenses: TopExpense[] | undefined): number {
+  if (!expenses?.length) return 0;
+  return expenses
+    .filter((e) => e.is_staff && /pupops/i.test(e.supplier))
+    .reduce((s, e) => s + e.amount_eur, 0);
+}
+
 function CostStructureTable({
   totals: ytdTotals,
   monthly,
   lastMonthLabel,
+  topExpenses,
+  topExpensesLastMonth,
 }: {
   totals: PnlPayload["totals"];
   monthly: PnlMonth[];
   lastMonthLabel: string;
+  topExpenses?: TopExpense[];
+  topExpensesLastMonth?: TopExpense[];
 }) {
   const [period, setPeriod] = useState<"ytd" | "last_month">("ytd");
 
@@ -1110,6 +1135,11 @@ function CostStructureTable({
   const monthsForAgg = period === "ytd" || !lastMonth ? monthly : [lastMonth];
 
   const rev = t.total_revenue || 1;
+  const goods = monthsForAgg.reduce((s, m) => s + (m.sales_goods || 0), 0);
+  const splitGoods = goods > 0 && Math.abs(goods - rev) / rev > 0.02;
+  const goodsBase = splitGoods ? goods : rev;
+  const productGm = goodsBase - t.cogs;
+
   const totalServices = monthsForAgg.reduce((s, m) => s + m.services, 0);
   const totalOther = monthsForAgg.reduce(
     (s, m) => s + m.material + m.representation + m.taxes_fees + m.other_operating + m.financial,
@@ -1120,24 +1150,13 @@ function CostStructureTable({
     totalServices - t.marketing_spend - (t.staff_spend ?? 0)
   );
 
-  const rows: BenchmarkRow[] = [
-    {
-      label: "COGS (náklady na tovar)",
-      value: t.cogs,
-      pct: t.cogs / rev,
-      benchMin: 30,
-      benchMax: 55,
-      benchLabel: "30–55 %",
-      invert: true,
-    },
-    {
-      label: "Hrubá marža",
-      value: t.gross_profit,
-      pct: t.gross_profit / rev,
-      benchMin: 45,
-      benchMax: 70,
-      benchLabel: "45–70 %",
-    },
+  const pupops = pupopsStaffAmount(
+    period === "ytd" ? topExpenses : topExpensesLastMonth
+  );
+  const staff = t.staff_spend ?? 0;
+  const staffExPupops = staff - pupops;
+
+  const opexRows: BenchmarkRow[] = [
     {
       label: "Marketing",
       value: t.marketing_spend,
@@ -1149,13 +1168,26 @@ function CostStructureTable({
     },
     {
       label: "Staff (mzdy cez služby)",
-      value: t.staff_spend ?? 0,
-      pct: (t.staff_spend ?? 0) / rev,
+      value: staff,
+      pct: staff / rev,
       benchMin: 15,
       benchMax: 35,
       benchLabel: "15–35 %",
       invert: true,
     },
+    ...(pupops > 0.5
+      ? [
+          {
+            label: "Staff bez Pupops",
+            value: staffExPupops,
+            pct: staffExPupops / rev,
+            benchMin: 15,
+            benchMax: 35,
+            benchLabel: "15–35 %",
+            invert: true,
+          } satisfies BenchmarkRow,
+        ]
+      : []),
     {
       label: "Služby (518 bez mk, staff)",
       value: servicesNonMkStaff,
@@ -1192,6 +1224,86 @@ function CostStructureTable({
       benchLabel: "10–30 %",
     },
   ];
+
+  const sections: BenchSection[] = splitGoods
+    ? [
+        {
+          title: "Tovar",
+          hint: `Základ: čisté tržby za produkty ${formatMoney(goodsBase)} (bez dopravy a služieb).`,
+          pctHeader: "% z tovaru",
+          rows: [
+            {
+              label: "Čisté tržby za tovar",
+              value: goodsBase,
+              pct: goodsBase / rev,
+              benchMin: 0,
+              benchMax: 0,
+              benchLabel: "—",
+              skipBench: true,
+            },
+            {
+              label: "COGS (nákup Orin)",
+              value: t.cogs,
+              pct: goodsBase ? t.cogs / goodsBase : 0,
+              benchMin: 30,
+              benchMax: 55,
+              benchLabel: "30–55 %",
+              invert: true,
+            },
+            {
+              label: "Hrubá marža tovaru",
+              value: productGm,
+              pct: goodsBase ? productGm / goodsBase : 0,
+              benchMin: 45,
+              benchMax: 70,
+              benchLabel: "45–70 %",
+            },
+          ],
+        },
+        {
+          title: "Prevádzka",
+          hint: `Základ: výnosy spolu ${formatMoney(rev)} (tovar + doprava + služby/eventy).`,
+          pctHeader: "% z tržieb",
+          rows: [
+            {
+              label: "Hrubá marža spolu",
+              value: t.gross_profit,
+              pct: t.gross_profit / rev,
+              benchMin: 45,
+              benchMax: 70,
+              benchLabel: "45–70 %",
+            },
+            ...opexRows,
+          ],
+        },
+      ]
+    : [
+        {
+          title: "",
+          hint: "",
+          pctHeader: "% z tržieb",
+          rows: [
+            {
+              label: "COGS (náklady na tovar)",
+              value: t.cogs,
+              pct: t.cogs / rev,
+              benchMin: 30,
+              benchMax: 55,
+              benchLabel: "30–55 %",
+              invert: true,
+            },
+            {
+              label: "Hrubá marža",
+              value: t.gross_profit,
+              pct: t.gross_profit / rev,
+              benchMin: 45,
+              benchMax: 70,
+              benchLabel: "45–70 %",
+            },
+            ...opexRows,
+          ],
+        },
+      ];
 
   const periodBtn = (active: boolean): React.CSSProperties => ({
     padding: "4px 10px",
@@ -1230,37 +1342,47 @@ function CostStructureTable({
         </div>
       </div>
       <p style={{ fontSize: "0.75rem", opacity: 0.6, marginBottom: "0.75rem", marginTop: "0.4rem" }}>
-        Benchmarky sú orientačné pre D2C e-commerce (supplement/beauty) s vlastným fulfillmentom.
-        Zelená = v norme, žltá = na hranici, červená = mimo normy.
+        COGS a marža tovaru sú z čistých tržieb za produkty. Marketing, staff a OPEX z výnosov spolu.
+        Benchmarky sú orientačné pre D2C (supplement/beauty). Zelená = v norme, žltá = na hranici, červená = mimo.
       </p>
       <div className="table-wrap" style={{ overflowX: "auto" }}>
         <table className="data-table">
-          <thead>
-            <tr>
-              <th>Kategória</th>
-              <th className="num">Suma</th>
-              <th className="num">% z tržieb</th>
-              <th className="num">D2C benchmark</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => {
-              const pct100 = r.pct * 100;
-              const color = benchColor(pct100, r.benchMin, r.benchMax, r.invert);
-              return (
-                <tr key={i}>
-                  <td>{r.label}</td>
-                  <td className="num">{formatMoney(r.value)}</td>
-                  <td className="num" style={{ fontWeight: 700, color }}>
-                    {formatPct(r.pct)}
-                  </td>
-                  <td className="num" style={{ fontSize: "0.8rem", opacity: 0.7 }}>
-                    {r.benchLabel}
+          {sections.map((sec, si) => (
+            <tbody key={si}>
+              {sec.title ? (
+                <tr>
+                  <td colSpan={4} style={{ background: "var(--clr-surface, #f8fafc)", padding: "0.65rem 0.75rem" }}>
+                    <div style={{ fontWeight: 700 }}>{sec.title}</div>
+                    <div style={{ fontSize: "0.75rem", opacity: 0.65, marginTop: 2 }}>{sec.hint}</div>
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
+              ) : null}
+              <tr>
+                <th>Kategória</th>
+                <th className="num">Suma</th>
+                <th className="num">{sec.pctHeader}</th>
+                <th className="num">D2C benchmark</th>
+              </tr>
+              {sec.rows.map((r) => {
+                const pct100 = r.pct * 100;
+                const color = r.skipBench
+                  ? undefined
+                  : benchColor(pct100, r.benchMin, r.benchMax, r.invert);
+                return (
+                  <tr key={`${sec.title}-${r.label}`}>
+                    <td>{r.label}</td>
+                    <td className="num">{formatMoney(r.value)}</td>
+                    <td className="num" style={{ fontWeight: 700, color }}>
+                      {r.skipBench ? "—" : formatPct(r.pct)}
+                    </td>
+                    <td className="num" style={{ fontSize: "0.8rem", opacity: 0.7 }}>
+                      {r.skipBench ? "—" : r.benchLabel}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          ))}
         </table>
       </div>
     </div>
