@@ -210,7 +210,7 @@ export default function CashflowRunwayChart({ months, currency }: Props) {
       <p className="chart-card__subtitle">
         Plná čiara = zostatok na konci mesiaca (aktuálny mesiac do dnes).
         Čiarkované = forecast sep–dec 2026 na hlavnom účte. Čiary nula a 3 000 €
-        sú prahy. Karty: či na účte dôjdu peniaze pred koncom roka.
+        sú prahy. Karty: či na účte dôjde cash pred koncom roka.
       </p>
       <div className="cashflow-runway-wrap">
         <Line data={data} options={options} />

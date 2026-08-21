@@ -220,9 +220,9 @@ export function runwayUntilLabel(
   if (hit) {
     const when = monthIn(hit);
     if (runway.yearEnd[id] >= 0) {
-      return `Peňazí dôjde ${when}, na konci znova plus`;
+      return `Cash dôjde ${when}, na konci znova plus`;
     }
-    return `Peňazí dôjde ${when}`;
+    return `Cash dôjde ${when}`;
   }
   if (runway.yearEnd[id] < CASHFLOW_RUNWAY_BUFFER_EUR) {
     return "Cash vydrží, ostane pod 3 000 €";
