@@ -66,6 +66,8 @@ type PnlPayload = {
 type PnlXlsMonth = {
   month_key: string;
   revenue: number;
+  /** Čisté tržby za tovar (produkty − zľavy, bez dopravy). */
+  revenue_goods?: number;
   costs: number;
   profit_month: number;
   profit_ytd: number;
@@ -161,7 +163,14 @@ function transformXlsToPnlPayload(xls: PnlXlsPayload): PnlPayload {
   };
 }
 
-const COGS_RATE = 0.356;
+/** Nákup Orin / čisté tržby za tovar (H1: ks × 16,10 / 12,30). */
+const COGS_RATE = 0.42;
+
+function goodsRevenue(m: PnlXlsMonth): number {
+  const g = Number(m.revenue_goods);
+  if (Number.isFinite(g) && g > 0) return g;
+  return m.revenue;
+}
 
 function transformHybridPayload(xls: PnlXlsPayload): PnlPayload {
   const lastActual = xls.meta.last_actual_month ?? 12;
@@ -172,14 +181,16 @@ function transformHybridPayload(xls: PnlXlsPayload): PnlPayload {
   });
 
   const mapped: PnlMonth[] = actualMonths.map((m) => {
-    const cogs = Math.round(m.revenue * COGS_RATE * 100) / 100;
+    const goods = goodsRevenue(m);
+    const cogs = Math.round(goods * COGS_RATE * 100) / 100;
     const grossProfit = m.revenue - cogs;
     const opex = m.opex;
     const cm = grossProfit - opex;
+    const services = Math.max(0, m.revenue - goods);
     return {
       month_key: m.month_key,
-      sales_goods: m.revenue,
-      sales_services: 0,
+      sales_goods: goods,
+      sales_services: services,
       other_revenue: 0,
       total_revenue: m.revenue,
       cogs_journal: 0,
@@ -211,7 +222,7 @@ function transformHybridPayload(xls: PnlXlsPayload): PnlPayload {
       year: String(xls.meta.year),
       from: xls.meta.from,
       to: xls.meta.to,
-      note: `Hybrid: tržby a OPEX z XLS, COGS = ${(COGS_RATE * 100).toFixed(1)} % z tržieb za tovar (Shopify). Jan–${monthLabel(actualMonths[actualMonths.length - 1]?.month_key ?? "01")} ${xls.meta.year}.`,
+      note: `Hybrid: tržby a OPEX z XLS, COGS = ${(COGS_RATE * 100).toFixed(0)} % čistých tržieb za tovar (nákup Orin). Jan–${monthLabel(actualMonths[actualMonths.length - 1]?.month_key ?? "01")} ${xls.meta.year}.`,
       last_actual_month: lastActual,
       last_month_key: xls.meta.last_month_key ?? actualMonths[actualMonths.length - 1]?.month_key,
     },
@@ -598,7 +609,9 @@ export default function PnlPanel() {
             value={formatMoney(t.cogs)}
             highlight={cogsOk ? "positive" : "negative"}
             sub={`${formatPct(cogsPct)} · benchmark 30–55 % · ${
-              t.cogs_journal < t.cogs_estimated ? "odhad 35,6 % z tovaru" : "z denníka (504)"
+              t.cogs_journal < t.cogs_estimated
+                ? `odhad ${(COGS_RATE * 100).toFixed(0)} % z tovaru`
+                : "z denníka (504)"
             }`}
           />
           <KpiCard
@@ -715,7 +728,7 @@ export default function PnlPanel() {
                 <th className="num">Tržby tovar</th>
                 <th className="num">Tržby služby</th>
                 <th className="num">Spolu tržby</th>
-                <th className="num" title="COGS = max(denník 504, odhad 35,6 % tržieb za tovar)">COGS*</th>
+                <th className="num" title={`COGS = max(denník 504, odhad ${(COGS_RATE * 100).toFixed(0)} % čistých tržieb za tovar)`}>COGS*</th>
                 <th className="num">Hrubá marža</th>
                 <th className="num">Služby (518 bez mk, staff)</th>
                 <th className="num">Staff</th>
@@ -793,10 +806,13 @@ export default function PnlPanel() {
         )}
       </div>
 
-      {mode === "accounting" && (
+      {(mode === "accounting" || mode === "hybrid") && (
         <p style={{ fontSize: "0.75rem", opacity: 0.6, marginTop: "0.5rem" }}>
-          * COGS = vyššia z hodnôt: účet 504 z denníka vs. odhad 35,6 % tržieb za tovar (nákupná cena Orin).
-          Odhad vychádza z produktovej kalkulácie (marža ~50 % vrátane fulfillmentu, platobnej brány a prepravy).
+          * COGS = {(COGS_RATE * 100).toFixed(0)} % čistých tržieb za tovar (nákup Orin / predané ks).
+          {mode === "accounting"
+            ? " Účtovný mód berie vyššiu z hodnôt: účet 504 vs. tento odhad."
+            : " Hybrid berie odhad, nie riadok 504 (nákup)."}{" "}
+          Fulfillment a brána sú v OPEX, nie v COGS.
         </p>
       )}
 

@@ -204,6 +204,16 @@ def extract_results(xlsx_path: Path, sheet_name: str = "Výsledky") -> tuple[lis
     r_revenue = _find_first_row_with_text(
         ws, "Výnosy spolu (v účtovníctve)", col=2
     )
+    r_prod_ship = _find_row_with_text_and_numbers(
+        ws, "Výnosy za produkty a dopravu", month_cols
+    )
+    r_shipping = None
+    if r_prod_ship:
+        for r in range(r_prod_ship + 1, min(ws.max_row, r_prod_ship + 20) + 1):
+            v = ws.cell(r, 2).value
+            if isinstance(v, str) and v.strip().lower() == "doprava":
+                r_shipping = r
+                break
     r_profit_m = _find_first_row_with_text(ws, "Výsledok za mesiac", col=2)
     r_profit_y = _find_first_row_with_text(ws, "Výsledok kumulatívne", col=2)
     r_costs = _find_costs_row(ws, month_cols)
@@ -231,12 +241,22 @@ def extract_results(xlsx_path: Path, sheet_name: str = "Výsledky") -> tuple[lis
         if None in (rev, costs, profit_m, profit_y, marketing, opex, other_operating, staff):
             continue
 
+        prod_ship = (
+            _to_number(ws.cell(r_prod_ship, c).value) if r_prod_ship else None
+        )
+        shipping = _to_number(ws.cell(r_shipping, c).value) if r_shipping else None
+        if prod_ship is not None:
+            revenue_goods = round(prod_ship - (shipping or 0), 2)
+        else:
+            revenue_goods = round(rev, 2)
+
         month_key = f"{year_int}-{month_num:02d}"
         monthly.append(
             {
                 "month_key": month_key,
                 "year": year_int,
                 "revenue": round(rev, 2),
+                "revenue_goods": revenue_goods,
                 "costs": round(costs, 2),
                 "profit_month": round(profit_m, 2),
                 "profit_ytd": round(profit_y, 2),
@@ -280,9 +300,10 @@ def main() -> None:
     if args.dry_run:
         for r in monthly:
             log.info(
-                "  %s: revenue=%s costs=%s profit=%s",
+                "  %s: revenue=%s goods=%s costs=%s profit=%s",
                 r["month_key"],
                 r["revenue"],
+                r.get("revenue_goods"),
                 r["costs"],
                 r["profit_month"],
             )

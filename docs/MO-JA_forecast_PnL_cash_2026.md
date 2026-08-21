@@ -19,7 +19,7 @@ H1 (jan–jún) z účtovného XLS *Výsledky*. Júl–august zo Shopify. Cash z
 
 Účtovný denník končí **30. 6. 2026**. Druhý Tatra účet (**+1 541 €**) do MO-JA P&L nie je započítaný — pravdepodobne Pupops.
 
-Ekonomický zisk = tržby − **35,6 % COGS** (rovnaký predpoklad ako dashboard) − OPEX. H1 takto **−6 878 €**, kým XLS ukazuje **+18 998 €**. Rozdiel je účtovanie zásob / COGS.
+Ekonomický zisk = tržby − **42 % COGS z čistých tržieb za tovar** (nákup Orin, rovnako ako hybrid `/pnl`) − OPEX. H1 takto ostáva v mínuse; XLS ukazuje **+18 998 €**, lebo 504 je nákup, nie predaný tovar.
 
 ---
 
@@ -151,7 +151,7 @@ Najčitateľnejší formát je fan chart: jedna čiara skutočnosť, tri čiary 
 
 | Pohľad | Kde | Čo ukázať |
 |---|---|---|
-| Actual vs forecast | `/pnl` | Stĺpce jan–posledný uzavretý mesiac plné, H2 čiarkované. Toggle účtovný / ekonomický (COGS 35,6 %). |
+| Actual vs forecast | `/pnl` | Stĺpce jan–posledný uzavretý mesiac plné, H2 čiarkované. Toggle účtovný / hybrid (COGS 42 % z tovaru). |
 | Cash runway | `/cashflow` | Zostatok close po mesiacoch + projekcia 4 mesiace. Prah 0 € a 3 k€. Scenár s/bez výberov. |
 | Mostík H1 → YE | nový outlook | Waterfall: H1 zisk → H2 tržby → OPEX → výbery → zásoby → zostatok 31. 12. |
 | Scenáre | oba | Tri pille (konzervatívny / base / Q4). Forecast nikdy nemiešať do KPI ako skutočnosť — vždy označiť. |
