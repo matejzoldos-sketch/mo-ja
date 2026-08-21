@@ -2,6 +2,24 @@
 
 Dokument popisuje, ako pridať vrstvu **interpretácie** nad existujúce dáta predaja a skladu. Cieľ: po otvorení dashboardu hneď vidieť *čo si vyžaduje pozornosť* a *kde je priestor na rast* — bez ručného čítania všetkých grafov.
 
+## Stav v kóde (august 2026)
+
+Engine a API **sú v repozitári**, stránka `/insighty` **nie je zapnutá** (redirect na Predaj):
+
+| Súčasť | Stav |
+|--------|------|
+| `web/lib/insights/evaluate.ts`, `config.ts`, `types.ts` | v kóde |
+| `GET /api/insights?range=&kpi_product=` | v kóde; default `range=90d`; `?mock=1` |
+| `web/app/insighty/InsightyClient.tsx` | v kóde, nepoužíva sa kým `page.tsx` redirectuje |
+| `web/app/insighty/page.tsx` | `redirect("/")` |
+| `HeaderNav` — Insighty | v `SECTIONS`, skryté cez `HIDDEN_NAV_SECTIONS` |
+
+Aktuálne ID pravidiel v `evaluate.ts` (nie identické s katalógom v §5–6): `revenue_14d_decline` / `revenue_14d_growth`, `returning_low` / `returning_high`, `one_time_high` / `one_time_low`, `first_second_slow` / `first_second_fast`, `sku_units_drop` / `sku_units_up`, `stock_zero_with_demand`, `stockout_soon`, `overstock_days`, `slow_mover_stock`, `utm_*` (coverage, channel, campaign, Meta, …), `no_strong_signals`.
+
+Prahové hodnoty: `web/lib/insights/config.ts` (`INSIGHT_THRESHOLDS`, `INSIGHTS_DEFAULT_RANGE = "90d"`).
+
+Katalóg nižšie je **pôvodný návrh** (máj 2026), nie zoznam toho, čo UI dnes ukazuje.
+
 ---
 
 ## 1. Ciele a princípy
@@ -24,7 +42,7 @@ Dokument popisuje, ako pridať vrstvu **interpretácie** nad existujúce dáta p
 Predaj | Sklad | Insighty
 ```
 
-- **URL:** `/insighty` (predvolene rovnaké obdobie ako Predaj — `365d`).
+- **URL:** `/insighty` (v kóde predvolené obdobie `90d` z `INSIGHTS_DEFAULT_RANGE`, nie 365d).
 - **Layout:** pod toolbarom dve kolóny na desktope (Riziká | Príležitosti), na mobile pod sebou.
 - **Alternatíva (fáza 1b):** blok „Insighty“ nad KPI na `/` — rýchlejšie, menej navigácie.
 
@@ -51,7 +69,7 @@ flowchart LR
     INS["GET /api/insights?range=&kpi_product="]
   end
   subgraph engine [Engine]
-    RULES[insightsRules.ts]
+    RULES[evaluate.ts]
   end
   UI[InsightyClient.tsx]
   RPC1 --> INS
@@ -159,7 +177,7 @@ Prepojenie Predaj ↔ Sklad: match podľa `product_title` / SKU z `topProducts` 
 
 ## 7. Konfigurácia prahov
 
-Súbor `web/lib/insights/config.ts` (budúci):
+Súbor `web/lib/insights/config.ts`:
 
 ```ts
 export const INSIGHT_THRESHOLDS = {
@@ -179,19 +197,21 @@ Prahov môže byť menej pri `365d` (iná šumová hladina) — v configu per `r
 
 ## 8. Fázy implementácie
 
-### Fáza 1 — MVP (odhad 2–3 dni)
+### Fáza 1 — MVP (engine hotový, UI vypnuté)
 
-- [ ] `web/lib/insights/` — typy, config, `evaluateInsights.ts` (~15 pravidiel len predaj)
-- [ ] `GET /api/insights` — dva dashboard RPC call (current; previous period dates vypočítané v TS)
-- [ ] `web/app/insighty/page.tsx` + `InsightyClient.tsx`
-- [ ] `HeaderSectionSelect` — tretia voľba „Insighty“
-- [ ] Žiadna nová migrácia SQL
+- [x] `web/lib/insights/` — typy, config, `evaluate.ts`
+- [x] `GET /api/insights` — dashboard + inventory + marketing RPC, `evaluateInsights`
+- [x] `web/app/insighty/InsightyClient.tsx` (stránka zatiaľ `redirect("/")`)
+- [x] `HeaderSectionSelect` — voľba „Insighty“ v `SECTIONS` (skrytá v menu)
+- [ ] Zapnúť `page.tsx` (odstrániť redirect) a odskryť nav
+- [x] Žiadna nová migrácia SQL len pre insighty
 
-### Fáza 2 — Sklad + odkazy (1–2 dni)
+### Fáza 2 — Sklad + UTM (v engine)
 
-- [ ] Inventár v `/api/insights`
-- [ ] Pravidlá stockout + link na `/sklad`
-- [ ] Export insightov do MD (rozšírenie existujúceho exportu)
+- [x] Inventár v `/api/insights` (stockout, overstock, slow mover)
+- [x] UTM / marketing pravidlá
+- [ ] Zapnúť UI + linky na `/sklad` a `/marketing` v živom menu
+- [ ] Export insightov do MD
 
 ### Fáza 3 — Doladenie (podľa feedbacku)
 
@@ -244,7 +264,7 @@ Prahov môže byť menej pri `365d` (iná šumová hladina) — v configu per `r
 
 ## 11. Otvorené otázky (na rozhodnutie)
 
-1. **Predvolené obdobie na /insighty** — `365d` ako Predaj, alebo vždy `90d` (citlivejšie na trendy)?
+1. **Predvolené obdobie na /insighty** — v kóde `90d` (`INSIGHTS_DEFAULT_RANGE`). Pôvodná otázka bola `365d` vs `90d`.
 2. **Koľko kariet max** — napr. top 5 rizík + top 5 príležitostí, zvyšok „Zobraziť všetky“?
 3. **Sklad hneď vo fáze 1** alebo až po feedbacku na predajné insighty?
 4. **Prahové hodnoty** — máš interné ciele (napr. returning ≥25 %)? Ak áno, doplníme do configu.
@@ -255,12 +275,14 @@ Prahov môže byť menej pri `365d` (iná šumová hladina) — v configu per `r
 
 | Súčasť | Súbor |
 |--------|--------|
-| Predaj payload | `web/app/DashboardClient.tsx` (`Payload`) |
+| Engine | `web/lib/insights/evaluate.ts`, `config.ts`, `types.ts` |
+| Insights API | `web/app/api/insights/route.ts` |
+| UI (zatiaľ unused) | `web/app/insighty/page.tsx`, `InsightyClient.tsx` |
+| Predaj payload | `web/app/DashboardClient.tsx` |
 | Dashboard API | `web/app/api/dashboard/route.ts` |
-| RPC | `supabase/migrations/045_dashboard_kpi_product_filter.sql` (+ 048–050) |
 | Sklad | `web/app/sklad/SkladClient.tsx`, `get_shopify_inventory_dashboard` |
 | Navigácia | `web/app/components/HeaderNav.tsx` |
 
 ---
 
-*Návrh v1 — máj 2026. Ďalší krok: schválenie prahov + fáza 1 v Agent mode.*
+*Návrh v1 — máj 2026; stav v kóde doplnený august 2026. Ďalší krok: odstrániť redirect na `/insighty` po schválení prahov.*
