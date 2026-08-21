@@ -192,20 +192,40 @@ export function buildCashflowRunway(
   };
 }
 
+const MONTH_IN: Record<string, string> = {
+  január: "v januári",
+  február: "vo februári",
+  marec: "v marci",
+  apríl: "v apríli",
+  máj: "v máji",
+  jún: "v júni",
+  júl: "v júli",
+  august: "v auguste",
+  september: "v septembri",
+  október: "v októbri",
+  november: "v novembri",
+  december: "v decembri",
+};
+
+function monthIn(label: string): string {
+  const month = label.replace(/\s+\d{4}$/, "").trim().toLowerCase();
+  return MONTH_IN[month] ?? `v ${month}`;
+}
+
 export function runwayUntilLabel(
   runway: CashflowRunway,
   id: RunwayScenarioId
 ): string {
   const hit = runway.firstBelowZero[id];
   if (hit) {
-    const month = hit.replace(/\s+\d{4}$/, "").toLowerCase();
+    const when = monthIn(hit);
     if (runway.yearEnd[id] >= 0) {
-      return `Nula v ${month}, potom späť`;
+      return `Peňazí dôjde ${when}, na konci znova plus`;
     }
-    return `Nula v ${month}`;
+    return `Peňazí dôjde ${when}`;
   }
   if (runway.yearEnd[id] < CASHFLOW_RUNWAY_BUFFER_EUR) {
-    return "Bez nuly, vankúš pod 3 k€";
+    return "Cash vydrží, ostane pod 3 000 €";
   }
-  return "Bez nuly do 31. 12.";
+  return "Cash vydrží do konca roka";
 }
