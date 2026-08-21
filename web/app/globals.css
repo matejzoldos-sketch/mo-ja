@@ -1532,6 +1532,99 @@ td code {
   margin-top: 4px;
 }
 
+.chart-card--cashflow-runway {
+  margin-top: 18px;
+}
+
+.chart-card--cashflow-runway .chart-card__subtitle {
+  margin-top: 0;
+}
+
+.cashflow-runway-wrap {
+  height: 280px;
+  position: relative;
+}
+
+.cashflow-runway-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  cursor: pointer;
+  user-select: none;
+  justify-self: end;
+}
+
+.cashflow-runway-check input {
+  margin: 0;
+  accent-color: var(--text-dark);
+}
+
+.cashflow-runway-kpis {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+@media (min-width: 720px) {
+  .cashflow-runway-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.cashflow-runway-kpi {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cashflow-runway-kpi__label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cashflow-runway-kpi__value {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.cashflow-runway-kpi__meta {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.cashflow-runway-kpi--neg .cashflow-runway-kpi__value {
+  color: var(--error, hsl(0, 55%, 50%));
+}
+
+.cashflow-runway-kpi--warn .cashflow-runway-kpi__value {
+  color: hsl(32, 70%, 38%);
+}
+
+.cashflow-runway-kpi--pos .cashflow-runway-kpi__value {
+  color: var(--success, hsl(152, 55%, 42%));
+}
+
+@media (max-width: 1100px) {
+  .chart-card--cashflow-runway .chart-card__head--filter {
+    grid-template-columns: 1fr;
+  }
+
+  .cashflow-runway-check {
+    justify-self: start;
+  }
+}
+
 .cashflow-txn-table {
   margin-top: 32px;
 }

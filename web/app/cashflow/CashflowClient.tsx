@@ -18,6 +18,7 @@ import {
   type CashflowEnrichedTx,
 } from "@/lib/cashflowPie";
 import CashflowTxnTable from "./CashflowTxnTable";
+import CashflowRunwayChart from "./CashflowRunwayChart";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -217,6 +218,7 @@ export default function CashflowClient() {
     for (const m of data.months) {
       md += `| ${m.label} | ${fm(m.opening)} | ${fm(m.credit)} | ${fm(m.debit)} | ${fm(m.net)} | ${fm(m.closing)} |\n`;
     }
+    md += `\n> Cash runway (forecast sep–dec 2026) je v dashboarde pod touto tabuľkou.\n`;
     return md;
   }, [data]);
 
@@ -394,6 +396,8 @@ export default function CashflowClient() {
                 </table>
               </div>
             </section>
+
+            <CashflowRunwayChart months={data.months} currency={currency} />
 
             <div className="charts-row charts-row--cashflow-pies">
               <section className="chart-card chart-card--cashflow-pie">
