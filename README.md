@@ -9,7 +9,7 @@ Repo: [github.com/matejzoldos-sketch/mo-ja](https://github.com/matejzoldos-sketc
 - Python **3.12** (CI aj lokálne odporúčané)
 - Shopify **Admin API** so scopes: `read_inventory`, `read_locations`, **`read_products`** (bez neho Sklad nevie spájať predaj so skladom) a **`read_all_orders`** (pre YTD; bez neho ~posledných 60 dní). Alternatíva `read_orders` = kratšia história. Pre sessiony (Spend): **`read_reports`** (ShopifyQL `sessions`).
 - KPI „vracajúci sa“ nepotrebuje `read_customers` — sync berie `email` z objednávky (`customer_email`). Voliteľne `read_customers` + GraphQL `customer { id }` → `customer_id`.
-- Supabase projekt `kqsmsegcqdhuhiofxyuu` — pred sync/webom `supabase db push` (migrácie `001`–`093` plus timestampované P&L / scaling / `moja_revoke_anon`).
+- Supabase projekt `kqsmsegcqdhuhiofxyuu` — pred sync/webom `supabase db push` (migrácie `001`–`093` plus timestampované scaling / marketing MER / P&L vrátane `pnl_cogs_rate_42_goods` / `moja_revoke_anon`).
 
 ### Shopify auth (od 1. 1. 2026)
 
@@ -60,7 +60,7 @@ npm install && npm run dev
 | `/cashflow` | Tatra banka + runway forecast |
 | `/marketing` | MER (revenue, ads, fees, mROAS) |
 | `/scaling` | Spend — executive rozhodnutie Meta spend (`get_executive_scaling_dashboard`) |
-| `/pnl` | P&L — hybrid (default) / účtovníctvo / XLS Výsledky |
+| `/pnl` | P&L — hybrid (default, COGS 42 % z tovaru) / účtovníctvo / XLS Výsledky |
 | `/login` | Heslo (`DASHBOARD_PASSWORD`) |
 
 `/insighty` je WIP: `page.tsx` robí `redirect("/")`, položka je v `HeaderNav` skrytá. Engine (`web/lib/insights/`, `GET /api/insights`) je v kóde — návrh a stav v `docs/insights-dashboard-design.md`.
@@ -139,7 +139,7 @@ Migrácie od `072` (Meta Ads) a `076` (účtovný denník). Dashboard: `/marketi
 python etl/import_pnl_xls_results.py --xlsx-path "docs/MO-JA_report_2026.xlsx"
 ```
 
-Import ide do `pnl_xls_results_monthly` a `pnl_xls_expenses_monthly`. Dashboard `/pnl` (predvolený režim **Hybrid**: tržby/OPEX z XLS, COGS zo Shopify). Ďalšie režimy: Účtovníctvo (`get_pnl_dashboard`), XLS Výsledky (`get_pnl_xls_dashboard`).
+Import ide do `pnl_xls_results_monthly` a `pnl_xls_expenses_monthly`. Dashboard `/pnl` (predvolený režim **Hybrid**: tržby a OPEX z XLS, COGS = **42 %** čistých tržieb za tovar — nákup Orin, nie účet 504 ani Shopify COGS). Ďalšie režimy: Účtovníctvo (`get_pnl_dashboard`: COGS = max(denník 504, 42 % tovaru)), XLS Výsledky (`get_pnl_xls_dashboard`). Cost-structure tabuľka má sekcie Tovar a Prevádzka.
 
 ## Tabuľky (výber)
 
