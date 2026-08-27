@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArcElement,
   CategoryScale,
@@ -122,6 +122,8 @@ export default function ZdraviePanel() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [scenario, setScenario] = useState<RunwayScenarioId>("base");
+  const [pdfExporting, setPdfExporting] = useState(false);
+  const pdfExportRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -371,6 +373,119 @@ export default function ZdraviePanel() {
     [currency]
   );
 
+  const buildMarkdown = useCallback((): string => {
+    if (!data) return "";
+    const { kpis, months, runway, pressures, costStructure, meta } = data;
+    const c = meta.currency;
+    const fm = (n: number) => formatMoney(n, c);
+    const sc = scenario;
+    let md = `# Finančné zdravie MO–JA — Hybrid ${meta.pnlYear}\n\n`;
+    md += `> ${meta.pnlNote}\n\n`;
+    md += `Účet ${meta.accountLabel} · sync banky ${meta.lastSync ?? "–"}\n\n`;
+
+    md += `## Likvidita\n\n`;
+    md += `| KPI | Hodnota |\n|---|---|\n`;
+    md += `| Aktuálny zostatok | ${fm(kpis.currentBalance)} |\n`;
+    md += `| Netto cash od 1. 1. | ${fm(kpis.ytdNetCash)} |\n`;
+    md += `| Výbery majiteľa YTD | ${fm(pressures.owner.ytd)} |\n`;
+    md += `| Nákupy ORIN YTD | ${fm(pressures.orin.ytd)} |\n`;
+    if (runway) {
+      const label = runway.scenarioMeta[sc].label;
+      md += `| Cash YE (${label}) | ${fm(runway.yearEnd[sc])} |\n`;
+      md += `| Minimum do YE (${label}) | ${fm(runway.minFromNow[sc])} |\n`;
+      md += `| YE bez výberov (${label}) | ${fm(runway.yearEndNoOwner[sc])} |\n`;
+      md += `| Runway | ${runway.untilLabel[sc]} |\n`;
+    }
+
+    md += `\n## Hybrid P&L\n\n`;
+    md += `| KPI | Hodnota |\n|---|---|\n`;
+    md += `| Tržby YTD | ${fm(kpis.revenueYtd)} |\n`;
+    md += `| Hybrid CM YTD | ${fm(kpis.cmYtd)} (${formatPct(kpis.marginYtd)}) |\n`;
+    md += `| 3M marža | ${formatPct(kpis.margin3m)} |\n`;
+    md += `| COGS YTD | ${fm(kpis.cogsYtd)} |\n`;
+    md += `| OPEX YTD | ${fm(kpis.opexYtd)} |\n`;
+    md += `| Marketing YTD | ${fm(kpis.marketingYtd)} (${formatPct(kpis.marketingPct)}) |\n`;
+    md += `| Staff YTD | ${fm(kpis.staffYtd)} (${formatPct(kpis.staffPct)}) |\n`;
+
+    if (costStructure?.buckets.length) {
+      md += `\n## Nákladová štruktúra | Akčné páky\n\n`;
+      md += `| Skupina | Výška | % nákladov | % tržieb | Benchmark | Odporúčaná akcia |\n`;
+      md += `|---|---|---|---|---|---|\n`;
+      for (const b of costStructure.buckets) {
+        const tag = b.kind === "cash" ? " (cash)" : "";
+        md += `| ${b.label}${tag} | ${fm(b.amount)} | ${formatPct(b.pctOfCosts)} | ${formatPct(b.pctOfRevenue)} | ${b.benchLabel} | ${b.action} |\n`;
+      }
+      md += `| **Spolu (P&L)** | **${fm(costStructure.pnlTotal)}** | 100 % | ${formatPct(costStructure.costsOverPct)} | | |\n`;
+    }
+
+    md += `\n## Mesačný mostík\n\n`;
+    md += `| Mesiac | Tržby | Hybrid CM | Marža | Cash netto | Cash close |\n`;
+    md += `|---|---|---|---|---|---|\n`;
+    for (const m of months) {
+      md += `| ${m.label}${m.isPartial ? "*" : ""} | ${m.revenue != null ? fm(m.revenue) : "–"} | ${m.contribution_margin != null ? fm(m.contribution_margin) : "–"} | ${formatPct(m.margin_pct)} | ${m.cash_net != null ? fm(m.cash_net) : "–"} | ${m.cash_close != null ? fm(m.cash_close) : "–"} |\n`;
+    }
+    return md;
+  }, [data, scenario]);
+
+  const downloadMd = useCallback(() => {
+    const md = buildMarkdown();
+    if (!md) return;
+    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `zdravie-${new Date().toISOString().slice(0, 10)}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [buildMarkdown]);
+
+  const downloadPdf = useCallback(async () => {
+    const root = pdfExportRef.current;
+    if (!root || !data) return;
+    setPdfExporting(true);
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+      const canvas = await html2canvas(root, {
+        scale: 1.75,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+        scrollX: 0,
+        scrollY: -window.scrollY,
+        windowWidth: root.scrollWidth,
+      });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const imgW = pageW;
+      const imgH = (canvas.height * imgW) / canvas.width;
+      let heightLeft = imgH;
+      let y = 0;
+      pdf.addImage(imgData, "PNG", 0, y, imgW, imgH);
+      heightLeft -= pageH;
+      while (heightLeft > 0) {
+        y = heightLeft - imgH;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 0, y, imgW, imgH);
+        heightLeft -= pageH;
+      }
+      pdf.save(`zdravie-${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch (e) {
+      console.error(e);
+      window.alert(e instanceof Error ? e.message : "Export do PDF zlyhal.");
+    } finally {
+      setPdfExporting(false);
+    }
+  }, [data]);
+
   if (loading && !data) return <p className="msg">Načítavam finančné zdravie…</p>;
   if (err) {
     return (
@@ -385,7 +500,33 @@ export default function ZdraviePanel() {
   const scMeta = runway?.scenarioMeta[scenario];
 
   return (
-    <div className="dashboard-pdf-root zdravie-root">
+    <>
+      <div
+        style={{
+          display: "flex",
+          gap: "0.5rem",
+          justifyContent: "flex-end",
+          marginBottom: "0.5rem",
+        }}
+      >
+        <button
+          type="button"
+          className="btn btn--outline btn--sm"
+          onClick={downloadMd}
+        >
+          Stiahnuť MD
+        </button>
+        <button
+          type="button"
+          className="btn btn--outline btn--sm"
+          onClick={downloadPdf}
+          disabled={pdfExporting}
+        >
+          {pdfExporting ? "Generujem PDF…" : "Stiahnuť PDF"}
+        </button>
+      </div>
+
+      <div className="dashboard-pdf-root zdravie-root" ref={pdfExportRef}>
       <p className="dashboard-period-hint">
         Hybrid P&L {meta.pnlYear} · účet {meta.accountLabel} · sync banky{" "}
         {formatLastSyncDisplay(meta.lastSync)} · COGS{" "}
@@ -823,6 +964,7 @@ export default function ZdraviePanel() {
         <a href="/cashflow">Cash flow</a>. Forecast scenáre sú odhad, nie
         bankový prísľub.
       </p>
-    </div>
+      </div>
+    </>
   );
 }
