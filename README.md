@@ -1,6 +1,6 @@
 # mo-ja — Shopify → Supabase → dashboard
 
-Analytický stack pre e-shop **MO–JA**: sync objednávok a skladu zo Shopify, cashflow z Tatra banky a Next.js dashboard (Predaj, Sklad, Cash flow, Marketing / MER, Spend, P&L) na Vercel.
+Analytický stack pre e-shop **MO–JA**: sync objednávok a skladu zo Shopify, cashflow z Tatra banky a Next.js dashboard (Predaj, Zdravie, Sklad, Cash flow, Marketing / MER, Spend, P&L) na Vercel.
 
 Repo: [github.com/matejzoldos-sketch/mo-ja](https://github.com/matejzoldos-sketch/mo-ja)
 
@@ -56,6 +56,7 @@ npm install && npm run dev
 | Route | Modul |
 |-------|--------|
 | `/` | Predaj — KPI, grafy, objednávky (`get_shopify_dashboard_mvp`) |
+| `/zdravie` | Finančné zdravie — hybrid P&L + cash runway (executive) |
 | `/sklad` | Inventár zo Shopify |
 | `/cashflow` | Tatra banka + runway forecast |
 | `/marketing` | MER (revenue, ads, fees, mROAS) |

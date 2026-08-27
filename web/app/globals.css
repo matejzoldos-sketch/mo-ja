@@ -2208,4 +2208,94 @@ td code {
   }
 }
 
+/* —— Finančné zdravie —— */
+.zdravie-root {
+  gap: 22px;
+}
+
+.zdravie-lead {
+  margin-top: -8px;
+}
+
+.zdravie-section-head {
+  margin: 0.5rem 0 0;
+}
+
+.zdravie-section-head__title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  letter-spacing: -0.01em;
+}
+
+.zdravie-section-head__sub {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.zdravie-section-head__lead {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.zdravie-section-head--viz {
+  margin-top: 0.75rem;
+}
+
+.zdravie-scenario-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.zdravie-scenario-pill {
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text-dark);
+  cursor: pointer;
+}
+
+.zdravie-scenario-pill.is-active {
+  background: var(--primary);
+  border-color: transparent;
+  color: var(--text-dark);
+}
+
+.zdravie-chart-wrap {
+  height: 320px;
+  position: relative;
+}
+
+.zdravie-chart-wrap--short {
+  height: 260px;
+}
+
+.kpi-card__value--warn {
+  color: hsl(32, 70%, 38%);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 

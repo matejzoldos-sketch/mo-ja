@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 
 export type DashboardSection =
   | "predaj"
+  | "zdravie"
   | "cashflow"
   | "sklad"
   | "insighty"
@@ -18,6 +19,12 @@ const SECTIONS: {
   subtitle: string;
 }[] = [
   { id: "predaj", label: "Predaj", path: "/", subtitle: "Predaj" },
+  {
+    id: "zdravie",
+    label: "Zdravie",
+    path: "/zdravie",
+    subtitle: "Finančné zdravie",
+  },
   { id: "cashflow", label: "Cash flow", path: "/cashflow", subtitle: "Cash flow" },
   { id: "sklad", label: "Sklad", path: "/sklad", subtitle: "Sklad" },
   { id: "insighty", label: "Insighty", path: "/insighty", subtitle: "Insighty" },
@@ -32,6 +39,7 @@ const HIDDEN_NAV_SECTIONS = new Set<DashboardSection>(["insighty"]);
 const NAV_SECTIONS = SECTIONS.filter((s) => !HIDDEN_NAV_SECTIONS.has(s.id));
 
 function sectionFromPathname(pathname: string): DashboardSection {
+  if (pathname === "/zdravie") return "zdravie";
   if (pathname === "/cashflow") return "cashflow";
   if (pathname === "/sklad") return "sklad";
   if (pathname === "/insighty") return "insighty";

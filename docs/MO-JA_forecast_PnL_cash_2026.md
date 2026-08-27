@@ -151,9 +151,10 @@ Najčitateľnejší formát je fan chart: jedna čiara skutočnosť, tri čiary 
 
 | Pohľad | Kde | Čo ukázať |
 |---|---|---|
+| Finančné zdravie | `/zdravie` | Likvidita + hybrid CM + nožnice CM vs cash + runway + mesačný mostík |
 | Actual vs forecast | `/pnl` | Stĺpce jan–posledný uzavretý mesiac plné, H2 čiarkované. Toggle účtovný / hybrid (COGS 42 % z tovaru). |
 | Cash runway | `/cashflow` | Zostatok close po mesiacoch + projekcia 4 mesiace. Prah 0 € a 3 k€. Scenár s/bez výberov. |
-| Mostík H1 → YE | nový outlook | Waterfall: H1 zisk → H2 tržby → OPEX → výbery → zásoby → zostatok 31. 12. |
-| Scenáre | oba | Tri pille (konzervatívny / base / Q4). Forecast nikdy nemiešať do KPI ako skutočnosť — vždy označiť. |
+| Mostík H1 → YE | `/zdravie` (mesačná tabuľka) | Hybrid CM + cash close vedľa seba; waterfall H1→YE neskôr |
+| Scenáre | `/zdravie`, `/cashflow` | Tri pille (konzervatívny / base / Q4). Forecast nikdy nemiešať do KPI ako skutočnosť — vždy označiť. |
 
 Dáta na automatický refresh: XLS/denník do posledného uzavretého mesiaca, Shopify MTD na aktuálny mesiac, Tatra zostatok denne. Forecast prepisovať až po uzávierke mesiaca, nie denne.
