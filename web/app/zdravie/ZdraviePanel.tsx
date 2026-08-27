@@ -28,6 +28,7 @@ import type {
   ZdravieKpis,
   ZdravieRunwaySummary,
 } from "@/lib/zdravieMetrics";
+import type { ZdravieBucket } from "@/lib/zdravieBuckets";
 
 ChartJS.register(
   CategoryScale,
@@ -44,10 +45,6 @@ const TEXT = "#1a1f28";
 const GRID = "rgba(15, 23, 42, 0.06)";
 const CM_COLOR = "#6b7f62";
 const CASH_COLOR = "#1a1f28";
-const COGS_COLOR = "hsl(12, 55%, 48%)";
-const MKT_COLOR = "hsl(210, 42%, 48%)";
-const STAFF_COLOR = "hsl(32, 60%, 45%)";
-const OPEX_COLOR = "hsl(220, 18%, 52%)";
 
 type ZdraviePayload = {
   meta: {
@@ -73,6 +70,13 @@ type ZdraviePayload = {
     marketing: number;
     staff: number;
     otherOpex: number;
+  };
+  costStructure?: {
+    buckets: ZdravieBucket[];
+    pnlTotal: number;
+    revenueYtd: number;
+    costsOverRevenue: boolean;
+    costsOverPct: number | null;
   };
 };
 
@@ -247,16 +251,15 @@ export default function ZdraviePanel() {
   );
 
   const costMixData = useMemo((): ChartData<"doughnut"> | null => {
-    if (!data) return null;
-    const { cogs, marketing, staff, otherOpex } = data.costMix;
-    const values = [cogs, marketing, staff, otherOpex];
-    if (values.every((v) => v <= 0)) return null;
+    if (!data?.costStructure) return null;
+    const pnlBuckets = data.costStructure.buckets.filter((b) => b.kind === "pnl");
+    if (!pnlBuckets.length) return null;
     return {
-      labels: ["COGS (42 % tovar)", "Marketing", "Staff", "Ostatný OPEX"],
+      labels: pnlBuckets.map((b) => b.label),
       datasets: [
         {
-          data: values,
-          backgroundColor: [COGS_COLOR, MKT_COLOR, STAFF_COLOR, OPEX_COLOR],
+          data: pnlBuckets.map((b) => b.amount),
+          backgroundColor: pnlBuckets.map((b) => b.color),
           borderWidth: 0,
         },
       ],
@@ -642,6 +645,101 @@ export default function ZdraviePanel() {
 
       {data.cashMonths.length > 0 ? (
         <CashflowRunwayChart months={data.cashMonths} currency={currency} />
+      ) : null}
+
+      {data.costStructure && data.costStructure.buckets.length > 0 ? (
+        <>
+          <header className="zdravie-section-head">
+            <h2 className="zdravie-section-head__title">
+              4. Nákladová štruktúra{" "}
+              <span className="zdravie-section-head__sep">|</span> Akčné páky
+            </h2>
+            <p className="zdravie-section-head__sub">Hybrid P&amp;L + cash</p>
+            <p className="zdravie-section-head__lead">
+              Rozpad nákladov vs. D2C benchmark a cash páky (výbery, ORIN).
+              Kritické riadky sú zvýraznené.
+            </p>
+          </header>
+
+          <section
+            className="table-card"
+            aria-labelledby="zdravie-buckets-title"
+          >
+            <h2 id="zdravie-buckets-title" className="visually-hidden">
+              Nákladová štruktúra
+            </h2>
+            <p className="chart-card__subtitle">
+              Hybrid YTD · COGS 42 % z tovaru · cash páky mimo P&amp;L súčtu
+            </p>
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Skupina</th>
+                    <th className="num">Výška</th>
+                    <th className="num">% nákladov</th>
+                    <th className="num">% tržieb</th>
+                    <th>Benchmark</th>
+                    <th>Odporúčaná akcia</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.costStructure.buckets.map((b) => (
+                    <tr key={b.key}>
+                      <td>
+                        <span
+                          className="zdravie-bucket-swatch"
+                          style={{ background: b.color }}
+                          aria-hidden
+                        />
+                        {b.label}
+                        {b.kind === "cash" ? (
+                          <span className="zdravie-bucket-tag"> cash</span>
+                        ) : null}
+                      </td>
+                      <td className="num">
+                        {formatMoney(b.amount, currency)}
+                      </td>
+                      <td className="num">{formatPct(b.pctOfCosts)}</td>
+                      <td className="num">{formatPct(b.pctOfRevenue)}</td>
+                      <td className="zdravie-bucket-bench">{b.benchLabel}</td>
+                      <td
+                        className={
+                          b.actionCrit ? "zdravie-action-crit" : undefined
+                        }
+                      >
+                        {b.action}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td>Spolu (P&amp;L)</td>
+                    <td className="num">
+                      {formatMoney(data.costStructure.pnlTotal, currency)}
+                    </td>
+                    <td className="num">100,0 %</td>
+                    <td className="num">
+                      {formatPct(data.costStructure.costsOverPct)}
+                    </td>
+                    <td colSpan={2}>
+                      {data.costStructure.costsOverRevenue &&
+                      data.costStructure.costsOverPct != null
+                        ? `Náklady presahujú tržby o ${((data.costStructure.costsOverPct - 1) * 100).toLocaleString("sk-SK", { maximumFractionDigits: 1 })} %`
+                        : "—"}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <p className="chart-card__subtitle zdravie-bucket-links">
+              Detail: <a href="/pnl">P&amp;L</a> ·{" "}
+              <a href="/cashflow">Cash flow</a> ·{" "}
+              <a href="/scaling">Spend</a>
+            </p>
+          </section>
+        </>
       ) : null}
 
       <header className="zdravie-section-head">

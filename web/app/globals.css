@@ -2229,6 +2229,11 @@ td code {
   letter-spacing: -0.01em;
 }
 
+.zdravie-section-head__sep {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
 .zdravie-section-head__sub {
   margin: 0.2rem 0 0;
   font-size: 0.78rem;
@@ -2296,6 +2301,43 @@ td code {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+.zdravie-bucket-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.zdravie-bucket-tag {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.zdravie-bucket-bench {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.zdravie-action-crit {
+  color: hsl(0, 55%, 42%);
+  font-weight: 600;
+}
+
+.zdravie-bucket-links {
+  margin-top: 0.75rem;
+}
+
+.data-table tfoot td {
+  font-weight: 700;
+  border-top: 2px solid var(--border-strong);
 }
 
 

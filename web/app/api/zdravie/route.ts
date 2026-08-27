@@ -19,6 +19,7 @@ import {
   joinZdravieMonths,
   sumCashPressures,
 } from "@/lib/zdravieMetrics";
+import { buildZdravieCostBuckets } from "@/lib/zdravieBuckets";
 import {
   supabasePostgrestGet,
   supabasePostgrestRpc,
@@ -197,6 +198,27 @@ export async function GET(request: Request) {
     pressures,
   });
 
+  const costMix = {
+    cogs: pnl.totals.cogs,
+    marketing: pnl.totals.marketing_spend,
+    staff: pnl.totals.staff_spend,
+    otherOpex: Math.max(
+      0,
+      pnl.totals.total_opex -
+        pnl.totals.marketing_spend -
+        pnl.totals.staff_spend
+    ),
+  };
+
+  const costStructure = buildZdravieCostBuckets({
+    costMix,
+    revenueYtd: pnl.totals.total_revenue,
+    ownerWithdrawalsYtd: pressures.owner.ytd,
+    orinPurchasesYtd: pressures.orin.ytd,
+    currentBalance: balance,
+    bufferEur: runway?.bufferEur,
+  });
+
   return NextResponse.json(
     {
       meta: {
@@ -217,17 +239,8 @@ export async function GET(request: Request) {
         owner: pressures.owner,
         orin: pressures.orin,
       },
-      costMix: {
-        cogs: pnl.totals.cogs,
-        marketing: pnl.totals.marketing_spend,
-        staff: pnl.totals.staff_spend,
-        otherOpex: Math.max(
-          0,
-          pnl.totals.total_opex -
-            pnl.totals.marketing_spend -
-            pnl.totals.staff_spend
-        ),
-      },
+      costMix,
+      costStructure,
     },
     { headers: jsonNoStoreHeaders }
   );
