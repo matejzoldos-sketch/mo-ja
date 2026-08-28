@@ -254,13 +254,35 @@ export async function GET(request: Request) {
       ? (meta as Record<string, unknown>)
       : null;
   const metaFrom =
-    metaObj && typeof metaObj.from === "string" ? metaObj.from : null;
+    metaObj && typeof metaObj.from === "string" ? metaObj.from.slice(0, 10) : null;
   const metaTo =
-    metaObj && typeof metaObj.to === "string" ? metaObj.to : null;
+    metaObj && typeof metaObj.to === "string" ? metaObj.to.slice(0, 10) : null;
+
+  let kpis = base.kpis;
+  if (metaFrom && metaTo && /^\d{4}-\d{2}-\d{2}$/.test(metaFrom) && /^\d{4}-\d{2}-\d{2}$/.test(metaTo)) {
+    const kpiRes = await supabasePostgrestRpc<Record<string, unknown>>(
+      supabaseUrl,
+      serviceKey,
+      "get_shopify_dashboard_kpis",
+      {
+        p_from: metaFrom,
+        p_to: metaTo,
+        ...(pKpiProduct != null ? { p_kpi_product: pKpiProduct } : {}),
+      }
+    );
+    if (!kpiRes.error && kpiRes.data != null && typeof kpiRes.data === "object") {
+      const summaryKpis =
+        kpis != null && typeof kpis === "object" && !Array.isArray(kpis)
+          ? (kpis as Record<string, unknown>)
+          : {};
+      kpis = { ...summaryKpis, ...kpiRes.data };
+    }
+  }
 
   return NextResponse.json(
     {
       ...base,
+      kpis,
       meta,
       orderTimeHeatmap: heatmapRes.data,
       lastSyncAt,
