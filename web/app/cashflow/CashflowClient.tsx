@@ -209,9 +209,7 @@ export default function CashflowClient() {
     md += `> Pohyby od ${data.meta.periodStart.slice(0, 10)} · sync banky ${data.meta.lastSync ?? "–"}\n\n`;
     md += `| KPI | Hodnota |\n|---|---|\n`;
     md += `| Aktuálny zostatok | ${fm(data.kpis.currentBalance)} |\n`;
-    md += `| Netto od 1. 1. | ${fm(data.kpis.ytdNet)} |\n`;
-    md += `| Stav k 1. 1. | ${fm(data.kpis.openingAtPeriodStart)} |\n`;
-    md += `| Počet pohybov | ${data.kpis.transactionCount} |\n\n`;
+    md += `| Netto od 1. 1. | ${fm(data.kpis.ytdNet)} |\n\n`;
     md += `## Súhrn po mesiacoch\n\n`;
     md += `| Mesiac | Počiatočný | + príjmy | − výdaje | Netto | Zostatok |\n`;
     md += `|---|---|---|---|---|---|\n`;
@@ -312,9 +310,6 @@ export default function CashflowClient() {
               Účet {data.meta.accountLabel} · pohyby od{" "}
               {data.meta.periodStart.slice(0, 10)} · sync banky{" "}
               {formatLastSyncDisplay(data.meta.lastSync)}
-              {data.meta.openingDerived
-                ? " · počiatočný stav k 1. 1. dopočítaný z aktuálneho zostatku"
-                : null}
             </p>
 
             <section className="kpi-section" aria-label="Cash flow KPI">
@@ -330,18 +325,6 @@ export default function CashflowClient() {
                   <span className={`kpi-card__value ${netClass(data.kpis.ytdNet)}`}>
                     {formatMoney(data.kpis.ytdNet, currency)}
                   </span>
-                </div>
-              </div>
-              <div className="kpi-grid kpi-grid--secondary">
-                <div className="kpi-card">
-                  <span className="kpi-card__label">Stav k 1. 1. (dopočítaný)</span>
-                  <span className="kpi-card__value">
-                    {formatMoney(data.kpis.openingAtPeriodStart, currency)}
-                  </span>
-                </div>
-                <div className="kpi-card">
-                  <span className="kpi-card__label">Počet pohybov v období</span>
-                  <span className="kpi-card__value">{data.kpis.transactionCount}</span>
                 </div>
               </div>
             </section>
