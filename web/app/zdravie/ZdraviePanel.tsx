@@ -45,6 +45,12 @@ const TEXT = "#1a1f28";
 const GRID = "rgba(15, 23, 42, 0.06)";
 const CM_COLOR = "#6b7f62";
 const CASH_COLOR = "#1a1f28";
+const PNL_CHART_LABEL = "P&L";
+
+/** Popis hybridného modelu hore na stránke (z API note). */
+function formatHybridPnlNote(note: string): string {
+  return note.replace(/^Hybrid:\s*/i, "Hybridný model: ");
+}
 
 type ZdraviePayload = {
   meta: {
@@ -162,7 +168,7 @@ export default function ZdraviePanel() {
       labels: rows.map((m) => m.label.replace(/\s+\d{4}$/, "")),
       datasets: [
         {
-          label: "Hybrid CM",
+          label: PNL_CHART_LABEL,
           data: rows.map((m) => m.contribution_margin),
           borderColor: CM_COLOR,
           backgroundColor: "transparent",
@@ -223,7 +229,7 @@ export default function ZdraviePanel() {
           position: "left",
           title: {
             display: true,
-            text: "Hybrid CM (€)",
+            text: "P&L (€)",
             color: TEXT,
             font: { size: 11 },
           },
@@ -309,7 +315,7 @@ export default function ZdraviePanel() {
       labels: rows.map((m) => m.label.replace(/\s+\d{4}$/, "")),
       datasets: [
         {
-          label: "Hybrid CM",
+          label: PNL_CHART_LABEL,
           data: rows.map((m) => m.contribution_margin as number),
           borderColor: CM_COLOR,
           backgroundColor: "hsla(95, 18%, 45%, 0.12)",
@@ -351,7 +357,7 @@ export default function ZdraviePanel() {
               if (ctx.dataset.label === "Nula") return "";
               const v = ctx.parsed.y;
               if (v == null) return "";
-              return `CM: ${formatMoney(v, currency)}`;
+              return `P&L: ${formatMoney(v, currency)}`;
             },
           },
         },
@@ -379,8 +385,8 @@ export default function ZdraviePanel() {
     const c = meta.currency;
     const fm = (n: number) => formatMoney(n, c);
     const sc = scenario;
-    let md = `# Finančné zdravie MO–JA — Hybrid ${meta.pnlYear}\n\n`;
-    md += `> ${meta.pnlNote}\n\n`;
+    let md = `# Finančné zdravie MO–JA — P&L ${meta.pnlYear}\n\n`;
+    md += `> ${formatHybridPnlNote(meta.pnlNote)}\n\n`;
     md += `Účet ${meta.accountLabel} · sync banky ${meta.lastSync ?? "–"}\n\n`;
 
     md += `## Likvidita\n\n`;
@@ -397,10 +403,10 @@ export default function ZdraviePanel() {
       md += `| Runway | ${runway.untilLabel[sc]} |\n`;
     }
 
-    md += `\n## Hybrid P&L\n\n`;
+    md += `\n## P&L\n\n`;
     md += `| KPI | Hodnota |\n|---|---|\n`;
     md += `| Tržby YTD | ${fm(kpis.revenueYtd)} |\n`;
-    md += `| Hybrid CM YTD | ${fm(kpis.cmYtd)} (${formatPct(kpis.marginYtd)}) |\n`;
+    md += `| P&L YTD | ${fm(kpis.cmYtd)} (${formatPct(kpis.marginYtd)}) |\n`;
     md += `| 3M marža | ${formatPct(kpis.margin3m)} |\n`;
     md += `| COGS YTD | ${fm(kpis.cogsYtd)} |\n`;
     md += `| OPEX YTD | ${fm(kpis.opexYtd)} |\n`;
@@ -419,7 +425,7 @@ export default function ZdraviePanel() {
     }
 
     md += `\n## Mesačný mostík\n\n`;
-    md += `| Mesiac | Tržby | Hybrid CM | Marža | Cash netto | Cash close |\n`;
+    md += `| Mesiac | Tržby | P&L | Marža | Cash netto | Cash close |\n`;
     md += `|---|---|---|---|---|---|\n`;
     for (const m of months) {
       md += `| ${m.label}${m.isPartial ? "*" : ""} | ${m.revenue != null ? fm(m.revenue) : "–"} | ${m.contribution_margin != null ? fm(m.contribution_margin) : "–"} | ${formatPct(m.margin_pct)} | ${m.cash_net != null ? fm(m.cash_net) : "–"} | ${m.cash_close != null ? fm(m.cash_close) : "–"} |\n`;
@@ -528,11 +534,12 @@ export default function ZdraviePanel() {
 
       <div className="dashboard-pdf-root zdravie-root" ref={pdfExportRef}>
       <p className="dashboard-period-hint">
-        Hybrid P&L {meta.pnlYear} · účet {meta.accountLabel} · sync banky{" "}
-        {formatLastSyncDisplay(meta.lastSync)} · COGS{" "}
-        {(meta.cogsRate * 100).toFixed(0)} % z tovaru
+        P&L {meta.pnlYear} · účet {meta.accountLabel} · sync banky{" "}
+        {formatLastSyncDisplay(meta.lastSync)}
       </p>
-      <p className="chart-card__subtitle zdravie-lead">{meta.pnlNote}</p>
+      <p className="chart-card__subtitle zdravie-lead">
+        {formatHybridPnlNote(meta.pnlNote)}
+      </p>
 
       <header className="zdravie-section-head">
         <h2 className="zdravie-section-head__title">1. Okamžitý stav a runway</h2>
@@ -653,12 +660,11 @@ export default function ZdraviePanel() {
       </section>
 
       <header className="zdravie-section-head">
-        <h2 className="zdravie-section-head__title">
-          2. Výkonnosť — hybrid P&amp;L
-        </h2>
+        <h2 className="zdravie-section-head__title">2. Výkonnosť — P&amp;L</h2>
         <p className="zdravie-section-head__sub">Ekonomický zisk</p>
         <p className="zdravie-section-head__lead">
-          Tržby a OPEX z XLS, COGS = 42 % čistých tržieb za tovar (nie nákup 504).
+          Contribution margin po COGS a OPEX — hybridný model (XLS + odhad COGS
+          42&nbsp;% z tržieb za tovar, nie riadok 504).
         </p>
       </header>
 
@@ -671,7 +677,7 @@ export default function ZdraviePanel() {
             </span>
           </div>
           <div className="kpi-card kpi-card--hero">
-            <span className="kpi-card__label">Hybrid CM YTD</span>
+            <span className="kpi-card__label">P&amp;L YTD</span>
             <span className={`kpi-card__value ${netClass(kpis.cmYtd)}`}>
               {formatMoney(kpis.cmYtd, currency)}
             </span>
@@ -680,12 +686,12 @@ export default function ZdraviePanel() {
             </span>
           </div>
           <div className="kpi-card kpi-card--hero">
-            <span className="kpi-card__label">3M hybrid marža</span>
+            <span className="kpi-card__label">3M marža (P&amp;L)</span>
             <span className={`kpi-card__value ${marginTone(kpis.margin3m)}`}>
               {formatPct(kpis.margin3m)}
             </span>
             <span className="kpi-card__suffix">
-              CM {formatMoney(kpis.cm3m, currency)} · cieľ &gt; 10 %
+              P&amp;L {formatMoney(kpis.cm3m, currency)} · cieľ &gt; 10 %
             </span>
           </div>
         </div>
@@ -736,7 +742,7 @@ export default function ZdraviePanel() {
       <header className="zdravie-section-head zdravie-section-head--viz">
         <h2 className="zdravie-section-head__title">Vizualizácie</h2>
         <p className="zdravie-section-head__lead">
-          Hybrid CM vs. cash (rôzne škály), trend CM a rozpad nákladov.
+          P&amp;L vs. cash (rôzne škály), mesačný trend P&amp;L a rozpad nákladov.
         </p>
       </header>
 
@@ -745,10 +751,10 @@ export default function ZdraviePanel() {
           className="chart-card"
           aria-labelledby="zdravie-scissors-title"
         >
-          <h2 id="zdravie-scissors-title">Hybrid CM vs. cash close</h2>
+          <h2 id="zdravie-scissors-title">P&amp;L vs. cash</h2>
           <p className="chart-card__subtitle">
-            Ľavá os = ekonomický CM · pravá = zostatok Tatra (nožnice P&amp;L ≠
-            cash)
+            Ľavá os = mesačný výsledok P&amp;L · pravá = zostatok Tatra (nožnice
+            P&amp;L ≠ cash)
           </p>
           <div className="zdravie-chart-wrap">
             {scissorsData ? (
@@ -762,7 +768,7 @@ export default function ZdraviePanel() {
         <section className="chart-card" aria-labelledby="zdravie-mix-title">
           <h2 id="zdravie-mix-title">Rozpad nákladov YTD</h2>
           <p className="chart-card__subtitle">
-            Hybrid: COGS 42 % + OPEX z XLS
+            P&amp;L YTD — COGS 42&nbsp;% + OPEX z XLS
           </p>
           {costMixData ? (
             <Doughnut data={costMixData} options={costMixOpts} />
@@ -774,8 +780,8 @@ export default function ZdraviePanel() {
 
       <div className="charts-row charts-row--single">
         <section className="chart-card" aria-labelledby="zdravie-cm-title">
-          <h2 id="zdravie-cm-title">Trend hybrid CM</h2>
-          <p className="chart-card__subtitle">Mesačný ekonomický zisk</p>
+          <h2 id="zdravie-cm-title">Trend P&amp;L</h2>
+          <p className="chart-card__subtitle">Mesačný contribution margin</p>
           <div className="zdravie-chart-wrap zdravie-chart-wrap--short">
             {cmTrendData ? (
               <Line data={cmTrendData} options={cmTrendOpts} />
@@ -795,7 +801,7 @@ export default function ZdraviePanel() {
               4. Nákladová štruktúra{" "}
               <span className="zdravie-section-head__sep">|</span> Akčné páky
             </h2>
-            <p className="zdravie-section-head__sub">Hybrid P&amp;L + cash</p>
+            <p className="zdravie-section-head__sub">P&amp;L + cash</p>
             <p className="zdravie-section-head__lead">
               Rozpad nákladov vs. D2C benchmark a cash páky (výbery, ORIN).
               Kritické riadky sú zvýraznené.
@@ -810,7 +816,7 @@ export default function ZdraviePanel() {
               Nákladová štruktúra
             </h2>
             <p className="chart-card__subtitle">
-              Hybrid YTD · COGS 42 % z tovaru · cash páky mimo P&amp;L súčtu
+              P&amp;L YTD · COGS 42&nbsp;% z tovaru · cash páky mimo P&amp;L súčtu
             </p>
             <div className="table-scroll">
               <table className="data-table">
@@ -885,7 +891,7 @@ export default function ZdraviePanel() {
 
       <header className="zdravie-section-head">
         <h2 className="zdravie-section-head__title">
-          Mesačný mostík · hybrid + cash
+          Mesačný mostík · P&amp;L + cash
         </h2>
         <p className="zdravie-section-head__lead">
           Jedna tabuľka — P&amp;L a cash vedľa seba. * = neuzavretý mesiac.
@@ -902,7 +908,7 @@ export default function ZdraviePanel() {
               <tr>
                 <th>Mesiac</th>
                 <th className="num">Tržby</th>
-                <th className="num">Hybrid CM</th>
+                <th className="num">P&amp;L</th>
                 <th className="num">Marža</th>
                 <th className="num">Cash netto</th>
                 <th className="num">Cash close</th>
