@@ -18,16 +18,6 @@ type TopCustomer = {
   revenue: number;
   currency: string | null;
 };
-type RecentOrder = {
-  id: number;
-  name: string;
-  created_at: string;
-  financial_status: string | null;
-  fulfillment_status: string | null;
-  customer_display_name: string | null;
-  total_price: number;
-  currency: string | null;
-};
 type MonthlyNewVsReturning = {
   months: string[];
   newRevenue: number[];
@@ -63,7 +53,6 @@ export type DashboardMarkdownInput = {
   dailyRevenue: Daily[];
   topProducts: TopProduct[];
   topCustomers?: TopCustomer[];
-  recentOrders: RecentOrder[];
   monthlyNewVsReturning?: MonthlyNewVsReturning;
   purchaseCountDistribution?: PurchaseCountBucket[];
   purchaseIntervalHistogram?: { buckets: PurchaseIntervalBucket[] };
@@ -349,34 +338,6 @@ export function buildDashboardMarkdown(input: DashboardMarkdownInput): string {
       String(a[1]).localeCompare(String(b[1]), "sk")
     );
     lines.push(mdTable(["Dátum", "Produkt", "Kusy"], skuRows));
-    lines.push("");
-  }
-
-  if (input.recentOrders.length > 0) {
-    lines.push(
-      `## 10 objednávok s najvyššou sumou v období (${input.chartPeriodLabel})`
-    );
-    lines.push("");
-    lines.push(
-      mdTable(
-        [
-          "Objednávka",
-          "Dátum",
-          "Zákazník",
-          "Platba",
-          "Vybavenie",
-          "Suma (prod.)",
-        ],
-        input.recentOrders.map((o) => [
-          o.name,
-          o.created_at,
-          o.customer_display_name || "—",
-          o.financial_status || "—",
-          o.fulfillment_status || "—",
-          formatMoney(Number(o.total_price), o.currency || cur),
-        ])
-      )
-    );
     lines.push("");
   }
 

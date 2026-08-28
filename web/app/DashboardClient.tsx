@@ -82,16 +82,6 @@ type TopCustomer = {
   revenue: number;
   currency: string | null;
 };
-type RecentOrder = {
-  id: number;
-  name: string;
-  created_at: string;
-  financial_status: string | null;
-  fulfillment_status: string | null;
-  customer_display_name: string | null;
-  total_price: number;
-  currency: string | null;
-};
 
 /** Filter pre KPI, grafy aj tabuľky predaja (vrátane denných kusov / SKU grafu). */
 type KpiProductKey =
@@ -171,7 +161,6 @@ type Payload = {
   dailyRevenue: Daily[];
   topProducts: TopProduct[];
   topCustomers?: TopCustomer[];
-  recentOrders: RecentOrder[];
   monthlyNewVsReturning?: MonthlyNewVsReturning;
   purchaseCountDistribution?: PurchaseCountBucket[];
   purchaseIntervalHistogram?: PurchaseIntervalHistogram;
@@ -1085,7 +1074,6 @@ export default function DashboardClient() {
       dailyRevenue: data.dailyRevenue,
       topProducts: data.topProducts,
       topCustomers: data.topCustomers,
-      recentOrders: data.recentOrders,
       monthlyNewVsReturning: data.monthlyNewVsReturning,
       purchaseCountDistribution: data.purchaseCountDistribution,
       purchaseIntervalHistogram: data.purchaseIntervalHistogram,
@@ -1618,42 +1606,6 @@ export default function DashboardClient() {
                 <p className="msg">Zatiaľ žiadne predaje v zvolenom období.</p>
               </section>
             ) : null}
-
-            <section className="table-card">
-              <h2>
-                10 objednávok s najvyššou sumou v období
-                {chartPeriodInParens ? ` (${chartPeriodInParens})` : ""}
-              </h2>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Objednávka</th>
-                    <th>Dátum</th>
-                    <th>Zákazník</th>
-                    <th>Platba</th>
-                    <th>Vybavenie</th>
-                    <th>Suma (prod.)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.recentOrders.map((o) => (
-                    <tr key={o.id}>
-                      <td>{o.name}</td>
-                      <td>{o.created_at}</td>
-                      <td>{o.customer_display_name || "—"}</td>
-                      <td>{o.financial_status || "—"}</td>
-                      <td>{o.fulfillment_status || "—"}</td>
-                      <td>
-                        {formatMoney(
-                          Number(o.total_price),
-                          o.currency || data.kpis.currency
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
           </div>
         )}
       </main>
