@@ -1,10 +1,16 @@
 /**
  * Marketingové mapovanie bankových debetov (fallback; denník 518xxx je presnejší).
- * Mimo marketingu: Shopify (platform fee), PM (projektový manažment).
+ * Mimo marketingu: Shopify (platform fee → cashflow kategória), PM (projektový manažment).
  * AGNW = dizajn manuál → Fees, počíta sa do Total MKT / MER.
  * IDS Health — zatiaľ mimo (nejasné zaradenie).
  * Overiť neskôr: ASAPRINT / Visuel / Canva / hotely / konferencie.
  */
+
+/** Jednotný label pre Shopify platform fee / Web shop (OPEX, nie MER). */
+export const SHOPIFY_PLATFORM_LABEL = "Shopify (platform)";
+
+/** Debet so Shopify / Web shop — platform fee, nie marketing. */
+const SHOPIFY_PLATFORM_PATTERN = /\bshopify\b|web\s*shop/i;
 
 export type MarketingMatchTx = {
   amount: number;
@@ -19,6 +25,7 @@ export type MarketingMatchTx = {
 export type MarketingBucket =
   | "BCreativum"
   | "Bc. Filip Žitňanský"
+  | "Honza Bartoš"
   | "Google agentúra (VK)"
   | "Dizajn manuál"
   | "Meta"
@@ -65,6 +72,10 @@ const MARKETING_RULES: MatchRule[] = [
     pattern: /žitňansk|zitnansk|sk8511000000002946195397/i,
   },
   {
+    bucket: "Honza Bartoš",
+    pattern: /honzabartos|honza\s*barto[sš]|\bbarto[sš]\b/i,
+  },
+  {
     bucket: "Video",
     pattern: /zelina|promo vide/i,
   },
@@ -106,6 +117,15 @@ function marketingHaystack(tx: MarketingMatchTx, rawLabel: string): string {
   ]
     .filter(Boolean)
     .join(" ");
+}
+
+/** Debet Shopify / Web shop → platform fee (mimo MER). */
+export function isShopifyPlatformCost(
+  tx: MarketingMatchTx,
+  rawLabel: string
+): boolean {
+  if (tx.amount >= 0) return false;
+  return SHOPIFY_PLATFORM_PATTERN.test(marketingHaystack(tx, rawLabel));
 }
 
 /** Ak debet sedí na marketingové pravidlo, vráti bucket label. */

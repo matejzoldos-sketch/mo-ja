@@ -17,9 +17,6 @@ const OWNER_NAME_HINTS = [
   "peter skutil",
   "škutil",
   "skutil",
-  "zöldos",
-  "zoldos",
-  "matej",
 ];
 
 function stripDiacritics(s: string): string {

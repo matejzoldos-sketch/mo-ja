@@ -302,7 +302,7 @@ def summarize_marketing(rows: List[JournalRow]) -> None:
         if re.search(r"meta\s*platforms|meta\s*reklamy", hay):
             return "ads_skip"
         if re.search(
-            r"filip|žitňansk|ppc|vk\s*marketing|nastavenie google ads|bartoš|bcreativum|mailer|manychat|canva|agnw|dizajn|kurečkov|ideamaking|copywriting|asaprint|letáky|birne|zelina|promo vide|knižnica|maskér|steli|hup-zagreb|studio echt|upterdam|serica|e-commerce",
+            r"filip|žitňansk|ppc|vk\s*marketing|nastavenie google ads|honzabartos|bartoš|bartos|bcreativum|mailer|manychat|canva|agnw|dizajn|kurečkov|ideamaking|copywriting|asaprint|letáky|birne|zelina|promo vide|knižnica|maskér|steli|hup-zagreb|studio echt|upterdam|serica|e-commerce",
             hay,
         ):
             return "fees"

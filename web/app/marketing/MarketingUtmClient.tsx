@@ -16,6 +16,10 @@ import {
 import type { ChartData, ChartOptions } from "chart.js";
 import { Pie } from "react-chartjs-2";
 import { HeaderBrand, HeaderSectionSelect } from "../components/HeaderNav";
+import {
+  DashboardFootnotes,
+  DashboardMetaBar,
+} from "../components/DashboardMeta";
 import { PeriodFilterMenu } from "../components/PeriodFilterMenu";
 import {
   buildMarketingMarkdown,
@@ -664,9 +668,12 @@ export default function MarketingUtmClient() {
 
         {data ? (
           <div className="dashboard-pdf-root" ref={pdfExportRef}>
-            <p className="dashboard-period-hint">
-              Produktové objednávky (paid) · obdobie {periodLabel}
-            </p>
+            <DashboardMetaBar
+              items={[
+                { label: "Zdroj", value: "Produktové objednávky (paid)" },
+                { label: "Obdobie", value: periodLabel },
+              ]}
+            />
 
             <section className="kpi-section">
               <div className="kpi-grid kpi-grid--secondary">
@@ -915,6 +922,13 @@ export default function MarketingUtmClient() {
                 ) : null}
               </section>
             ) : null}
+
+            <DashboardFootnotes
+              items={[
+                "Tržby z produktových riadkov zaplatených objednávok; bez dopravy, vstupeniek na eventy a storn.",
+                "UTM atribúcia zobrazuje len objednávky s dostupnými UTM / journey dátami.",
+              ]}
+            />
           </div>
         ) : null}
       </main>

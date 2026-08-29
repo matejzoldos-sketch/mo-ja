@@ -4,6 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chart as ChartJS, registerables } from "chart.js";
 import type { ChartData, ChartOptions } from "chart.js";
 import { Bar } from "react-chartjs-2";
+import {
+  DashboardFootnotes,
+  DashboardMetaBar,
+} from "../components/DashboardMeta";
+import { formatHybridPnlNote } from "@/lib/formatPnlNote";
 
 ChartJS.register(...registerables);
 
@@ -582,7 +587,20 @@ export default function PnlPanel() {
       <h2 className="panel__title">
         {mode === "xls" ? `P&L (XLS Výsledky) ${meta.year}` : mode === "hybrid" ? `P&L — Hybrid ${meta.year}` : `P&L — Contribution Margin ${meta.year}`}
       </h2>
-      <p className="panel__note">{meta.note}</p>
+      <DashboardMetaBar
+        items={[
+          { label: "Rok", value: String(meta.year) },
+          {
+            label: "Model",
+            value:
+              mode === "hybrid"
+                ? "Hybrid (XLS + COGS)"
+                : mode === "xls"
+                  ? "XLS Výsledky"
+                  : "Účtovný denník",
+          },
+        ]}
+      />
 
       {/* KPI scorecards */}
       {mode === "xls" ? (
@@ -810,16 +828,6 @@ export default function PnlPanel() {
         )}
       </div>
 
-      {(mode === "accounting" || mode === "hybrid") && (
-        <p style={{ fontSize: "0.75rem", opacity: 0.6, marginTop: "0.5rem" }}>
-          * COGS = {(COGS_RATE * 100).toFixed(0)} % čistých tržieb za tovar (nákup Orin / predané ks).
-          {mode === "accounting"
-            ? " Účtovný mód berie vyššiu z hodnôt: účet 504 vs. tento odhad."
-            : " Hybrid berie odhad, nie riadok 504 (nákup)."}{" "}
-          Fulfillment a brána sú v OPEX, nie v COGS.
-        </p>
-      )}
-
       {/* Cost structure vs benchmark */}
       <CostStructureTable
         totals={t}
@@ -845,6 +853,21 @@ export default function PnlPanel() {
           }
         />
       ) : null}
+
+      <DashboardFootnotes
+        items={[
+          formatHybridPnlNote(meta.note),
+          ...(mode === "accounting" || mode === "hybrid"
+            ? [
+                `COGS = ${(COGS_RATE * 100).toFixed(0)} % čistých tržieb za tovar (nákup Orin / predané ks).${
+                  mode === "accounting"
+                    ? " Účtovný mód berie vyššiu z hodnôt: účet 504 vs. tento odhad."
+                    : " Hybrid berie odhad, nie riadok 504 (nákup)."
+                } Fulfillment a brána sú v OPEX, nie v COGS.`,
+              ]
+            : []),
+        ]}
+      />
       </div>
     </section>
   );

@@ -566,6 +566,15 @@ a:hover {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.kpi-grid--account {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 14px;
+}
+
+.kpi-grid--hero-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .kpi-grid--secondary {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
@@ -680,7 +689,9 @@ a:hover {
 }
 
 @media (max-width: 900px) {
-  .kpi-grid--hero {
+  .kpi-grid--hero,
+  .kpi-grid--hero-2,
+  .kpi-grid--account {
     grid-template-columns: 1fr;
   }
 
@@ -692,6 +703,8 @@ a:hover {
 
 @media (max-width: 520px) {
   .kpi-grid--hero,
+  .kpi-grid--hero-2,
+  .kpi-grid--account,
   .kpi-grid--secondary,
   .kpi-grid--marketing-mer {
     grid-template-columns: 1fr;
@@ -800,6 +813,71 @@ a:hover {
   margin: 0 0 16px;
   font-size: 0.8125rem;
   color: var(--text-muted);
+}
+
+.dashboard-meta-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+
+.dashboard-meta-bar__chip {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.35em;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  max-width: 100%;
+}
+
+.dashboard-meta-bar__label {
+  color: var(--text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.dashboard-meta-bar__value {
+  color: var(--text-dark);
+  font-weight: 600;
+}
+
+.dashboard-footnotes {
+  margin-top: 1.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.dashboard-footnotes__title {
+  margin: 0 0 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.dashboard-footnotes__list {
+  margin: 0;
+  padding: 0 0 0 1.1rem;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.dashboard-footnotes__list li + li {
+  margin-top: 0.35rem;
+}
+
+.dashboard-footnotes__list a {
+  color: inherit;
+  font-weight: 600;
+  text-underline-offset: 2px;
 }
 
 .table-scroll {
@@ -2215,6 +2293,15 @@ td code {
 
 .zdravie-lead {
   margin-top: -8px;
+}
+
+.zdravie-kpi-group-title {
+  margin: 0 0 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 .zdravie-section-head {

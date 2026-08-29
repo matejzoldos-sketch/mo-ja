@@ -10,6 +10,10 @@ import {
 import type { ChartData, ChartOptions } from "chart.js";
 import { Pie } from "react-chartjs-2";
 import { HeaderBrand, HeaderSectionSelect } from "../components/HeaderNav";
+import {
+  DashboardFootnotes,
+  DashboardMetaBar,
+} from "../components/DashboardMeta";
 import { formatLastSyncDisplay } from "@/lib/formatLastSync";
 import {
   aggregatePieSlices,
@@ -306,11 +310,19 @@ export default function CashflowClient() {
             </div>
 
             <div className="dashboard-pdf-root" ref={pdfExportRef}>
-            <p className="dashboard-period-hint">
-              Účet {data.meta.accountLabel} · pohyby od{" "}
-              {data.meta.periodStart.slice(0, 10)} · sync banky{" "}
-              {formatLastSyncDisplay(data.meta.lastSync)}
-            </p>
+            <DashboardMetaBar
+              items={[
+                { label: "Účet", value: data.meta.accountLabel },
+                {
+                  label: "Pohyby od",
+                  value: data.meta.periodStart.slice(0, 10),
+                },
+                {
+                  label: "Sync banky",
+                  value: formatLastSyncDisplay(data.meta.lastSync),
+                },
+              ]}
+            />
 
             <section className="kpi-section" aria-label="Cash flow KPI">
               <div className="kpi-grid kpi-grid--hero">
@@ -453,6 +465,16 @@ export default function CashflowClient() {
               transactions={transactions}
               currency={currency}
               monthOptions={monthOptions}
+            />
+
+            <DashboardFootnotes
+              items={[
+                "Počiatočný stav v mesačnej tabuľke sa dopočítava spätne z aktuálneho zostatku a pohybov v období.",
+                <>
+                  Stav k 1. 1. a ďalšie cash KPI nájdeš na{" "}
+                  <a href="/zdravie">Finančnom zdraví</a>.
+                </>,
+              ]}
             />
             </div>
           </>

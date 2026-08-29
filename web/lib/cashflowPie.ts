@@ -1,4 +1,8 @@
-import { matchMarketingBucket } from "./cashflowMarketingMap";
+import {
+  isShopifyPlatformCost,
+  matchMarketingBucket,
+  SHOPIFY_PLATFORM_LABEL,
+} from "./cashflowMarketingMap";
 
 export type CashflowEnrichedTx = {
   booking_date: string;
@@ -134,8 +138,34 @@ export const CASHFLOW_PIE_COLORS = [
 function counterpartyFromAdditionalInfo(info: string): string {
   const trimmed = info.trim();
   if (/^transakčná daň\b/i.test(trimmed)) return "Transakčná daň";
+  if (/^mesačný poplatok\b/i.test(trimmed)) return "Visa firemná (mesačný poplatok)";
   if (trimmed.length > 48) return `${trimmed.slice(0, 46)}…`;
   return trimmed;
+}
+
+const VISA_CORPORATE_FEE_LABEL = "Visa firemná (mesačný poplatok)";
+
+/** Mesačný poplatok za firemnú Visa kartu (Tatra tradingParty). */
+function isVisaCorporateMonthlyFee(
+  tx: CashflowEnrichedTx,
+  rawLabel: string
+): boolean {
+  if (!(tx.amount < 0)) return false;
+  const hay = [
+    rawLabel,
+    tx.trading_party,
+    tx.additional_info,
+    tx.remittance_info,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return (
+    /mes\s*poplatok\s*visa/i.test(hay) ||
+    (/visa/.test(hay) && /firemn/.test(hay) && /poplat/.test(hay)) ||
+    (/mesačn[ýy]\s*poplatok|mesacny\s*poplatok/i.test(hay) &&
+      /visa|firemn/.test(hay))
+  );
 }
 
 /** Protistrana z bankových polí (bez counterparty map). */
@@ -162,9 +192,11 @@ export function txnCounterpartyLabel(tx: CashflowEnrichedTx): string {
   return "Neuvedené";
 }
 
-/** Zobrazená protistrana — marketing map + zlučené varianty mien. */
+/** Zobrazená protistrana — Shopify platform / marketing map + zlučené mená. */
 export function displayCounterparty(tx: CashflowEnrichedTx): string {
   const raw = txnCounterpartyLabel(tx);
+  if (isVisaCorporateMonthlyFee(tx, raw)) return VISA_CORPORATE_FEE_LABEL;
+  if (isShopifyPlatformCost(tx, raw)) return SHOPIFY_PLATFORM_LABEL;
   const marketing = matchMarketingBucket(tx, raw);
   if (marketing) return marketing;
   const groupKey = groupKeyForLabel(raw);
@@ -191,9 +223,19 @@ export function aggregatePieSlices(
       if (mk !== monthKey) continue;
     }
     const rawLabel = txnCounterpartyLabel(tx);
-    const marketing = matchMarketingBucket(tx, rawLabel);
-    const groupKey = marketing ?? groupKeyForLabel(rawLabel);
-    const displayRaw = marketing ?? rawLabel;
+    const visa = isVisaCorporateMonthlyFee(tx, rawLabel)
+      ? VISA_CORPORATE_FEE_LABEL
+      : null;
+    const shopify = visa
+      ? null
+      : isShopifyPlatformCost(tx, rawLabel)
+        ? SHOPIFY_PLATFORM_LABEL
+        : null;
+    const marketing =
+      visa || shopify ? null : matchMarketingBucket(tx, rawLabel);
+    const groupKey =
+      visa ?? shopify ?? marketing ?? groupKeyForLabel(rawLabel);
+    const displayRaw = visa ?? shopify ?? marketing ?? rawLabel;
     const abs = Math.abs(tx.amount);
     if (!Number.isFinite(abs) || abs <= 0) continue;
     const bucket = byGroup.get(groupKey) ?? {

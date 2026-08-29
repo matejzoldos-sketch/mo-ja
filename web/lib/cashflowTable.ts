@@ -2,7 +2,11 @@ import {
   displayCounterparty,
   type CashflowEnrichedTx,
 } from "./cashflowPie";
-import { matchMarketingBucket } from "./cashflowMarketingMap";
+import {
+  isShopifyPlatformCost,
+  matchMarketingBucket,
+  SHOPIFY_PLATFORM_LABEL,
+} from "./cashflowMarketingMap";
 
 export type CashflowCategoryKey =
   | "revenue"
@@ -11,6 +15,7 @@ export type CashflowCategoryKey =
   | "insurance"
   | "rent"
   | "marketing"
+  | "shopify_platform"
   | "bank_fee"
   | "card_expense"
   | "supplier"
@@ -23,6 +28,7 @@ export const CASHFLOW_CATEGORY_LABELS: Record<CashflowCategoryKey, string> = {
   insurance: "Poisťovne / odvody",
   rent: "Nájom",
   marketing: "Marketing",
+  shopify_platform: SHOPIFY_PLATFORM_LABEL,
   bank_fee: "Bankové poplatky",
   card_expense: "Platba bez protistrany",
   supplier: "Dodávatelia",
@@ -98,7 +104,11 @@ export function inferCashflowCategory(
     h.includes("poplatok za balík") ||
     h.includes("poplatky za transakcie") ||
     h.includes("premium api") ||
-    h.includes("poplatok za sluzbu")
+    h.includes("poplatok za sluzbu") ||
+    h.includes("mes poplatok visa") ||
+    h.includes("mesačný poplatok") ||
+    h.includes("mesacny poplatok") ||
+    (h.includes("visa") && h.includes("firemn"))
   ) {
     return { key: "bank_fee", label: CASHFLOW_CATEGORY_LABELS.bank_fee };
   }
@@ -106,6 +116,14 @@ export function inferCashflowCategory(
   // Nájom skôr než marketing map (MOF INVEST môže mať IBAN v haystacku).
   if (h.includes("najom") || h.includes("mof invest")) {
     return { key: "rent", label: CASHFLOW_CATEGORY_LABELS.rent };
+  }
+
+  // Shopify / Web shop platform fee (OPEX) — mimo MER, jednotný bucket.
+  if (isShopifyPlatformCost(tx, counterparty)) {
+    return {
+      key: "shopify_platform",
+      label: CASHFLOW_CATEGORY_LABELS.shopify_platform,
+    };
   }
 
   if (matchMarketingBucket(tx, counterparty)) {

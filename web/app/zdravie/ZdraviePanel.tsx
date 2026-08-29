@@ -16,7 +16,12 @@ import {
 } from "chart.js";
 import { Doughnut, Line } from "react-chartjs-2";
 import CashflowRunwayChart from "../cashflow/CashflowRunwayChart";
+import {
+  DashboardFootnotes,
+  DashboardMetaBar,
+} from "../components/DashboardMeta";
 import { formatLastSyncDisplay } from "@/lib/formatLastSync";
+import { formatHybridPnlNote } from "@/lib/formatPnlNote";
 import type { CashflowMonthRow } from "@/lib/cashflowMonthly";
 import {
   RUNWAY_SCENARIO_ORDER,
@@ -46,11 +51,6 @@ const GRID = "rgba(15, 23, 42, 0.06)";
 const CM_COLOR = "#6b7f62";
 const CASH_COLOR = "#1a1f28";
 const PNL_CHART_LABEL = "P&L";
-
-/** Popis hybridného modelu hore na stránke (z API note). */
-function formatHybridPnlNote(note: string): string {
-  return note.replace(/^Hybrid:\s*/i, "Hybridný model: ");
-}
 
 type ZdraviePayload = {
   meta: {
@@ -386,12 +386,16 @@ export default function ZdraviePanel() {
     const fm = (n: number) => formatMoney(n, c);
     const sc = scenario;
     let md = `# Finančné zdravie MO–JA — P&L ${meta.pnlYear}\n\n`;
-    md += `> ${formatHybridPnlNote(meta.pnlNote)}\n\n`;
     md += `Účet ${meta.accountLabel} · sync banky ${meta.lastSync ?? "–"}\n\n`;
+    md += `> ${formatHybridPnlNote(meta.pnlNote)}\n\n`;
 
     md += `## Likvidita\n\n`;
+    md += `### Stav účtu\n\n`;
     md += `| KPI | Hodnota |\n|---|---|\n`;
     md += `| Aktuálny zostatok | ${fm(kpis.currentBalance)} |\n`;
+    md += `| Stav k 1. 1. (dopočítaný) | ${fm(kpis.openingAtPeriodStart)} |\n\n`;
+    md += `### Runway\n\n`;
+    md += `| KPI | Hodnota |\n|---|---|\n`;
     md += `| Netto cash od 1. 1. | ${fm(kpis.ytdNetCash)} |\n`;
     md += `| Výbery majiteľa YTD | ${fm(pressures.owner.ytd)} |\n`;
     md += `| Nákupy ORIN YTD | ${fm(pressures.orin.ytd)} |\n`;
@@ -533,13 +537,16 @@ export default function ZdraviePanel() {
       </div>
 
       <div className="dashboard-pdf-root zdravie-root" ref={pdfExportRef}>
-      <p className="dashboard-period-hint">
-        P&L {meta.pnlYear} · účet {meta.accountLabel} · sync banky{" "}
-        {formatLastSyncDisplay(meta.lastSync)}
-      </p>
-      <p className="chart-card__subtitle zdravie-lead">
-        {formatHybridPnlNote(meta.pnlNote)}
-      </p>
+      <DashboardMetaBar
+        items={[
+          { label: "P&L", value: meta.pnlYear },
+          { label: "Účet", value: meta.accountLabel },
+          {
+            label: "Sync banky",
+            value: formatLastSyncDisplay(meta.lastSync),
+          },
+        ]}
+      />
 
       <header className="zdravie-section-head">
         <h2 className="zdravie-section-head__title">1. Okamžitý stav a runway</h2>
@@ -551,7 +558,8 @@ export default function ZdraviePanel() {
       </header>
 
       <section className="kpi-section" aria-label="Likvidita">
-        <div className="kpi-grid kpi-grid--hero">
+        <h3 className="zdravie-kpi-group-title">Stav účtu</h3>
+        <div className="kpi-grid kpi-grid--account">
           <div className="kpi-card kpi-card--hero">
             <span className="kpi-card__label">Aktuálny zostatok</span>
             <span
@@ -560,6 +568,15 @@ export default function ZdraviePanel() {
               {formatMoney(kpis.currentBalance, currency)}
             </span>
           </div>
+          <div className="kpi-card kpi-card--hero">
+            <span className="kpi-card__label">Stav k 1. 1. (dopočítaný)</span>
+            <span className="kpi-card__value">
+              {formatMoney(kpis.openingAtPeriodStart, currency)}
+            </span>
+          </div>
+        </div>
+
+        <div className="kpi-grid kpi-grid--hero kpi-grid--hero-2">
           <div className="kpi-card kpi-card--hero">
             <span className="kpi-card__label">
               Cash YE · {scMeta?.short ?? "Základný"}
@@ -622,12 +639,6 @@ export default function ZdraviePanel() {
             </span>
             <span className="kpi-card__suffix">
               {pressures.orin.count} pohybov · cash, nie COGS timing
-            </span>
-          </div>
-          <div className="kpi-card">
-            <span className="kpi-card__label">Stav k 1. 1. (dopočítaný)</span>
-            <span className="kpi-card__value">
-              {formatMoney(kpis.openingAtPeriodStart, currency)}
             </span>
           </div>
           <div className="kpi-card">
@@ -965,11 +976,20 @@ export default function ZdraviePanel() {
         </div>
       </section>
 
-      <p className="chart-card__subtitle">
-        Drill-down: <a href="/pnl">P&amp;L</a> ·{" "}
-        <a href="/cashflow">Cash flow</a>. Forecast scenáre sú odhad, nie
-        bankový prísľub.
-      </p>
+      <DashboardFootnotes
+        items={[
+          formatHybridPnlNote(meta.pnlNote),
+          <>
+            Výbery majiteľa a nákupy ORIN sú odhad z bankových protistrán; cash
+            runway je projekcia, nie bankový prísľub.
+          </>,
+          <>
+            Drill-down: <a href="/pnl">P&amp;L</a> ·{" "}
+            <a href="/cashflow">Cash flow</a> ·{" "}
+            <a href="/scaling">Spend</a>
+          </>,
+        ]}
+      />
       </div>
     </>
   );
