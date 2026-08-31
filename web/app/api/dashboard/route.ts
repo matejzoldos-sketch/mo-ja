@@ -87,6 +87,9 @@ const MOCK_PAYLOAD = {
     months: ["2026-01-01", "2026-02-01", "2026-03-01", "2026-04-01"],
     newRevenue: [420, 380, 510, 290],
     returningRevenue: [2100, 2400, 2280, 1950],
+    newCustomers: [42, 38, 51, 29],
+    returningCustomers: [18, 24, 22, 19],
+    pctNewCustomers: [70.0, 61.3, 69.9, 60.4],
   },
   purchaseCountDistribution: [
     { bucket: 1, label: "1 nákup", customers: 62, pct: 48.1 },

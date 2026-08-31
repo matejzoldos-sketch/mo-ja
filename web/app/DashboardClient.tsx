@@ -114,12 +114,17 @@ type SkuDailyYtd = {
   points: { date: string; sku: string; units: number }[];
 };
 
-/** Mesačné tržby: noví (prvá produktová objednávka) vs. vracajúci sa (048+). */
+/** Mesačné tržby / zákazníci: noví (lifetime first order) vs. vracajúci sa (048+). */
 type MonthlyNewVsReturning = {
   months: string[];
   newRevenue: number[];
   returningRevenue: number[];
+  newCustomers?: number[];
+  returningCustomers?: number[];
+  pctNewCustomers?: (number | null)[];
 };
+
+type MonthlyNewReturningView = "revenue" | "customers" | "pct";
 
 /** % zákazníkov (identita opakovaných nákupov) podľa počtu objednávok v okne (049+). */
 type PurchaseCountBucket = {
@@ -257,7 +262,9 @@ function trimLeadingZeroMonths(m: MonthlyNewVsReturning): MonthlyNewVsReturning 
   let i = 0;
   while (
     i < m.months.length &&
-    Number(m.newRevenue[i] ?? 0) + Number(m.returningRevenue[i] ?? 0) === 0
+    Number(m.newRevenue[i] ?? 0) + Number(m.returningRevenue[i] ?? 0) === 0 &&
+    Number(m.newCustomers?.[i] ?? 0) + Number(m.returningCustomers?.[i] ?? 0) ===
+      0
   ) {
     i += 1;
   }
@@ -265,7 +272,19 @@ function trimLeadingZeroMonths(m: MonthlyNewVsReturning): MonthlyNewVsReturning 
     months: m.months.slice(i),
     newRevenue: m.newRevenue.slice(i),
     returningRevenue: m.returningRevenue.slice(i),
+    newCustomers: m.newCustomers?.slice(i),
+    returningCustomers: m.returningCustomers?.slice(i),
+    pctNewCustomers: m.pctNewCustomers?.slice(i),
   };
+}
+
+function monthlyNewReturningHasCustomers(m: MonthlyNewVsReturning): boolean {
+  return (
+    Array.isArray(m.newCustomers) &&
+    Array.isArray(m.returningCustomers) &&
+    m.months.length === m.newCustomers.length &&
+    m.months.length === m.returningCustomers.length
+  );
 }
 
 function formatMoney(amount: number, currency: string | null) {
@@ -501,6 +520,8 @@ export default function DashboardClient() {
   const [kpiMenuOpen, setKpiMenuOpen] = useState(false);
   const kpiMenuRef = useRef<HTMLDivElement>(null);
   const [pdfExporting, setPdfExporting] = useState(false);
+  const [monthlyNewReturningView, setMonthlyNewReturningView] =
+    useState<MonthlyNewReturningView>("revenue");
   const pdfExportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -781,7 +802,7 @@ export default function DashboardClient() {
     },
   };
 
-  const monthlyStackedBarData = (() => {
+  const trimmedMonthlyNewVsReturning = (() => {
     const raw = data?.monthlyNewVsReturning;
     if (
       !raw?.months?.length ||
@@ -791,29 +812,97 @@ export default function DashboardClient() {
       return null;
     }
     const trimmed = trimLeadingZeroMonths(raw);
-    if (trimmed.months.length === 0) return null;
-    return {
-      labels: trimmed.months.map((iso) => formatMonthSk(iso)),
-      datasets: [
-        {
-          label: "Noví zákazníci",
-          data: trimmed.newRevenue.map((v) => Number(v)),
-          backgroundColor: PRIMARY,
-          borderColor: TEXT,
-          borderWidth: 1,
-          stack: "rev",
-        },
-        {
-          label: "Vracajúci sa",
-          data: trimmed.returningRevenue.map((v) => Number(v)),
-          backgroundColor: SECONDARY,
-          borderColor: TEXT,
-          borderWidth: 1,
-          stack: "rev",
-        },
-      ],
-    };
+    return trimmed.months.length > 0 ? trimmed : null;
   })();
+
+  const monthlyNewReturningLabels =
+    trimmedMonthlyNewVsReturning?.months.map((iso) => formatMonthSk(iso)) ??
+    [];
+
+  const monthlyStackedBarData = trimmedMonthlyNewVsReturning
+    ? {
+        labels: monthlyNewReturningLabels,
+        datasets: [
+          {
+            label: "Noví zákazníci",
+            data: trimmedMonthlyNewVsReturning.newRevenue.map((v) => Number(v)),
+            backgroundColor: PRIMARY,
+            borderColor: TEXT,
+            borderWidth: 1,
+            stack: "rev",
+          },
+          {
+            label: "Vracajúci sa",
+            data: trimmedMonthlyNewVsReturning.returningRevenue.map((v) =>
+              Number(v)
+            ),
+            backgroundColor: SECONDARY,
+            borderColor: TEXT,
+            borderWidth: 1,
+            stack: "rev",
+          },
+        ],
+      }
+    : null;
+
+  const monthlyCustomersBarData =
+    trimmedMonthlyNewVsReturning &&
+    monthlyNewReturningHasCustomers(trimmedMonthlyNewVsReturning)
+      ? {
+          labels: monthlyNewReturningLabels,
+          datasets: [
+            {
+              label: "Noví",
+              data: trimmedMonthlyNewVsReturning.newCustomers!.map((v) =>
+                Number(v)
+              ),
+              backgroundColor: PRIMARY,
+              borderColor: TEXT,
+              borderWidth: 1,
+              stack: "cust",
+            },
+            {
+              label: "Vracajúci sa",
+              data: trimmedMonthlyNewVsReturning.returningCustomers!.map((v) =>
+                Number(v)
+              ),
+              backgroundColor: SECONDARY,
+              borderColor: TEXT,
+              borderWidth: 1,
+              stack: "cust",
+            },
+          ],
+        }
+      : null;
+
+  const monthlyPctLineData =
+    trimmedMonthlyNewVsReturning &&
+    monthlyNewReturningHasCustomers(trimmedMonthlyNewVsReturning) &&
+    Array.isArray(trimmedMonthlyNewVsReturning.pctNewCustomers) &&
+    trimmedMonthlyNewVsReturning.pctNewCustomers.length ===
+      trimmedMonthlyNewVsReturning.months.length
+      ? {
+          labels: monthlyNewReturningLabels,
+          datasets: [
+            {
+              label: "% nových",
+              data: trimmedMonthlyNewVsReturning.pctNewCustomers.map((v) =>
+                v === null || v === undefined || Number.isNaN(Number(v))
+                  ? null
+                  : Number(v)
+              ),
+              borderColor: PRIMARY,
+              backgroundColor: "rgba(228, 224, 74, 0.25)",
+              borderWidth: 2,
+              pointRadius: 4,
+              pointHoverRadius: 6,
+              tension: 0.25,
+              fill: true,
+              spanGaps: true,
+            },
+          ],
+        }
+      : null;
 
   const monthlyStackedBarOptions: ChartOptions<"bar"> = {
     ...chartOptions,
@@ -840,6 +929,9 @@ export default function DashboardClient() {
               raw === null || raw === undefined || Number.isNaN(Number(raw))
                 ? 0
                 : Number(raw);
+            if (monthlyNewReturningView === "customers") {
+              return `${ctx.dataset.label ?? ""}: ${n.toLocaleString("sk-SK")}`;
+            }
             const cur =
               data?.kpis.currency && data.kpis.currency.length === 3
                 ? data.kpis.currency
@@ -868,6 +960,73 @@ export default function DashboardClient() {
       },
     },
   };
+
+  const monthlyPctLineOptions: ChartOptions<"line"> = {
+    ...chartOptions,
+    plugins: {
+      ...chartOptions.plugins,
+      legend: {
+        display: true,
+        position: "top",
+        labels: {
+          color: TEXT,
+          font: { family: "Manrope", size: 12 },
+          boxWidth: 14,
+          padding: 12,
+        },
+      },
+      tooltip: {
+        enabled: true,
+        mode: "index",
+        intersect: false,
+        callbacks: {
+          label(ctx) {
+            const raw = ctx.parsed.y;
+            if (
+              raw === null ||
+              raw === undefined ||
+              Number.isNaN(Number(raw))
+            ) {
+              return `${ctx.dataset.label ?? ""}: —`;
+            }
+            return `${ctx.dataset.label ?? ""}: ${Number(raw)
+              .toFixed(1)
+              .replace(".", ",")} %`;
+          },
+        },
+      },
+    },
+    scales: {
+      x: {
+        ...chartOptions.scales.x,
+      },
+      y: {
+        ...chartOptions.scales.y,
+        min: 0,
+        max: 100,
+        ticks: {
+          ...chartOptions.scales.y.ticks,
+          callback(value) {
+            return `${value} %`;
+          },
+        },
+      },
+    },
+  };
+
+  const monthlyNewReturningTitle =
+    monthlyNewReturningView === "customers"
+      ? "Mesační zákazníci: Noví vs. Vracajúci sa"
+      : monthlyNewReturningView === "pct"
+        ? "% nových zákazníkov (mesačne)"
+        : "Mesačné tržby (bez DPH): Noví vs. Vracajúci sa";
+
+  const monthlyNewReturningSubtitle =
+    monthlyNewReturningView === "pct"
+      ? "Podiel unikátnych zákazníkov, ktorí mali v mesiaci prvú lifetime objednávku."
+      : monthlyNewReturningView === "customers"
+        ? "Unikátni zákazníci mesačne; nový = prvá platená produktová objednávka v histórii."
+        : null;
 
   const purchaseCountRows = data?.purchaseCountDistribution;
   const purchaseCountPieData =
@@ -1447,19 +1606,74 @@ export default function DashboardClient() {
               ) : null}
             </section>
 
-            {monthlyStackedBarData || purchaseCountPieData ? (
+            {(monthlyStackedBarData ||
+              monthlyCustomersBarData ||
+              monthlyPctLineData ||
+              purchaseCountPieData) ? (
               <div className="charts-row charts-row--monthly-and-pie">
                 {monthlyStackedBarData ? (
                   <section className="chart-card chart-card--monthly-new-returning">
-                    <h2>
-                      Mesačné tržby (bez DPH): Noví vs. Vracajúci sa
-                      {chartPeriodInParens ? ` (${chartPeriodInParens})` : ""}
-                    </h2>
+                    <div className="chart-card__head">
+                      <div className="chart-card__head-text">
+                        <h2>
+                          {monthlyNewReturningTitle}
+                          {chartPeriodInParens ? ` (${chartPeriodInParens})` : ""}
+                        </h2>
+                        {monthlyNewReturningSubtitle ? (
+                          <p className="chart-card__subtitle">
+                            {monthlyNewReturningSubtitle}
+                          </p>
+                        ) : null}
+                      </div>
+                      {monthlyCustomersBarData ? (
+                        <div
+                          className="chart-card__segmented"
+                          role="tablist"
+                          aria-label="Zobrazenie noví vs. vracajúci sa"
+                        >
+                          {(
+                            [
+                              ["revenue", "Tržby"],
+                              ["customers", "Zákazníci"],
+                              ["pct", "% nových"],
+                            ] as const
+                          ).map(([id, label]) => (
+                            <button
+                              key={id}
+                              type="button"
+                              role="tab"
+                              aria-selected={monthlyNewReturningView === id}
+                              className={
+                                monthlyNewReturningView === id
+                                  ? "chart-card__segmented-btn is-active"
+                                  : "chart-card__segmented-btn"
+                              }
+                              onClick={() => setMonthlyNewReturningView(id)}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
                     <div style={{ height: 300 }}>
-                      <Bar
-                        data={monthlyStackedBarData}
-                        options={monthlyStackedBarOptions}
-                      />
+                      {monthlyNewReturningView === "pct" && monthlyPctLineData ? (
+                        <Line
+                          data={monthlyPctLineData}
+                          options={monthlyPctLineOptions}
+                        />
+                      ) : monthlyNewReturningView === "customers" &&
+                        monthlyCustomersBarData ? (
+                        <Bar
+                          data={monthlyCustomersBarData}
+                          options={monthlyStackedBarOptions}
+                        />
+                      ) : (
+                        <Bar
+                          data={monthlyStackedBarData}
+                          options={monthlyStackedBarOptions}
+                        />
+                      )}
                     </div>
                   </section>
                 ) : null}

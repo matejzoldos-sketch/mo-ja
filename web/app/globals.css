@@ -955,6 +955,69 @@ a:hover {
   margin-bottom: 0;
 }
 
+.chart-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.chart-card__head-text {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.chart-card__head-text h2 {
+  margin-bottom: 0;
+}
+
+.chart-card__head-text .chart-card__subtitle {
+  margin: 6px 0 0;
+}
+
+.chart-card__segmented {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  flex: 0 1 280px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.chart-card__segmented-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-dark);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 7px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.chart-card__segmented-btn:hover {
+  background: var(--surface-muted);
+}
+
+.chart-card__segmented-btn.is-active {
+  background: rgba(228, 224, 74, 0.35);
+}
+
+@media (max-width: 720px) {
+  .chart-card__segmented {
+    flex-basis: 100%;
+    max-width: none;
+  }
+}
+
 .purchase-count-pie-wrap {
   position: relative;
   max-width: 280px;

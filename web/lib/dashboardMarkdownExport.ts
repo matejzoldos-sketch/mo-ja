@@ -22,6 +22,9 @@ type MonthlyNewVsReturning = {
   months: string[];
   newRevenue: number[];
   returningRevenue: number[];
+  newCustomers?: number[];
+  returningCustomers?: number[];
+  pctNewCustomers?: (number | null)[];
 };
 type PurchaseCountBucket = {
   bucket: number;
@@ -131,7 +134,9 @@ function trimLeadingZeroMonths(m: MonthlyNewVsReturning): MonthlyNewVsReturning 
   let i = 0;
   while (
     i < m.months.length &&
-    Number(m.newRevenue[i] ?? 0) + Number(m.returningRevenue[i] ?? 0) === 0
+    Number(m.newRevenue[i] ?? 0) + Number(m.returningRevenue[i] ?? 0) === 0 &&
+    Number(m.newCustomers?.[i] ?? 0) + Number(m.returningCustomers?.[i] ?? 0) ===
+      0
   ) {
     i += 1;
   }
@@ -139,6 +144,9 @@ function trimLeadingZeroMonths(m: MonthlyNewVsReturning): MonthlyNewVsReturning 
     months: m.months.slice(i),
     newRevenue: m.newRevenue.slice(i),
     returningRevenue: m.returningRevenue.slice(i),
+    newCustomers: m.newCustomers?.slice(i),
+    returningCustomers: m.returningCustomers?.slice(i),
+    pctNewCustomers: m.pctNewCustomers?.slice(i),
   };
 }
 
@@ -257,6 +265,29 @@ export function buildDashboardMarkdown(input: DashboardMarkdownInput): string {
         )
       );
       lines.push("");
+      if (
+        trimmed.newCustomers?.length === trimmed.months.length &&
+        trimmed.returningCustomers?.length === trimmed.months.length
+      ) {
+        lines.push(
+          `## Mesační zákazníci: Noví vs. Vracajúci sa (${input.chartPeriodLabel})`
+        );
+        lines.push("");
+        lines.push(
+          mdTable(
+            ["Mesiac", "Noví", "Vracajúci sa", "% nových"],
+            trimmed.months.map((iso, i) => [
+              formatMonthSk(iso),
+              trimmed.newCustomers![i] ?? 0,
+              trimmed.returningCustomers![i] ?? 0,
+              trimmed.pctNewCustomers?.[i] != null
+                ? `${Number(trimmed.pctNewCustomers[i]).toFixed(1).replace(".", ",")} %`
+                : "—",
+            ])
+          )
+        );
+        lines.push("");
+      }
     }
   }
 

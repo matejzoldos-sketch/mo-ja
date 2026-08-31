@@ -84,6 +84,9 @@ export async function GET(request: Request) {
           months: ["2026-01-01", "2026-02-01"],
           newRevenue: [420, 380],
           returningRevenue: [2100, 2400],
+          newCustomers: [42, 38],
+          returningCustomers: [18, 24],
+          pctNewCustomers: [70.0, 61.3],
         },
         purchaseCountDistribution: [
           { bucket: 1, label: "1 nákup", customers: 62, pct: 48.1 },
