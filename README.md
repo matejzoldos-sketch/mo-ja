@@ -9,7 +9,7 @@ Repo: [github.com/matejzoldos-sketch/mo-ja](https://github.com/matejzoldos-sketc
 - Python **3.12** (CI aj lokálne odporúčané)
 - Shopify **Admin API** so scopes: `read_inventory`, `read_locations`, **`read_products`** (bez neho Sklad nevie spájať predaj so skladom) a **`read_all_orders`** (pre YTD; bez neho ~posledných 60 dní). Alternatíva `read_orders` = kratšia história. Pre sessiony (Spend): **`read_reports`** (ShopifyQL `sessions`).
 - KPI „vracajúci sa“ nepotrebuje `read_customers` — sync berie `email` z objednávky (`customer_email`). Voliteľne `read_customers` + GraphQL `customer { id }` → `customer_id`.
-- Supabase projekt `kqsmsegcqdhuhiofxyuu` — pred sync/webom `supabase db push` (migrácie `001`–`093` plus timestampované scaling / marketing MER / P&L vrátane `pnl_cogs_rate_42_goods` / `moja_revoke_anon`).
+- Supabase projekt `kqsmsegcqdhuhiofxyuu` — pred sync/webom `supabase db push` (migrácie `001`–`094` plus timestampované scaling / marketing MER / P&L vrátane `pnl_cogs_rate_42_goods` / `moja_revoke_anon` / MER agency `honzabartos` Tatra fallback).
 
 ### Shopify auth (od 1. 1. 2026)
 
@@ -56,7 +56,7 @@ npm install && npm run dev
 | Route | Modul |
 |-------|--------|
 | `/` | Predaj — KPI, grafy, objednávky (`get_shopify_dashboard_mvp`) |
-| `/zdravie` | Finančné zdravie — hybrid P&L + cash runway (executive) |
+| `/zdravie` | Finančné zdravie — hybrid P&L + cash runway (executive); export MD/PDF |
 | `/sklad` | Inventár zo Shopify |
 | `/cashflow` | Tatra banka + runway forecast |
 | `/marketing` | MER (revenue, ads, fees, mROAS) |
@@ -132,7 +132,7 @@ python etl/import_meta_ads_csv.py   # default: docs/MOJA-Kampane-20.-6.-2023-20.
 python etl/import_accounting_journal_csv.py   # default: docs/Moja - Denník.csv
 ```
 
-Migrácie od `072` (Meta Ads) a `076` (účtovný denník). Dashboard: `/marketing`.
+Migrácie od `072` (Meta Ads) a `076` (účtovný denník). Dashboard: `/marketing`. Agentúrny fee (`honzabartos.cz`) ide z denníka; ak v mesiaci chýba, MER použije Tatra debet ako odhad.
 
 ## P&L
 
