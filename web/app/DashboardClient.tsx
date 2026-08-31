@@ -521,7 +521,7 @@ export default function DashboardClient() {
   const kpiMenuRef = useRef<HTMLDivElement>(null);
   const [pdfExporting, setPdfExporting] = useState(false);
   const [monthlyNewReturningView, setMonthlyNewReturningView] =
-    useState<MonthlyNewReturningView>("revenue");
+    useState<MonthlyNewReturningView>("pct");
   const pdfExportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

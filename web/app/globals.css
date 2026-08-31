@@ -944,13 +944,6 @@ a:hover {
   gap: 18px;
 }
 
-@media (min-width: 960px) {
-  .charts-row--monthly-and-pie {
-    grid-template-columns: minmax(0, 1.35fr) minmax(260px, 300px);
-    align-items: start;
-  }
-}
-
 .chart-card--monthly-new-returning {
   margin-bottom: 0;
 }
