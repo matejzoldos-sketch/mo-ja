@@ -157,7 +157,18 @@ export async function GET(request: Request) {
     rpcPayload
   );
 
-  const [lightKpiRes, mvpRes] = await Promise.all([lightKpiPromise, mvpPromise]);
+  const monthlyPromise = supabasePostgrestRpc<Record<string, unknown>>(
+    supabaseUrl,
+    serviceKey,
+    "get_shopify_monthly_new_vs_returning_dashboard",
+    rpcPayload
+  );
+
+  const [lightKpiRes, mvpRes, monthlyRes] = await Promise.all([
+    lightKpiPromise,
+    mvpPromise,
+    monthlyPromise,
+  ]);
 
   const mvpBase =
     mvpRes.data != null &&
@@ -179,12 +190,23 @@ export async function GET(request: Request) {
       ? { ...(mvpKpis ?? {}), ...(lightKpis ?? {}) }
       : undefined;
 
-  // If both paths failed, surface the MVP error (primary analytics payload).
-  if (!kpis && !mvpBase) {
+  const monthlyNewVsReturning =
+    monthlyRes.data != null &&
+    typeof monthlyRes.data === "object" &&
+    !Array.isArray(monthlyRes.data) &&
+    Array.isArray((monthlyRes.data as { months?: unknown }).months)
+      ? monthlyRes.data
+      : mvpBase?.monthlyNewVsReturning;
+
+  // Allow partial success when the lightweight monthly RPC succeeds but MVP times out.
+  if (!kpis && !mvpBase && !monthlyNewVsReturning) {
     return NextResponse.json(
       {
         error: formatRpcError(
-          mvpRes.error || lightKpiRes.error || "Analytics RPC failed",
+          mvpRes.error ||
+            monthlyRes.error ||
+            lightKpiRes.error ||
+            "Analytics RPC failed",
           "dashboard-analytics"
         ),
       },
@@ -196,7 +218,7 @@ export async function GET(request: Request) {
     {
       kpis,
       topCustomers: mvpBase?.topCustomers ?? [],
-      monthlyNewVsReturning: mvpBase?.monthlyNewVsReturning,
+      monthlyNewVsReturning,
       purchaseCountDistribution: mvpBase?.purchaseCountDistribution,
       purchaseIntervalHistogram: mvpBase?.purchaseIntervalHistogram,
     },
