@@ -16,6 +16,15 @@ import { Line } from "react-chartjs-2";
 import { HeaderBrand, HeaderSectionSelect } from "../components/HeaderNav";
 import { formatLastSyncDisplay } from "@/lib/formatLastSync";
 import {
+  isActiveSkladSku,
+  skladSkuMeta,
+  skladSkuStatusLabel,
+} from "@/lib/skladSkuMeta";
+import {
+  computeRecommendedRunway,
+  formatRunwayDays,
+} from "@/lib/skladRunway";
+import {
   buildStockSkuPanels,
   type StockChartYtd,
 } from "./stockChart";
@@ -45,6 +54,25 @@ type InvRow = {
   /** Text YYYY-MM-DD z RPC (po migr. 023); pri absencii vieme dopočítať z estimated_days_of_stock. */
   estimated_stockout_date?: string | null;
   estimated_days_of_stock?: number | null;
+  avg_daily_units_sold_30d?: number | null;
+  units_sold_30d?: number | null;
+  estimated_stockout_date_30d?: string | null;
+};
+
+type PhysicalRow = {
+  month_key: string;
+  product_key: string;
+  product_label: string;
+  stock_end: number;
+  stock_in?: number | null;
+  stock_out?: number | null;
+  shopify_out?: number | null;
+};
+
+type PhysicalInventory = {
+  latestMonthKey: string | null;
+  rows: PhysicalRow[];
+  importedAt: string | null;
 };
 
 function formatWhen(iso: string | null) {
@@ -136,12 +164,14 @@ function formatStockoutForRow(r: InvRow): string {
 
 export default function SkladClient() {
   const [rows, setRows] = useState<InvRow[] | null>(null);
+  const [physical, setPhysical] = useState<PhysicalInventory | null>(null);
   const [stockChartYtd, setStockChartYtd] = useState<StockChartYtd | null>(
     null
   );
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeOnly, setActiveOnly] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -156,17 +186,20 @@ export default function SkladClient() {
         setErr(json.error || `HTTP ${res.status}`);
         setRows(null);
         setStockChartYtd(null);
+        setPhysical(null);
         setLastSyncAt(null);
         return;
       }
       if (Array.isArray(json)) {
         setRows(json as InvRow[]);
         setStockChartYtd(null);
+        setPhysical(null);
         setLastSyncAt(null);
         return;
       }
       setRows((json.levels as InvRow[]) ?? []);
       setStockChartYtd((json.stockChartYtd as StockChartYtd) ?? null);
+      setPhysical((json.physical as PhysicalInventory) ?? null);
       setLastSyncAt(
         typeof json.lastSyncAt === "string" && json.lastSyncAt !== ""
           ? json.lastSyncAt
@@ -176,6 +209,7 @@ export default function SkladClient() {
       setErr(e instanceof Error ? e.message : "Fetch failed");
       setRows(null);
       setStockChartYtd(null);
+      setPhysical(null);
       setLastSyncAt(null);
     } finally {
       setLoading(false);
@@ -198,6 +232,33 @@ export default function SkladClient() {
     () => (stockChartYtd ? buildStockSkuPanels(stockChartYtd) : null),
     [stockChartYtd]
   );
+
+  const visibleRows = useMemo(() => {
+    if (!rows) return [];
+    if (!activeOnly) return rows;
+    return rows.filter((r) => isActiveSkladSku(r.sku));
+  }, [rows, activeOnly]);
+
+  const physicalByKey = useMemo(() => {
+    const m = new Map<string, PhysicalRow>();
+    for (const r of physical?.rows ?? []) {
+      m.set(r.product_key, r);
+    }
+    return m;
+  }, [physical]);
+
+  const recommendedRunway = useMemo(() => {
+    if (!physical?.rows?.length || !rows?.length) return [];
+    return computeRecommendedRunway(physical.rows, rows);
+  }, [physical, rows]);
+
+  const recommendedByProductKey = useMemo(() => {
+    const m = new Map<string, (typeof recommendedRunway)[number]>();
+    for (const r of recommendedRunway) {
+      m.set(r.product_key, r);
+    }
+    return m;
+  }, [recommendedRunway]);
 
   return (
     <>
@@ -236,6 +297,177 @@ export default function SkladClient() {
         )}
         {!loading && !err && rows && (
           <>
+            <section className="chart-card sklad-sources-note">
+              <h2>Dva zdroje skladu</h2>
+              <p className="chart-card__subtitle">
+                <strong>Fyzický sklad (XLS Sklad_sumár)</strong> — Swiss Point,
+                mesačný stav od účtovníctva. Aktualizuje sa importom z reportu.{" "}
+                <strong>Shopify</strong> — denný sync pre e-shop a tempo predaja;
+                nemusí sedieť s fyzickým stavom (Lazaretská, ručné úpravy v Shopify).
+              </p>
+            </section>
+
+            {physical?.rows?.length ? (
+              <section className="table-card">
+                <h2>
+                  Fyzický sklad Swiss Point
+                  {physical.latestMonthKey
+                    ? ` — stav k ${physical.latestMonthKey}`
+                    : ""}
+                </h2>
+                <p className="chart-card__subtitle">
+                  Z MO-JA report XLS (hárok Sklad_sumár). Import:{" "}
+                  <code>python3 etl/import_sklad_xls.py</code>
+                  {physical.importedAt
+                    ? ` · naposledy ${formatWhen(physical.importedAt)}`
+                    : ""}
+                </p>
+                <div className="table-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Produkt</th>
+                        <th>Stav (ks)</th>
+                        <th>Príjem / mesiac</th>
+                        <th>Výdaj / mesiac</th>
+                        <th>Výdaj Shopify / mesiac</th>
+                        <th>Shopify SKU (orientačne)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {physical.rows.map((r) => {
+                        const shopifySku =
+                          r.product_key === "phase_plus_berry"
+                            ? "PH+-B1-C-1"
+                            : r.product_key === "phase_ananas"
+                              ? "PH-B1-A"
+                              : r.product_key === "phase_plus_citron"
+                                ? "PH+-B1-C (vypredaný)"
+                                : "—";
+                        const shopifyRow = visibleRows.find(
+                          (x) =>
+                            skladSkuMeta(x.sku)?.physicalProductKey ===
+                            r.product_key
+                        );
+                        return (
+                          <tr key={r.product_key}>
+                            <td>{r.product_label}</td>
+                            <td>{r.stock_end}</td>
+                            <td>{r.stock_in ?? "—"}</td>
+                            <td>{r.stock_out ?? "—"}</td>
+                            <td>{r.shopify_out ?? "—"}</td>
+                            <td>
+                              {shopifySku}
+                              {shopifyRow != null && (
+                                <>
+                                  {" "}
+                                  · Shopify {shopifyRow.available} ks
+                                </>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            ) : (
+              <section className="chart-card">
+                <p className="msg">
+                  Fyzický sklad zatiaľ nie je naimportovaný. Spusti{" "}
+                  <code>python3 etl/import_sklad_xls.py --xlsx-path docs/MO-JA_report_….xlsx</code>{" "}
+                  po <code>supabase db push</code> (migrácia{" "}
+                  <code>095_physical_inventory_monthly.sql</code>).
+                </p>
+              </section>
+            )}
+
+            {recommendedRunway.length > 0 ? (
+              <section className="table-card sklad-runway-card">
+                <h2>Odporúčaný runway</h2>
+                <p className="chart-card__subtitle">
+                  Fyzický stav z XLS (Swiss Point) ÷ tempo predaja zo Shopify
+                  (posledných 30 dní). Presnejší odhad než čistý Shopify sklad —
+                  najmä keď e-shop a fyzický sklad nesedia.
+                </p>
+                <div className="table-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Produkt</th>
+                        <th>Fyzický stav (XLS)</th>
+                        <th>Predaj / deň (30 dní)</th>
+                        <th>Runway</th>
+                        <th>Do kedy cca.</th>
+                        <th>Shopify sklad (porovnanie)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recommendedRunway.map((r) => {
+                        const isCritical =
+                          r.days_runway != null &&
+                          r.days_runway > 0 &&
+                          r.days_runway <= 45 &&
+                          r.sales_per_day_30d != null &&
+                          r.sales_per_day_30d > 0;
+                        const isSoldOut =
+                          r.physical_stock <= 0 ||
+                          (r.days_runway != null && r.days_runway <= 0);
+                        return (
+                          <tr
+                            key={r.product_key}
+                            className={
+                              isSoldOut
+                                ? "sklad-runway-row--soldout"
+                                : isCritical
+                                  ? "sklad-runway-row--critical"
+                                  : undefined
+                            }
+                          >
+                            <td>{r.product_label}</td>
+                            <td>
+                              {r.physical_stock} ks
+                              <span className="sklad-row__phys">
+                                {" "}
+                                ({r.physical_month_key})
+                              </span>
+                            </td>
+                            <td>
+                              {r.sales_per_day_30d != null &&
+                              r.sales_per_day_30d > 0 ? (
+                                <>
+                                  {formatAvgDaily(r.sales_per_day_30d)}
+                                  {r.units_sold_30d != null
+                                    ? ` (${r.units_sold_30d} ks)`
+                                    : ""}
+                                  {r.shopify_sku ? (
+                                    <span className="sklad-row__phys">
+                                      {" "}
+                                      · {r.shopify_sku}
+                                    </span>
+                                  ) : null}
+                                </>
+                              ) : (
+                                "bez predaja"
+                              )}
+                            </td>
+                            <td>{formatRunwayDays(r.days_runway)}</td>
+                            <td>{formatStockoutDate(r.stockout_date)}</td>
+                            <td>
+                              {r.shopify_available != null
+                                ? `${r.shopify_available} ks`
+                                : "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            ) : null}
+
             <section className="chart-card chart-card--sku-ytd sklad-chart-section">
               <h2>
                 Vývoj skladu podľa produktu (od 7. 4.{" "}
@@ -268,8 +500,20 @@ export default function SkladClient() {
             </section>
 
             <section className="table-card">
-              <h2>Aktuálny stav podľa lokácie a produktu</h2>
-              {rows.length === 0 ? (
+              <h2>Shopify — e-shop sklad</h2>
+              <p className="chart-card__subtitle">
+                Runway „30 dní“ počíta z predaja za posledný mesiac (presnejšie
+                pri zmene SKU). YTD stĺpec môže byť optimistickejší.
+              </p>
+              <label className="sklad-filter-active">
+                <input
+                  type="checkbox"
+                  checked={activeOnly}
+                  onChange={(e) => setActiveOnly(e.target.checked)}
+                />{" "}
+                Len aktívne SKU v predaji
+              </label>
+              {visibleRows.length === 0 ? (
                 <p className="msg">
                   Žiadne dáta o sklade. Spusti synchronizáciu s inventárom (
                   <code>sync_shopify.py</code> bez <code>--orders-only</code>).
@@ -279,37 +523,97 @@ export default function SkladClient() {
                   <table>
                     <thead>
                       <tr>
+                        <th>Stav SKU</th>
                         <th>Lokácia</th>
                         <th>Produkt</th>
                         <th>SKU</th>
                         <th>Dostupné</th>
-                        <th>Priem. denná spotreba YTD</th>
-                        <th>Odhad dátumu vyčerpania zásob</th>
-                        <th>Shopify updated</th>
+                        <th>Predaj / deň (30 dní)</th>
+                        <th>Stockout (30 dní)</th>
+                        <th>Runway (XLS ÷ predaj)</th>
+                        <th>Predaj / deň (YTD)</th>
+                        <th>Stockout (YTD)</th>
                         <th>Sync</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {rows.map((r) => (
-                        <tr
-                          key={`${r.inventory_item_id}-${r.location_id}`}
-                        >
-                          <td>{r.location_name || "—"}</td>
-                          <td>{r.product_title?.trim() || r.sku}</td>
-                          <td>{r.sku}</td>
-                          <td>{r.available}</td>
-                          <td>
-                            {formatAvgDaily(
-                              r.avg_daily_units_sold_ytd ?? null
-                            )}
-                          </td>
-                          <td>
-                            {formatStockoutForRow(r)}
-                          </td>
-                          <td>{formatWhen(r.updated_at)}</td>
-                          <td>{formatWhen(r.fetched_at)}</td>
-                        </tr>
-                      ))}
+                      {visibleRows.map((r) => {
+                        const meta = skladSkuMeta(r.sku);
+                        const phys =
+                          meta?.physicalProductKey != null
+                            ? physicalByKey.get(meta.physicalProductKey)
+                            : undefined;
+                        const rec =
+                          meta?.physicalProductKey != null
+                            ? recommendedByProductKey.get(meta.physicalProductKey)
+                            : undefined;
+                        return (
+                          <tr
+                            key={`${r.inventory_item_id}-${r.location_id}`}
+                            className={
+                              meta && meta.status !== "active"
+                                ? "sklad-row--inactive"
+                                : undefined
+                            }
+                          >
+                            <td>
+                              {meta ? skladSkuStatusLabel(meta.status) : "—"}
+                              {meta?.note ? (
+                                <span
+                                  className="sklad-row__note"
+                                  title={meta.note}
+                                >
+                                  {" "}
+                                  ⓘ
+                                </span>
+                              ) : null}
+                            </td>
+                            <td>{r.location_name || "—"}</td>
+                            <td>{r.product_title?.trim() || r.sku}</td>
+                            <td>{r.sku}</td>
+                            <td>
+                              {r.available}
+                              {phys != null ? (
+                                <span className="sklad-row__phys" title="Fyzický stav XLS">
+                                  {" "}
+                                  (XLS {phys.stock_end})
+                                </span>
+                              ) : null}
+                            </td>
+                            <td>
+                              {formatAvgDaily(r.avg_daily_units_sold_30d ?? null)}
+                              {r.units_sold_30d != null
+                                ? ` (${r.units_sold_30d} ks)`
+                                : ""}
+                            </td>
+                            <td>
+                              {formatStockoutDate(r.estimated_stockout_date_30d)}
+                            </td>
+                            <td>
+                              {rec != null ? (
+                                <>
+                                  {formatRunwayDays(rec.days_runway)}
+                                  {rec.stockout_date ? (
+                                    <span className="sklad-row__phys">
+                                      {" "}
+                                      · {formatStockoutDate(rec.stockout_date)}
+                                    </span>
+                                  ) : null}
+                                </>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+                            <td>
+                              {formatAvgDaily(
+                                r.avg_daily_units_sold_ytd ?? null
+                              )}
+                            </td>
+                            <td>{formatStockoutForRow(r)}</td>
+                            <td>{formatWhen(r.fetched_at)}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

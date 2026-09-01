@@ -40,6 +40,7 @@ Root `.env`: Shopify + Supabase + Tatra (`TATRA_*`; `TATRA_ENV` default v skript
 | `etl/import_meta_ads_csv.py` | Meta Ads CSV → MER |
 | `etl/import_accounting_journal_csv.py` | Účtovný denník → MER / P&L |
 | `etl/import_pnl_xls_results.py` | XLS „Výsledky“ → `pnl_xls_*` |
+| `etl/import_sklad_xls.py` | XLS „Sklad_sumár“ → `physical_inventory_monthly` (fyzický sklad) |
 | `scripts/tatra_*.py` | OAuth / auth check |
 | `supabase/migrations/` | SQL (Shopify, Tatra, marketing, …) |
 | `web/` | Next.js 14 dashboard (Vercel Root Directory = `web`) |
