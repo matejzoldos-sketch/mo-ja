@@ -7,10 +7,12 @@ import {
   matchMarketingBucket,
   SHOPIFY_PLATFORM_LABEL,
 } from "./cashflowMarketingMap";
+import { isOwnerWithdrawal, OWNER_WITHDRAWAL_LABEL } from "./cashflowOwner";
 
 export type CashflowCategoryKey =
   | "revenue"
   | "payroll"
+  | "owner_withdrawal"
   | "tax"
   | "insurance"
   | "rent"
@@ -24,6 +26,7 @@ export type CashflowCategoryKey =
 export const CASHFLOW_CATEGORY_LABELS: Record<CashflowCategoryKey, string> = {
   revenue: "Tržby",
   payroll: "Mzdy / fakturanti",
+  owner_withdrawal: OWNER_WITHDRAWAL_LABEL,
   tax: "Dane",
   insurance: "Poisťovne / odvody",
   rent: "Nájom",
@@ -130,6 +133,13 @@ export function inferCashflowCategory(
     return { key: "marketing", label: CASHFLOW_CATEGORY_LABELS.marketing };
   }
 
+  if (isOwnerWithdrawal(tx)) {
+    return {
+      key: "owner_withdrawal",
+      label: CASHFLOW_CATEGORY_LABELS.owner_withdrawal,
+    };
+  }
+
   if (
     counterparty === "Neuvedené" ||
     (!tx.creditor_name?.trim() &&
@@ -143,9 +153,6 @@ export function inferCashflowCategory(
     };
   }
 
-  if (h.includes("skutil")) {
-    return { key: "payroll", label: CASHFLOW_CATEGORY_LABELS.payroll };
-  }
   if (
     h.includes("danetax") ||
     h.includes(" dph") ||

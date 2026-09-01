@@ -23,6 +23,7 @@ import {
 import { formatLastSyncDisplay } from "@/lib/formatLastSync";
 import { formatHybridPnlNote } from "@/lib/formatPnlNote";
 import type { CashflowMonthRow } from "@/lib/cashflowMonthly";
+import { OWNER_WITHDRAWALS_FREEZE_LABEL, OWNER_WITHDRAWALS_YTD_LABEL } from "@/lib/cashflowOwner";
 import {
   RUNWAY_SCENARIO_ORDER,
   type RunwayScenarioId,
@@ -397,13 +398,13 @@ export default function ZdraviePanel() {
     md += `### Runway\n\n`;
     md += `| KPI | Hodnota |\n|---|---|\n`;
     md += `| Netto cash od 1. 1. | ${fm(kpis.ytdNetCash)} |\n`;
-    md += `| Výbery majiteľa YTD | ${fm(pressures.owner.ytd)} |\n`;
+    md += `| ${OWNER_WITHDRAWALS_YTD_LABEL} | ${fm(pressures.owner.ytd)} |\n`;
     md += `| Nákupy ORIN YTD | ${fm(pressures.orin.ytd)} |\n`;
     if (runway) {
       const label = runway.scenarioMeta[sc].label;
       md += `| Cash YE (${label}) | ${fm(runway.yearEnd[sc])} |\n`;
       md += `| Minimum do YE (${label}) | ${fm(runway.minFromNow[sc])} |\n`;
-      md += `| YE bez výberov (${label}) | ${fm(runway.yearEndNoOwner[sc])} |\n`;
+      md += `| YE bez výberov Petra Škutila (${label}) | ${fm(runway.yearEndNoOwner[sc])} |\n`;
       md += `| Runway | ${runway.untilLabel[sc]} |\n`;
     }
 
@@ -608,7 +609,7 @@ export default function ZdraviePanel() {
                 : "–"}
             </span>
             <span className="kpi-card__suffix">
-              bez výberov YE{" "}
+              bez výberov Petra Škutila YE{" "}
               {runway
                 ? formatMoney(runway.yearEndNoOwner[scenario], currency)
                 : "–"}
@@ -624,7 +625,7 @@ export default function ZdraviePanel() {
             </span>
           </div>
           <div className="kpi-card">
-            <span className="kpi-card__label">Výbery majiteľa YTD</span>
+            <span className="kpi-card__label">{OWNER_WITHDRAWALS_YTD_LABEL}</span>
             <span className="kpi-card__value cashflow-num--neg">
               {formatMoney(pressures.owner.ytd, currency)}
             </span>
@@ -814,7 +815,7 @@ export default function ZdraviePanel() {
             </h2>
             <p className="zdravie-section-head__sub">P&amp;L + cash</p>
             <p className="zdravie-section-head__lead">
-              Rozpad nákladov vs. D2C benchmark a cash páky (výbery, ORIN).
+              Rozpad nákladov vs. D2C benchmark a cash páky (výbery Petra Škutila, ORIN).
               Kritické riadky sú zvýraznené.
             </p>
           </header>
@@ -980,7 +981,7 @@ export default function ZdraviePanel() {
         items={[
           formatHybridPnlNote(meta.pnlNote),
           <>
-            Výbery majiteľa a nákupy ORIN sú odhad z bankových protistrán; cash
+            Výbery Petra Škutila a nákupy ORIN sú odhad z bankových protistrán; cash
             runway je projekcia, nie bankový prísľub.
           </>,
           <>

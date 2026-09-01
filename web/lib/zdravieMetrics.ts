@@ -11,50 +11,7 @@ import {
   type RunwayScenarioId,
 } from "./cashflowRunway";
 import type { PnlHybridMonth, PnlHybridPayload } from "./pnlHybrid";
-
-const OWNER_NAME_HINTS = [
-  "peter škutil",
-  "peter skutil",
-  "škutil",
-  "skutil",
-];
-
-function stripDiacritics(s: string): string {
-  const map: Record<string, string> = {
-    á: "a",
-    ä: "a",
-    č: "c",
-    ď: "d",
-    é: "e",
-    í: "i",
-    ĺ: "l",
-    ľ: "l",
-    ň: "n",
-    ó: "o",
-    ô: "o",
-    ö: "o",
-    ŕ: "r",
-    š: "s",
-    ť: "t",
-    ú: "u",
-    ü: "u",
-    ý: "y",
-    ž: "z",
-  };
-  return s
-    .split("")
-    .map((ch) => map[ch] ?? map[ch.toLowerCase()] ?? ch)
-    .join("");
-}
-
-function isOwnerWithdrawal(tx: CashflowEnrichedTx): boolean {
-  if (!(tx.amount < 0)) return false;
-  const label = displayCounterparty(tx).toLowerCase();
-  const flat = stripDiacritics(label);
-  return OWNER_NAME_HINTS.some(
-    (h) => flat.includes(stripDiacritics(h)) || label.includes(h)
-  );
-}
+import { isOwnerWithdrawal, OWNER_WITHDRAWALS_YTD_LABEL } from "./cashflowOwner";
 
 function isOrinPurchase(tx: CashflowEnrichedTx): boolean {
   if (!(tx.amount < 0)) return false;
@@ -209,7 +166,7 @@ export function sumCashPressures(txns: CashflowEnrichedTx[]): {
   }
   return {
     owner: {
-      label: "Výbery majiteľa (odhad)",
+      label: `${OWNER_WITHDRAWALS_YTD_LABEL} (odhad)`,
       ytd: Math.round(ownerYtd * 100) / 100,
       count: ownerCount,
     },

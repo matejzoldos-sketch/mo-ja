@@ -1,4 +1,4 @@
-/** Cost levers for MO–JA Finančné zdravie (hybrid P&L + cash pressures). */
+import { OWNER_WITHDRAWAL_LABEL } from "./cashflowOwner";
 
 export type ZdravieCostMix = {
   cogs: number;
@@ -139,7 +139,7 @@ export function buildZdravieCostBuckets(input: {
     [
       {
         key: "owner",
-        label: "Výbery majiteľa (cash)",
+        label: `${OWNER_WITHDRAWAL_LABEL} (cash)`,
         color: "hsla(0, 55%, 46%, 0.9)",
         amount: input.ownerWithdrawalsYtd,
         kind: "cash" as const,
@@ -148,10 +148,10 @@ export function buildZdravieCostBuckets(input: {
         benchLabel: "cash páka",
         actionCrit: ownerCrit,
         action: ownerCrit
-          ? "Zmraziť výbery, kým zostatok nie je nad vankúšom 3 000 €"
+          ? "Zmraziť výbery Petra Škutila, kým zostatok nie je nad vankúšom 3 000 €"
           : input.ownerWithdrawalsYtd > 0.5
-            ? "Udržať výbery pod H1 tempom; scenár bez výberov na runway"
-            : "Žiadne výbery v období — OK",
+            ? "Udržať výbery Petra Škutila pod H1 tempom; scenár bez výberov na runway"
+            : "Žiadne výbery Petra Škutila v období — OK",
       },
       {
         key: "orin",

@@ -15,6 +15,7 @@ import {
 } from "chart.js";
 import { Line } from "react-chartjs-2";
 import type { CashflowMonthRow } from "@/lib/cashflowMonthly";
+import { OWNER_WITHDRAWALS_FREEZE_LABEL } from "@/lib/cashflowOwner";
 import {
   buildCashflowRunway,
   CASHFLOW_RUNWAY_BUFFER_EUR,
@@ -77,7 +78,7 @@ export default function CashflowRunwayChart({ months, currency }: Props) {
     if (!runway) return null;
     const scenarioDatasets = RUNWAY_SCENARIO_ORDER.map((id) => ({
       label: freezeOwner
-        ? `${RUNWAY_SCENARIO_META[id].label} bez výberov`
+        ? `${RUNWAY_SCENARIO_META[id].label} bez výberov Petra Škutila`
         : RUNWAY_SCENARIO_META[id].label,
       data: runway.scenarios[id],
       borderColor: SCENARIO_COLOR[id],
@@ -204,7 +205,7 @@ export default function CashflowRunwayChart({ months, currency }: Props) {
             checked={freezeOwner}
             onChange={(e) => setFreezeOwner(e.target.checked)}
           />
-          Bez ďalších výberov majiteľa
+          {OWNER_WITHDRAWALS_FREEZE_LABEL}
         </label>
       </div>
       <p className="chart-card__subtitle">
