@@ -49,9 +49,10 @@ export const SKLAD_CONFIRMED_STOCK: ConfirmedProductStock[] = [
 ];
 
 export const PENDING_ORIN_ORDER: PendingOrinOrder = {
-  eta: "2026-09-15",
+  eta: "2026-09-11",
   invoiceDue: "2026-10-11",
-  note: "Objednávka zadaná; naskladnenie cca 15. 9.; splatnosť ~30 dní od výroby (cca 11. 10.).",
+  note:
+    "Výroba expeduje už 9. 9.; naskladnenie + zverejnenie v e-shope cca 11. 9. (Berry + Citron). Splatnosť ~30 dní od výroby (pôvodne cca 11. 10., môže ísť o pár dní skôr).",
   lines: [
     {
       product_key: "phase_plus_berry",
