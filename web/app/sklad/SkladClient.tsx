@@ -23,7 +23,11 @@ import {
 import {
   computeRecommendedRunway,
   formatRunwayDays,
+  PENDING_ORIN_ORDER,
+  SKLAD_CONFIRMED_AS_OF,
+  SKLAD_CONFIRMED_STOCK,
 } from "@/lib/skladRunway";
+import { confirmedTotal } from "@/lib/skladConfirmed";
 import {
   buildStockSkuPanels,
   type StockChartYtd,
@@ -239,17 +243,10 @@ export default function SkladClient() {
     return rows.filter((r) => isActiveSkladSku(r.sku));
   }, [rows, activeOnly]);
 
-  const physicalByKey = useMemo(() => {
-    const m = new Map<string, PhysicalRow>();
-    for (const r of physical?.rows ?? []) {
-      m.set(r.product_key, r);
-    }
-    return m;
-  }, [physical]);
-
   const recommendedRunway = useMemo(() => {
-    if (!physical?.rows?.length || !rows?.length) return [];
-    return computeRecommendedRunway(physical.rows, rows);
+    if (!rows?.length) return [];
+    // Potvrdený inventár (Zuzka) má prednosť; XLS rows sú fallback.
+    return computeRecommendedRunway(physical?.rows ?? [], rows);
   }, [physical, rows]);
 
   const recommendedByProductKey = useMemo(() => {
@@ -298,28 +295,114 @@ export default function SkladClient() {
         {!loading && !err && rows && (
           <>
             <section className="chart-card sklad-sources-note">
-              <h2>Dva zdroje skladu</h2>
+              <h2>Zdroje skladu</h2>
               <p className="chart-card__subtitle">
-                <strong>Fyzický sklad (XLS Sklad_sumár)</strong> — Swiss Point,
-                mesačný stav od účtovníctva. Aktualizuje sa importom z reportu.{" "}
-                <strong>Shopify</strong> — denný sync pre e-shop a tempo predaja;
-                nemusí sedieť s fyzickým stavom (Lazaretská, ručné úpravy v Shopify).
+                <strong>Potvrdený inventár</strong> (Zuzka {SKLAD_CONFIRMED_AS_OF}) —
+                EuShipments = e-shop, + Lazaretská.{" "}
+                <strong>Shopify</strong> — denný sync a tempo predaja.{" "}
+                <strong>XLS Sklad_sumár</strong> — mesačná história (backup).
               </p>
+            </section>
+
+            <section className="table-card">
+              <h2>Potvrdený fyzický sklad — {SKLAD_CONFIRMED_AS_OF}</h2>
+              <p className="chart-card__subtitle">
+                EuShipments sedí s e-shopom. Lazaretská je malý buffer mimo Shopify.
+              </p>
+              <div className="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Produkt</th>
+                      <th>EuShipments</th>
+                      <th>Lazaretská</th>
+                      <th>Spolu</th>
+                      <th>Shopify (sync)</th>
+                      <th>Pending Orin</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {SKLAD_CONFIRMED_STOCK.map((r) => {
+                      const shopifyRow = rows.find(
+                        (x) =>
+                          isActiveSkladSku(x.sku) &&
+                          skladSkuMeta(x.sku)?.physicalProductKey ===
+                            r.product_key
+                      );
+                      const pending = PENDING_ORIN_ORDER.lines.find(
+                        (l) => l.product_key === r.product_key
+                      );
+                      return (
+                        <tr key={r.product_key}>
+                          <td>{r.product_label}</td>
+                          <td>{r.locations.eushipments}</td>
+                          <td>{r.locations.lazaretska}</td>
+                          <td>{confirmedTotal(r.locations)}</td>
+                          <td>
+                            {shopifyRow != null
+                              ? `${shopifyRow.available} ks · ${shopifyRow.sku}`
+                              : "—"}
+                          </td>
+                          <td>
+                            {pending
+                              ? `+${pending.qty} ks (~${PENDING_ORIN_ORDER.eta})`
+                              : "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section className="table-card">
+              <h2>Pending Orin</h2>
+              <p className="chart-card__subtitle">
+                {PENDING_ORIN_ORDER.note} Splatnosť faktúry:{" "}
+                <strong>{PENDING_ORIN_ORDER.invoiceDue}</strong>
+                {" · "}
+                cca {(PENDING_ORIN_ORDER.lines.reduce((s, l) => s + l.qty, 0) *
+                  16.1).toLocaleString("sk-SK")}{" "}
+                € nákup (16,10 €/ks, bez dopravy).
+              </p>
+              <div className="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Produkt</th>
+                      <th>Ks</th>
+                      <th>ETA naskladnenie</th>
+                      <th>Splatnosť</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {PENDING_ORIN_ORDER.lines.map((l) => (
+                      <tr key={l.product_key}>
+                        <td>{l.product_label}</td>
+                        <td>{l.qty}</td>
+                        <td>{PENDING_ORIN_ORDER.eta}</td>
+                        <td>{PENDING_ORIN_ORDER.invoiceDue}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </section>
 
             {physical?.rows?.length ? (
               <section className="table-card">
                 <h2>
-                  Fyzický sklad Swiss Point
+                  XLS Sklad_sumár (história)
                   {physical.latestMonthKey
-                    ? ` — stav k ${physical.latestMonthKey}`
+                    ? ` — posledný pohyb ${physical.latestMonthKey}`
                     : ""}
                 </h2>
                 <p className="chart-card__subtitle">
-                  Z MO-JA report XLS (hárok Sklad_sumár). Import:{" "}
-                  <code>python3 etl/import_sklad_xls.py</code>
+                  Mesačný stav z reportu — na runway sa používa potvrdený inventár
+                  vyššie.
                   {physical.importedAt
-                    ? ` · naposledy ${formatWhen(physical.importedAt)}`
+                    ? ` Import ${formatWhen(physical.importedAt)}.`
                     : ""}
                 </p>
                 <div className="table-scroll">
@@ -328,79 +411,45 @@ export default function SkladClient() {
                       <tr>
                         <th>Produkt</th>
                         <th>Stav (ks)</th>
-                        <th>Príjem / mesiac</th>
-                        <th>Výdaj / mesiac</th>
-                        <th>Výdaj Shopify / mesiac</th>
-                        <th>Shopify SKU (orientačne)</th>
+                        <th>Príjem</th>
+                        <th>Výdaj</th>
+                        <th>Shopify výdaj</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {physical.rows.map((r) => {
-                        const shopifySku =
-                          r.product_key === "phase_plus_berry"
-                            ? "PH+-B1-C-1"
-                            : r.product_key === "phase_ananas"
-                              ? "PH-B1-A"
-                              : r.product_key === "phase_plus_citron"
-                                ? "PH+-B1-C (vypredaný)"
-                                : "—";
-                        const shopifyRow = visibleRows.find(
-                          (x) =>
-                            skladSkuMeta(x.sku)?.physicalProductKey ===
-                            r.product_key
-                        );
-                        return (
-                          <tr key={r.product_key}>
-                            <td>{r.product_label}</td>
-                            <td>{r.stock_end}</td>
-                            <td>{r.stock_in ?? "—"}</td>
-                            <td>{r.stock_out ?? "—"}</td>
-                            <td>{r.shopify_out ?? "—"}</td>
-                            <td>
-                              {shopifySku}
-                              {shopifyRow != null && (
-                                <>
-                                  {" "}
-                                  · Shopify {shopifyRow.available} ks
-                                </>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {physical.rows.map((r) => (
+                        <tr key={r.product_key}>
+                          <td>{r.product_label}</td>
+                          <td>{r.stock_end}</td>
+                          <td>{r.stock_in ?? "—"}</td>
+                          <td>{r.stock_out ?? "—"}</td>
+                          <td>{r.shopify_out ?? "—"}</td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
               </section>
-            ) : (
-              <section className="chart-card">
-                <p className="msg">
-                  Fyzický sklad zatiaľ nie je naimportovaný. Spusti{" "}
-                  <code>python3 etl/import_sklad_xls.py --xlsx-path docs/MO-JA_report_….xlsx</code>{" "}
-                  po <code>supabase db push</code> (migrácia{" "}
-                  <code>095_physical_inventory_monthly.sql</code>).
-                </p>
-              </section>
-            )}
+            ) : null}
 
             {recommendedRunway.length > 0 ? (
               <section className="table-card sklad-runway-card">
                 <h2>Odporúčaný runway</h2>
                 <p className="chart-card__subtitle">
-                  Fyzický stav z XLS (Swiss Point) ÷ tempo predaja zo Shopify
-                  (posledných 30 dní). Presnejší odhad než čistý Shopify sklad —
-                  najmä keď e-shop a fyzický sklad nesedia.
+                  Potvrdený fyzický stav (EuShipments + Lazaretská) ÷ predaj
+                  Shopify 30 dní. Po Orin (~{PENDING_ORIN_ORDER.eta}) sa runway
+                  predĺži o naskladnené kusy.
                 </p>
                 <div className="table-scroll">
                   <table>
                     <thead>
                       <tr>
                         <th>Produkt</th>
-                        <th>Fyzický stav (XLS)</th>
-                        <th>Predaj / deň (30 dní)</th>
-                        <th>Runway</th>
-                        <th>Do kedy cca.</th>
-                        <th>Shopify sklad (porovnanie)</th>
+                        <th>Fyzicky teraz</th>
+                        <th>Predaj / deň</th>
+                        <th>Runway teraz</th>
+                        <th>Po Orin (+inbound)</th>
+                        <th>Shopify</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -428,19 +477,23 @@ export default function SkladClient() {
                             <td>{r.product_label}</td>
                             <td>
                               {r.physical_stock} ks
-                              <span className="sklad-row__phys">
-                                {" "}
-                                ({r.physical_month_key})
-                              </span>
+                              {r.eushipments != null ? (
+                                <span className="sklad-row__phys">
+                                  {" "}
+                                  (EU {r.eushipments} + Laz {r.lazaretska})
+                                </span>
+                              ) : (
+                                <span className="sklad-row__phys">
+                                  {" "}
+                                  ({r.physical_as_of})
+                                </span>
+                              )}
                             </td>
                             <td>
                               {r.sales_per_day_30d != null &&
                               r.sales_per_day_30d > 0 ? (
                                 <>
                                   {formatAvgDaily(r.sales_per_day_30d)}
-                                  {r.units_sold_30d != null
-                                    ? ` (${r.units_sold_30d} ks)`
-                                    : ""}
                                   {r.shopify_sku ? (
                                     <span className="sklad-row__phys">
                                       {" "}
@@ -452,8 +505,36 @@ export default function SkladClient() {
                                 "bez predaja"
                               )}
                             </td>
-                            <td>{formatRunwayDays(r.days_runway)}</td>
-                            <td>{formatStockoutDate(r.stockout_date)}</td>
+                            <td>
+                              {formatRunwayDays(r.days_runway)}
+                              {r.stockout_date ? (
+                                <span className="sklad-row__phys">
+                                  {" "}
+                                  · {formatStockoutDate(r.stockout_date)}
+                                </span>
+                              ) : null}
+                            </td>
+                            <td>
+                              {r.pending_inbound > 0 ? (
+                                <>
+                                  {r.stock_after_inbound} ks →{" "}
+                                  {formatRunwayDays(
+                                    r.days_runway_after_inbound
+                                  )}
+                                  {r.stockout_date_after_inbound ? (
+                                    <span className="sklad-row__phys">
+                                      {" "}
+                                      ·{" "}
+                                      {formatStockoutDate(
+                                        r.stockout_date_after_inbound
+                                      )}
+                                    </span>
+                                  ) : null}
+                                </>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
                             <td>
                               {r.shopify_available != null
                                 ? `${r.shopify_available} ks`
@@ -530,7 +611,7 @@ export default function SkladClient() {
                         <th>Dostupné</th>
                         <th>Predaj / deň (30 dní)</th>
                         <th>Stockout (30 dní)</th>
-                        <th>Runway (XLS ÷ predaj)</th>
+                        <th>Runway (fyz ÷ predaj)</th>
                         <th>Predaj / deň (YTD)</th>
                         <th>Stockout (YTD)</th>
                         <th>Sync</th>
@@ -539,10 +620,6 @@ export default function SkladClient() {
                     <tbody>
                       {visibleRows.map((r) => {
                         const meta = skladSkuMeta(r.sku);
-                        const phys =
-                          meta?.physicalProductKey != null
-                            ? physicalByKey.get(meta.physicalProductKey)
-                            : undefined;
                         const rec =
                           meta?.physicalProductKey != null
                             ? recommendedByProductKey.get(meta.physicalProductKey)
@@ -573,10 +650,13 @@ export default function SkladClient() {
                             <td>{r.sku}</td>
                             <td>
                               {r.available}
-                              {phys != null ? (
-                                <span className="sklad-row__phys" title="Fyzický stav XLS">
+                              {rec != null ? (
+                                <span
+                                  className="sklad-row__phys"
+                                  title="Potvrdený fyzický stav"
+                                >
                                   {" "}
-                                  (XLS {phys.stock_end})
+                                  (fyz {rec.physical_stock})
                                 </span>
                               ) : null}
                             </td>

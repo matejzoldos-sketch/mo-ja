@@ -1,4 +1,12 @@
 import { isActiveSkladSku, skladSkuMeta } from "./skladSkuMeta";
+import {
+  SKLAD_CONFIRMED_AS_OF,
+  SKLAD_CONFIRMED_STOCK,
+  PENDING_ORIN_ORDER,
+  confirmedTotal,
+  pendingQtyForProduct,
+  type ConfirmedProductStock,
+} from "./skladConfirmed";
 
 export type PhysicalStockRow = {
   month_key: string;
@@ -18,14 +26,24 @@ export type ShopifyInvRow = {
 export type RecommendedRunwayRow = {
   product_key: string;
   product_label: string;
-  physical_month_key: string;
+  /** Zdroj stavu: confirmed | xls */
+  stock_source: "confirmed" | "xls";
+  physical_as_of: string;
   physical_stock: number;
+  eushipments?: number;
+  lazaretska?: number;
+  pending_inbound: number;
+  stock_after_inbound: number;
   shopify_sku: string | null;
   shopify_available: number | null;
   sales_per_day_30d: number | null;
   units_sold_30d: number | null;
+  /** Runway len zo súčasného fyzického stavu */
   days_runway: number | null;
   stockout_date: string | null;
+  /** Runway po naskladnení pending Orin (ak je) */
+  days_runway_after_inbound: number | null;
+  stockout_date_after_inbound: string | null;
 };
 
 function addDaysYmd(days: number): string {
@@ -46,44 +64,100 @@ function addDaysYmd(days: number): string {
   return `${yy}-${mm}-${dd}`;
 }
 
-/** Fyzický stav (XLS) ÷ tempo predaja (Shopify, 30 dní) — najpresnejší odhad runway. */
+function runwayFromStock(
+  stock: number,
+  perDay: number | null
+): { days: number | null; date: string | null } {
+  if (stock <= 0) {
+    return { days: 0, date: addDaysYmd(0) };
+  }
+  if (perDay == null || perDay <= 0) {
+    return { days: null, date: null };
+  }
+  const days = Math.round(stock / perDay);
+  return { days, date: addDaysYmd(days) };
+}
+
+type PhysInput =
+  | { source: "confirmed"; row: ConfirmedProductStock }
+  | { source: "xls"; row: PhysicalStockRow };
+
+function buildPhysInputs(xlsRows: PhysicalStockRow[]): PhysInput[] {
+  if (SKLAD_CONFIRMED_STOCK.length > 0) {
+    return SKLAD_CONFIRMED_STOCK.map((row) => ({
+      source: "confirmed" as const,
+      row,
+    }));
+  }
+  return xlsRows.map((row) => ({ source: "xls" as const, row }));
+}
+
+/**
+ * Fyzický stav ÷ tempo predaja (Shopify 30 dní).
+ * Preferuje potvrdený inventár (EuShipments + Lazaretská) pred XLS Sklad_sumár.
+ */
 export function computeRecommendedRunway(
   physicalRows: PhysicalStockRow[],
   shopifyRows: ShopifyInvRow[]
 ): RecommendedRunwayRow[] {
   const activeShopify = shopifyRows.filter((r) => isActiveSkladSku(r.sku));
+  const inputs = buildPhysInputs(physicalRows);
 
-  return physicalRows.map((phys) => {
+  return inputs.map((input) => {
+    const product_key =
+      input.source === "confirmed"
+        ? input.row.product_key
+        : input.row.product_key;
+    const product_label =
+      input.source === "confirmed"
+        ? input.row.product_label
+        : input.row.product_label;
+
     const shopify = activeShopify.find(
-      (r) => skladSkuMeta(r.sku)?.physicalProductKey === phys.product_key
+      (r) => skladSkuMeta(r.sku)?.physicalProductKey === product_key
     );
 
     const perDay = shopify?.avg_daily_units_sold_30d ?? null;
     const units30 = shopify?.units_sold_30d ?? null;
-    const stock = phys.stock_end;
 
-    let days_runway: number | null = null;
-    let stockout_date: string | null = null;
+    const physical_stock =
+      input.source === "confirmed"
+        ? confirmedTotal(input.row.locations)
+        : input.row.stock_end;
 
-    if (stock <= 0) {
-      days_runway = 0;
-      stockout_date = addDaysYmd(0);
-    } else if (perDay != null && perDay > 0) {
-      days_runway = Math.round(stock / perDay);
-      stockout_date = addDaysYmd(days_runway);
-    }
+    const pending_inbound = pendingQtyForProduct(product_key);
+    const stock_after_inbound = physical_stock + pending_inbound;
+
+    const now = runwayFromStock(physical_stock, perDay);
+    const after = runwayFromStock(stock_after_inbound, perDay);
 
     return {
-      product_key: phys.product_key,
-      product_label: phys.product_label,
-      physical_month_key: phys.month_key,
-      physical_stock: stock,
+      product_key,
+      product_label,
+      stock_source: input.source,
+      physical_as_of:
+        input.source === "confirmed"
+          ? SKLAD_CONFIRMED_AS_OF
+          : input.row.month_key,
+      physical_stock,
+      eushipments:
+        input.source === "confirmed"
+          ? input.row.locations.eushipments
+          : undefined,
+      lazaretska:
+        input.source === "confirmed"
+          ? input.row.locations.lazaretska
+          : undefined,
+      pending_inbound,
+      stock_after_inbound,
       shopify_sku: shopify?.sku ?? null,
       shopify_available: shopify?.available ?? null,
       sales_per_day_30d: perDay,
       units_sold_30d: units30,
-      days_runway,
-      stockout_date,
+      days_runway: now.days,
+      stockout_date: now.date,
+      days_runway_after_inbound: after.days,
+      stockout_date_after_inbound: after.date,
     };
   });
 }
@@ -98,3 +172,5 @@ export function formatRunwayDays(days: number | null): string {
   const months = Math.round(days / 30);
   return `${days} dní (~${months} mes.)`;
 }
+
+export { PENDING_ORIN_ORDER, SKLAD_CONFIRMED_AS_OF, SKLAD_CONFIRMED_STOCK };

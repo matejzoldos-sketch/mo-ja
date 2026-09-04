@@ -1,34 +1,37 @@
-/** Shopify SKU status — podľa overenia u firmy (1. 9. 2026). */
+/** Shopify SKU status — potvrdené so Zuzkou (4. 9. 2026). */
 
 export type SkladSkuStatus = "active" | "inactive" | "deprecated";
 
 export type SkladSkuMeta = {
   status: SkladSkuStatus;
   note?: string;
-  /** Kanonický produkt z XLS Sklad_sumár */
+  /** Kanonický produkt (EuShipments / XLS) */
   physicalProductKey?: string;
 };
 
-/** Statická mapa — aktualizovať po potvrdení od Zuzky C. */
+/**
+ * EuShipments = e-shop. Aktívny predaj: Berry (C-1) + Ananás (PH-B1-A).
+ * Citron v e-shope 0; mŕtve Shopify SKU C / VB treba vynulovať.
+ */
 export const SKLAD_SKU_META: Record<string, SkladSkuMeta> = {
   "PH+-B1-C-1": {
     status: "active",
-    note: "Predajný Phase+ (Very Berry) — Shopify SKU",
+    note: "Phase+ Very Berry — jediný aktívny Phase+ v e-shope",
     physicalProductKey: "phase_plus_berry",
   },
   "PH-B1-A": {
     status: "active",
-    note: "Phase bez fytoestrogénov (Ananás)",
+    note: "Phase Ananás",
     physicalProductKey: "phase_ananas",
   },
   "PH+-B1-C": {
     status: "deprecated",
-    note: "Phase+ Citron — vypredaný mesiace, v Shopify mŕtvy sklad",
+    note: "Starý SKU — e-shop Citron = 0; Shopify ešte ukazuje mŕtvy sklad",
     physicalProductKey: "phase_plus_citron",
   },
   "PH+-B1-VB": {
     status: "inactive",
-    note: "Nepoužívať — fyzicky 0 ks, Shopify neaktuálny",
+    note: "Nepoužívať — e-shop Berry ide cez PH+-B1-C-1",
     physicalProductKey: "phase_plus_berry",
   },
   "PH+-B1-C-2": {
