@@ -911,6 +911,37 @@ a:hover {
   letter-spacing: 0.03em;
 }
 
+/* Compact monthly P&L — fits without horizontal scroll on typical desktop */
+.data-table--pnl-compact {
+  table-layout: fixed;
+  font-size: 0.75rem;
+}
+
+.data-table--pnl-compact th,
+.data-table--pnl-compact td {
+  padding: 6px 4px;
+}
+
+.data-table--pnl-compact thead th {
+  font-size: 0.65rem;
+  letter-spacing: 0.02em;
+  white-space: normal;
+  line-height: 1.2;
+  vertical-align: bottom;
+}
+
+.data-table--pnl-compact th.num,
+.data-table--pnl-compact td.num {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.data-table--pnl-compact th:first-child,
+.data-table--pnl-compact td:first-child {
+  width: 3.25rem;
+  white-space: nowrap;
+}
+
 .chart-card {
   background: var(--surface);
   border: 1px solid var(--border);

@@ -816,7 +816,7 @@ export default function PnlPanel() {
       )}
 
       {/* Monthly table */}
-      <div className="table-wrap" style={{ overflowX: "auto" }}>
+      <div className="table-wrap">
         {isXlsSheetOnly(mode) ? (
           <table className="data-table">
             <thead>
@@ -882,33 +882,30 @@ export default function PnlPanel() {
             </tfoot>
           </table>
         ) : (
-          <table className="data-table">
+          <table className="data-table data-table--pnl-compact">
             <thead>
               <tr>
                 <th>Mesiac</th>
-                <th className="num">Tržby tovar</th>
-                <th className="num">Tržby služby</th>
-                <th className="num">Spolu tržby</th>
+                <th className="num" title="Tržby za tovar (604)">Tovar</th>
+                <th className="num" title="Tržby za služby (602)">Služby €</th>
                 <th
                   className="num"
                   title={
                     mode === "accounting"
-                      ? "COGS = účet 504 z denníka (náklady na predaný tovar)"
+                      ? "COGS = účet 504 z denníka"
                       : usesRealCogs(mode)
                         ? REAL_COGS_NOTE
-                        : `COGS = odhad ${(COGS_RATE * 100).toFixed(0)} % čistých tržieb za tovar`
+                        : `COGS = odhad ${(COGS_RATE * 100).toFixed(0)} % tovaru`
                   }
                 >
                   COGS*
                 </th>
-                <th className="num">Hrubá marža</th>
-                <th className="num">Služby (518 bez mk, staff)</th>
-                <th className="num">Staff</th>
-                <th className="num">Marketing</th>
-                <th className="num">Ostatné (501/513/538/548/551/56x)</th>
-                <th className="num">OPEX spolu</th>
-                <th className="num" style={{ fontWeight: 700 }}>CM</th>
-                <th className="num">CM %</th>
+                <th className="num" title="518 bez marketingu a staff">518</th>
+                <th className="num" title="Staff (klasifikovaní dodávatelia v 518)">Staff</th>
+                <th className="num">Mk</th>
+                <th className="num" title="501 + 513 + 538 + 548 + 551 + 56x">Ost.</th>
+                <th className="num" style={{ fontWeight: 700 }} title="Contribution margin">CM</th>
+                <th className="num">%</th>
               </tr>
             </thead>
             <tbody>
@@ -922,21 +919,23 @@ export default function PnlPanel() {
                     <td>{monthLabel(m.month_key)}</td>
                     <td className="num">{formatMoney(m.sales_goods)}</td>
                     <td className="num">{formatMoney(m.sales_services)}</td>
-                    <td className="num">{formatMoney(m.total_revenue)}</td>
                     <td className="num">{formatMoney(m.cogs)}</td>
-                    <td className="num">{formatMoney(m.gross_profit)}</td>
                     <td className="num">{formatMoney(servicesClean)}</td>
                     <td className="num">{formatMoney(m.staff_spend ?? 0)}</td>
                     <td className="num">{formatMoney(m.marketing_spend)}</td>
                     <td className="num">{formatMoney(other)}</td>
-                    <td className="num">{formatMoney(m.total_opex)}</td>
                     <td
                       className="num"
                       style={{ fontWeight: 700, color: cm >= 0 ? "var(--clr-green, #16a34a)" : "var(--clr-red, #dc2626)" }}
                     >
                       {formatMoney(cm)}
                     </td>
-                    <td className="num">{formatPct(cmPct)}</td>
+                    <td
+                      className="num"
+                      style={{ color: cm >= 0 ? "var(--clr-green, #16a34a)" : "var(--clr-red, #dc2626)" }}
+                    >
+                      {formatPct(cmPct)}
+                    </td>
                   </tr>
                 );
               })}
@@ -946,9 +945,7 @@ export default function PnlPanel() {
                 <td>YTD</td>
                 <td className="num">{formatMoney(monthly.reduce((s, m) => s + m.sales_goods, 0))}</td>
                 <td className="num">{formatMoney(monthly.reduce((s, m) => s + m.sales_services, 0))}</td>
-                <td className="num">{formatMoney(t.total_revenue)}</td>
                 <td className="num">{formatMoney(t.cogs)}</td>
-                <td className="num">{formatMoney(t.gross_profit)}</td>
                 <td className="num">
                   {formatMoney(
                     monthly.reduce((s, m) => s + Math.max(0, m.services - m.marketing_spend - (m.staff_spend ?? 0)), 0)
@@ -959,19 +956,28 @@ export default function PnlPanel() {
                 <td className="num">
                   {formatMoney(monthly.reduce((s, m) => s + otherOpexSum(m), 0))}
                 </td>
-                <td className="num">{formatMoney(t.total_opex)}</td>
                 <td
                   className="num"
                   style={{ color: t.contribution_margin >= 0 ? "var(--clr-green, #16a34a)" : "var(--clr-red, #dc2626)" }}
                 >
                   {formatMoney(t.contribution_margin)}
                 </td>
-                <td className="num">{formatPct(marginPct)}</td>
+                <td
+                  className="num"
+                  style={{ color: t.contribution_margin >= 0 ? "var(--clr-green, #16a34a)" : "var(--clr-red, #dc2626)" }}
+                >
+                  {formatPct(marginPct)}
+                </td>
               </tr>
             </tfoot>
           </table>
         )}
       </div>
+      {!isXlsSheetOnly(mode) ? (
+        <p style={{ fontSize: "0.75rem", marginTop: "0.35rem", opacity: 0.7 }}>
+          Bez stĺpcov Spolu tržby / Hrubá marža / OPEX spolu (dajú sa spočítať). Hover na hlavičku = plný popis.
+        </p>
+      ) : null}
 
       {/* Cost structure vs benchmark */}
       <CostStructureTable
