@@ -27,12 +27,26 @@ type PnlMonth = {
   services: number;
   taxes_fees: number;
   other_operating: number;
+  depreciation?: number;
   financial: number;
+  residual_opex?: number;
   total_opex: number;
   marketing_spend: number;
   staff_spend: number;
   contribution_margin: number;
 };
+
+function otherOpexSum(m: PnlMonth): number {
+  return (
+    m.material +
+    m.representation +
+    m.taxes_fees +
+    m.other_operating +
+    m.financial +
+    (m.depreciation ?? 0) +
+    (m.residual_opex ?? 0)
+  );
+}
 
 type TopExpense = {
   supplier: string;
@@ -59,6 +73,8 @@ type PnlPayload = {
     cogs: number;
     gross_profit: number;
     total_opex: number;
+    depreciation?: number;
+    residual_opex?: number;
     contribution_margin: number;
     marketing_spend: number;
     staff_spend: number;
@@ -129,7 +145,9 @@ function transformXlsToPnlPayload(xls: PnlXlsPayload): PnlPayload {
     services: Math.max(0, m.opex - m.other_operating),
     taxes_fees: 0,
     other_operating: m.other_operating,
+    depreciation: 0,
     financial: 0,
+    residual_opex: 0,
     total_opex: m.opex,
     marketing_spend: m.marketing,
     staff_spend: m.staff ?? 0,
@@ -207,7 +225,9 @@ function transformHybridPayload(xls: PnlXlsPayload): PnlPayload {
       services: Math.max(0, m.opex - m.other_operating),
       taxes_fees: 0,
       other_operating: m.other_operating,
+      depreciation: 0,
       financial: 0,
+      residual_opex: 0,
       total_opex: opex,
       marketing_spend: m.marketing,
       staff_spend: m.staff ?? 0,
@@ -284,13 +304,14 @@ const ACCOUNT_LABELS: Record<string, string> = {
   "518": "Služby",
   "538": "Dane, poplatky",
   "548": "Ostatné prevádzkové",
+  "551": "Odpisy",
   "563": "Kurzové straty",
   "568": "Bankové poplatky",
 };
 
 export default function PnlPanel() {
   const [data, setData] = useState<PnlPayload | null>(null);
-  const [mode, setMode] = useState<"accounting" | "xls" | "hybrid">("hybrid");
+  const [mode, setMode] = useState<"accounting" | "xls" | "hybrid">("accounting");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [pdfExporting, setPdfExporting] = useState(false);
@@ -331,7 +352,11 @@ export default function PnlPanel() {
     const mPct = t.total_revenue ? ((t.contribution_margin / t.total_revenue) * 100).toFixed(1) : "–";
     const mkPct = t.total_revenue ? ((t.marketing_spend / t.total_revenue) * 100).toFixed(1) : "–";
     let md = `# ${
-      mode === "xls" ? `P&L (XLS Výsledky) ${meta.year}` : mode === "hybrid" ? `P&L — Hybrid ${meta.year}` : `P&L — Contribution Margin ${meta.year}`
+      mode === "xls"
+        ? `P&L (XLS Výsledky) ${meta.year}`
+        : mode === "hybrid"
+          ? `P&L — Hybrid ${meta.year}`
+          : `P&L — Účtovníctvo ${meta.year}`
     }\n\n`;
     md += `> ${meta.note}\n\n`;
     md += `| KPI | Hodnota |\n|---|---|\n`;
@@ -558,9 +583,9 @@ export default function PnlPanel() {
             }}
             aria-label="Zdroj dát P&L"
           >
-            <option value="hybrid">Hybrid (XLS + COGS Shopify)</option>
-            <option value="accounting">Účtovníctvo (denník)</option>
-            <option value="xls">XLS (Výsledky)</option>
+            <option value="accounting">1. Účtovníctvo (denník)</option>
+            <option value="xls">2. XLS (Výsledky)</option>
+            <option value="hybrid">3. Hybrid (XLS + COGS 42 %)</option>
           </select>
         </div>
 
@@ -585,7 +610,11 @@ export default function PnlPanel() {
 
       <div className="dashboard-pdf-root" ref={pdfExportRef}>
       <h2 className="panel__title">
-        {mode === "xls" ? `P&L (XLS Výsledky) ${meta.year}` : mode === "hybrid" ? `P&L — Hybrid ${meta.year}` : `P&L — Contribution Margin ${meta.year}`}
+        {mode === "xls"
+          ? `P&L (XLS Výsledky) ${meta.year}`
+          : mode === "hybrid"
+            ? `P&L — Hybrid ${meta.year}`
+            : `P&L — Účtovníctvo ${meta.year}`}
       </h2>
       <DashboardMetaBar
         items={[
@@ -631,9 +660,11 @@ export default function PnlPanel() {
             sub={`${formatPct(cogsPct)} z tržieb${
               cogsPctOfGoods != null ? ` · ${formatPct(cogsPctOfGoods)} z tovaru` : ""
             } · benchmark 30–55 % · ${
-              t.cogs_journal < t.cogs_estimated
-                ? `odhad ${(COGS_RATE * 100).toFixed(0)} % z tovaru`
-                : "z denníka (504)"
+              mode === "accounting"
+                ? "z denníka (504)"
+                : t.cogs_journal < t.cogs_estimated
+                  ? `odhad ${(COGS_RATE * 100).toFixed(0)} % z tovaru`
+                  : "z denníka (504)"
             }`}
           />
           <KpiCard
@@ -750,12 +781,21 @@ export default function PnlPanel() {
                 <th className="num">Tržby tovar</th>
                 <th className="num">Tržby služby</th>
                 <th className="num">Spolu tržby</th>
-                <th className="num" title={`COGS = max(denník 504, odhad ${(COGS_RATE * 100).toFixed(0)} % čistých tržieb za tovar)`}>COGS*</th>
+                <th
+                  className="num"
+                  title={
+                    mode === "accounting"
+                      ? "COGS = účet 504 z denníka (náklady na predaný tovar)"
+                      : `COGS = odhad ${(COGS_RATE * 100).toFixed(0)} % čistých tržieb za tovar`
+                  }
+                >
+                  COGS*
+                </th>
                 <th className="num">Hrubá marža</th>
                 <th className="num">Služby (518 bez mk, staff)</th>
                 <th className="num">Staff</th>
                 <th className="num">Marketing</th>
-                <th className="num">Ostatné</th>
+                <th className="num">Ostatné (501/513/538/548/551/56x)</th>
                 <th className="num">OPEX spolu</th>
                 <th className="num" style={{ fontWeight: 700 }}>CM</th>
                 <th className="num">CM %</th>
@@ -765,7 +805,7 @@ export default function PnlPanel() {
               {monthly.map((m) => {
                 const cm = m.contribution_margin;
                 const cmPct = m.total_revenue ? cm / m.total_revenue : 0;
-                const other = m.material + m.representation + m.taxes_fees + m.other_operating + m.financial;
+                const other = otherOpexSum(m);
                 const servicesClean = Math.max(0, m.services - m.marketing_spend - (m.staff_spend ?? 0));
                 return (
                   <tr key={m.month_key}>
@@ -807,12 +847,7 @@ export default function PnlPanel() {
                 <td className="num">{formatMoney(t.staff_spend ?? 0)}</td>
                 <td className="num">{formatMoney(t.marketing_spend)}</td>
                 <td className="num">
-                  {formatMoney(
-                    monthly.reduce(
-                      (s, m) => s + m.material + m.representation + m.taxes_fees + m.other_operating + m.financial,
-                      0
-                    )
-                  )}
+                  {formatMoney(monthly.reduce((s, m) => s + otherOpexSum(m), 0))}
                 </td>
                 <td className="num">{formatMoney(t.total_opex)}</td>
                 <td
@@ -857,15 +892,17 @@ export default function PnlPanel() {
       <DashboardFootnotes
         items={[
           formatHybridPnlNote(meta.note),
-          ...(mode === "accounting" || mode === "hybrid"
+          ...(mode === "accounting"
             ? [
-                `COGS = ${(COGS_RATE * 100).toFixed(0)} % čistých tržieb za tovar (nákup Orin / predané ks).${
-                  mode === "accounting"
-                    ? " Účtovný mód berie vyššiu z hodnôt: účet 504 vs. tento odhad."
-                    : " Hybrid berie odhad, nie riadok 504 (nákup)."
-                } Fulfillment a brána sú v OPEX, nie v COGS.`,
+                "Účtovníctvo = všetky výnosy 6xx a náklady 5xx z denníka. COGS = 504; OPEX zahŕňa aj odpisy 551. Staff/marketing sú podmnožina 518 (nie dvojité sčítanie). Ak účet v importe CSV nie je, v P&L nebude.",
               ]
-            : []),
+            : mode === "hybrid"
+              ? [
+                  `COGS = ${(COGS_RATE * 100).toFixed(0)} % čistých tržieb za tovar (nákup Orin / predané ks). Hybrid berie odhad, nie riadok 504. Fulfillment a brána sú v OPEX, nie v COGS.`,
+                ]
+              : [
+                  "XLS Výsledky = upravený sheet (nie 1:1 súčet denníka). Môže obsahovať reclass / alokácie.",
+                ]),
         ]}
       />
       </div>
@@ -1164,10 +1201,8 @@ function CostStructureTable({
   const productGm = goodsBase - t.cogs;
 
   const totalServices = monthsForAgg.reduce((s, m) => s + m.services, 0);
-  const totalOther = monthsForAgg.reduce(
-    (s, m) => s + m.material + m.representation + m.taxes_fees + m.other_operating + m.financial,
-    0
-  );
+  const totalOther = monthsForAgg.reduce((s, m) => s + otherOpexSum(m), 0);
+  const totalDepreciation = monthsForAgg.reduce((s, m) => s + (m.depreciation ?? 0), 0);
   const servicesNonMkStaff = Math.max(
     0,
     totalServices - t.marketing_spend - (t.staff_spend ?? 0)
@@ -1229,6 +1264,19 @@ function CostStructureTable({
       benchLabel: "2–10 %",
       invert: true,
     },
+    ...(totalDepreciation > 0.5
+      ? [
+          {
+            label: "z toho odpisy (551)",
+            value: totalDepreciation,
+            pct: totalDepreciation / rev,
+            benchMin: 0,
+            benchMax: 5,
+            benchLabel: "—",
+            invert: true,
+          } satisfies BenchmarkRow,
+        ]
+      : []),
     {
       label: "OPEX spolu",
       value: t.total_opex,

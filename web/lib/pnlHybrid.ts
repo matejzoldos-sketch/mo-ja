@@ -64,7 +64,9 @@ export type PnlHybridMonth = {
   services: number;
   taxes_fees: number;
   other_operating: number;
+  depreciation: number;
   financial: number;
+  residual_opex: number;
   total_opex: number;
   marketing_spend: number;
   staff_spend: number;
@@ -151,7 +153,9 @@ export function transformHybridPayload(xls: PnlXlsPayload): PnlHybridPayload {
       services: Math.max(0, m.opex - m.other_operating),
       taxes_fees: 0,
       other_operating: m.other_operating,
+      depreciation: 0,
       financial: 0,
+      residual_opex: 0,
       total_opex: opex,
       marketing_spend: m.marketing,
       staff_spend: m.staff ?? 0,
