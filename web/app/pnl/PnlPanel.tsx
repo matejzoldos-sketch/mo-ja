@@ -247,7 +247,7 @@ function transformHybridPayload(xls: PnlXlsPayload): PnlPayload {
       year: String(xls.meta.year),
       from: xls.meta.from,
       to: xls.meta.to,
-      note: `Hybrid: tržby a OPEX z XLS, COGS = ${(COGS_RATE * 100).toFixed(0)} % čistých tržieb za tovar (nákup Orin). Jan–${monthLabel(actualMonths[actualMonths.length - 1]?.month_key ?? "01")} ${xls.meta.year}.`,
+      note: `XLS · reálne COGS: tržby a OPEX z XLS, COGS = ${(COGS_RATE * 100).toFixed(0)} % čistých tržieb za tovar (Orin). Jan–${monthLabel(actualMonths[actualMonths.length - 1]?.month_key ?? "01")} ${xls.meta.year}.`,
       last_actual_month: lastActual,
       last_month_key: xls.meta.last_month_key ?? actualMonths[actualMonths.length - 1]?.month_key,
     },
@@ -297,6 +297,10 @@ function fmt(n: number): string {
   return new Intl.NumberFormat("sk-SK", { maximumFractionDigits: 0 }).format(n) + " €";
 }
 
+type PnlMode = "accounting" | "accounting_real" | "xls" | "xls_real";
+
+const REAL_COGS_NOTE = `Reálne COGS = odhad ${(COGS_RATE * 100).toFixed(0)} % čistých tržieb za tovar (nákup Orin / predané ks), nie riadok 504. Fulfillment a brána sú v OPEX.`;
+
 const ACCOUNT_LABELS: Record<string, string> = {
   "501": "Materiál",
   "504": "Náklady na tovar",
@@ -309,34 +313,155 @@ const ACCOUNT_LABELS: Record<string, string> = {
   "568": "Bankové poplatky",
 };
 
+function isJournalBase(mode: PnlMode): boolean {
+  return mode === "accounting" || mode === "accounting_real";
+}
+
+function isXlsSheetOnly(mode: PnlMode): boolean {
+  return mode === "xls";
+}
+
+function usesRealCogs(mode: PnlMode): boolean {
+  return mode === "accounting_real" || mode === "xls_real";
+}
+
+function pnlModeTitle(mode: PnlMode, year: string): string {
+  switch (mode) {
+    case "accounting_real":
+      return `P&L — Účtovníctvo · reálne COGS ${year}`;
+    case "xls":
+      return `P&L (XLS Výsledky) ${year}`;
+    case "xls_real":
+      return `P&L — XLS · reálne COGS ${year}`;
+    default:
+      return `P&L — Účtovníctvo ${year}`;
+  }
+}
+
+function pnlModeShortLabel(mode: PnlMode): string {
+  switch (mode) {
+    case "accounting_real":
+      return "Účtovníctvo · reálne COGS";
+    case "xls":
+      return "XLS Výsledky";
+    case "xls_real":
+      return "XLS · reálne COGS";
+    default:
+      return "Účtovníctvo";
+  }
+}
+
+function transformAccountingRealCogs(payload: PnlPayload): PnlPayload {
+  const monthly = payload.monthly.map((m) => {
+    const cogs =
+      m.cogs_estimated > 0
+        ? m.cogs_estimated
+        : Math.round((m.sales_goods || 0) * COGS_RATE * 100) / 100;
+    const gross_profit = m.total_revenue - cogs;
+    return {
+      ...m,
+      cogs,
+      cogs_estimated: cogs,
+      gross_profit,
+      contribution_margin: gross_profit - m.total_opex,
+    };
+  });
+  const sum = (fn: (m: PnlMonth) => number) =>
+    Math.round(monthly.reduce((s, m) => s + fn(m), 0) * 100) / 100;
+  const total_revenue = sum((m) => m.total_revenue);
+  const cogs = sum((m) => m.cogs);
+  const total_opex = sum((m) => m.total_opex);
+  return {
+    ...payload,
+    meta: {
+      ...payload.meta,
+      note: `Účtovníctvo (denník) + reálne COGS. Tržby a OPEX z denníka; ${REAL_COGS_NOTE}`,
+    },
+    totals: {
+      ...payload.totals,
+      cogs_journal: sum((m) => m.cogs_journal),
+      cogs_estimated: cogs,
+      cogs,
+      gross_profit: total_revenue - cogs,
+      total_opex,
+      contribution_margin: total_revenue - cogs - total_opex,
+      marketing_spend: sum((m) => m.marketing_spend),
+      staff_spend: sum((m) => m.staff_spend ?? 0),
+      total_revenue,
+    },
+    monthly,
+  };
+}
+
+function buildMarkdownFor(payload: PnlPayload, mode: PnlMode): string {
+  const { totals: t, monthly, topExpenses, meta } = payload;
+  const mPct = t.total_revenue ? ((t.contribution_margin / t.total_revenue) * 100).toFixed(1) : "–";
+  const mkPct = t.total_revenue ? ((t.marketing_spend / t.total_revenue) * 100).toFixed(1) : "–";
+  let md = `## ${pnlModeTitle(mode, String(meta.year))}\n\n`;
+  md += `> ${formatHybridPnlNote(meta.note)}\n\n`;
+  md += `| KPI | Hodnota |\n|---|---|\n`;
+  md += `| Tržby | ${fmt(t.total_revenue)} |\n`;
+  md += `| COGS | ${fmt(t.cogs)} |\n`;
+  md += `| Hrubá marža | ${fmt(t.gross_profit)} |\n`;
+  md += `| OPEX | ${fmt(t.total_opex)} |\n`;
+  md += `| **Contribution margin** | **${fmt(t.contribution_margin)} (${mPct} %)** |\n`;
+  md += `| z toho marketing | ${fmt(t.marketing_spend)} (${mkPct} %) |\n\n`;
+  md += `### Mesačný prehľad\n\n`;
+  md += `| Mesiac | Tržby | COGS | Hrubá marža | OPEX | Marketing | CM | CM % |\n`;
+  md += `|---|---|---|---|---|---|---|---|\n`;
+  for (const m of monthly) {
+    const cm = m.contribution_margin;
+    const cmP = m.total_revenue ? ((cm / m.total_revenue) * 100).toFixed(1) : "–";
+    md += `| ${monthLabel(m.month_key)} | ${fmt(m.total_revenue)} | ${fmt(m.cogs)} | ${fmt(m.gross_profit)} | ${fmt(m.total_opex)} | ${fmt(m.marketing_spend)} | ${fmt(cm)} | ${cmP} % |\n`;
+  }
+  md += `\n### Top dodávatelia\n\n`;
+  md += `| Dodávateľ | Účet | Suma | Riadkov |\n|---|---|---|---|\n`;
+  for (const e of topExpenses) {
+    md += `| ${e.supplier} | ${ACCOUNT_LABELS[e.account_prefix] ?? e.account_prefix} | ${fmt(e.amount_eur)} | ${e.line_count} |\n`;
+  }
+  return md;
+}
+
+async function fetchPnlPayload(mode: PnlMode): Promise<PnlPayload> {
+  if (mode === "accounting_real") {
+    const base = await fetchPnlPayload("accounting");
+    return transformAccountingRealCogs(base);
+  }
+  const apiMode = mode === "xls_real" ? "xls" : mode;
+  const res = await fetch(`/api/pnl?mode=${apiMode}`, { credentials: "include" });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error ?? `HTTP ${res.status}`);
+  }
+  const body = await res.json();
+  if (mode === "xls_real") {
+    const hybrid = transformHybridPayload(body as PnlXlsPayload);
+    return {
+      ...hybrid,
+      meta: {
+        ...hybrid.meta,
+        note: `XLS Výsledky + reálne COGS. Tržby a OPEX z XLS; ${REAL_COGS_NOTE}`,
+      },
+    };
+  }
+  if (mode === "xls") return transformXlsToPnlPayload(body as PnlXlsPayload);
+  return body as PnlPayload;
+}
+
 export default function PnlPanel() {
   const [data, setData] = useState<PnlPayload | null>(null);
-  const [mode, setMode] = useState<"accounting" | "xls" | "hybrid">("accounting");
+  const [mode, setMode] = useState<PnlMode>("accounting");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [pdfExporting, setPdfExporting] = useState(false);
+  const [mdExporting, setMdExporting] = useState(false);
   const pdfExportRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const apiMode = mode === "hybrid" ? "xls" : mode;
-      const res = await fetch(`/api/pnl?mode=${apiMode}`, {
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        throw new Error(body?.error ?? `HTTP ${res.status}`);
-      }
-      const body = await res.json();
-      if (mode === "hybrid") {
-        setData(transformHybridPayload(body as PnlXlsPayload));
-      } else if (mode === "xls") {
-        setData(transformXlsToPnlPayload(body as PnlXlsPayload));
-      } else {
-        setData(body as PnlPayload);
-      }
+      setData(await fetchPnlPayload(mode));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -346,53 +471,46 @@ export default function PnlPanel() {
 
   useEffect(() => { load(); }, [load]);
 
-  const buildMarkdown = useCallback((): string => {
-    if (!data) return "";
-    const { totals: t, monthly, topExpenses, meta } = data;
-    const mPct = t.total_revenue ? ((t.contribution_margin / t.total_revenue) * 100).toFixed(1) : "–";
-    const mkPct = t.total_revenue ? ((t.marketing_spend / t.total_revenue) * 100).toFixed(1) : "–";
-    let md = `# ${
-      mode === "xls"
-        ? `P&L (XLS Výsledky) ${meta.year}`
-        : mode === "hybrid"
-          ? `P&L — Hybrid ${meta.year}`
-          : `P&L — Účtovníctvo ${meta.year}`
-    }\n\n`;
-    md += `> ${meta.note}\n\n`;
-    md += `| KPI | Hodnota |\n|---|---|\n`;
-    md += `| Tržby | ${fmt(t.total_revenue)} |\n`;
-    md += `| COGS | ${fmt(t.cogs)} |\n`;
-    md += `| Hrubá marža | ${fmt(t.gross_profit)} |\n`;
-    md += `| OPEX | ${fmt(t.total_opex)} |\n`;
-    md += `| **Contribution margin** | **${fmt(t.contribution_margin)} (${mPct} %)** |\n`;
-    md += `| z toho marketing | ${fmt(t.marketing_spend)} (${mkPct} %) |\n\n`;
-    md += `## Mesačný prehľad\n\n`;
-    md += `| Mesiac | Tržby | COGS | Hrubá marža | OPEX | Marketing | CM | CM % |\n`;
-    md += `|---|---|---|---|---|---|---|---|\n`;
-    for (const m of monthly) {
-      const cm = m.contribution_margin;
-      const cmP = m.total_revenue ? ((cm / m.total_revenue) * 100).toFixed(1) : "–";
-      md += `| ${monthLabel(m.month_key)} | ${fmt(m.total_revenue)} | ${fmt(m.cogs)} | ${fmt(m.gross_profit)} | ${fmt(m.total_opex)} | ${fmt(m.marketing_spend)} | ${fmt(cm)} | ${cmP} % |\n`;
-    }
-    md += `\n## Top dodávatelia\n\n`;
-    md += `| Dodávateľ | Účet | Suma | Riadkov |\n|---|---|---|---|\n`;
-    for (const e of topExpenses) {
-      md += `| ${e.supplier} | ${ACCOUNT_LABELS[e.account_prefix] ?? e.account_prefix} | ${fmt(e.amount_eur)} | ${e.line_count} |\n`;
-    }
-    return md;
-  }, [data, mode]);
+  const downloadMd = useCallback(async () => {
+    setMdExporting(true);
+    setError(null);
+    try {
+      const modes: PnlMode[] = [
+        "accounting",
+        "accounting_real",
+        "xls",
+        "xls_real",
+      ];
+      const views = await Promise.all(
+        modes.map(async (m) => ({ mode: m, payload: await fetchPnlPayload(m) }))
+      );
+      const year = String(views[0].payload.meta.year);
 
-  const downloadMd = useCallback(() => {
-    const md = buildMarkdown();
-    if (!md) return;
-    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `pnl-${data!.meta.year}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [buildMarkdown, data]);
+      let md = `# P&L ${year} — všetky 4 pohľady\n\n`;
+      md += `1. Účtovníctvo · 2. Účtovníctvo · reálne COGS · 3. XLS Výsledky · 4. XLS · reálne COGS\n\n`;
+      md += `> ${REAL_COGS_NOTE}\n\n`;
+      md += `## Porovnanie YTD\n\n`;
+      md += `| Pohľad | Tržby | COGS | OPEX | CM / zisk |\n|---|---|---|---|---|\n`;
+      for (const v of views) {
+        const t = v.payload.totals;
+        md += `| ${pnlModeShortLabel(v.mode)} | ${fmt(t.total_revenue)} | ${fmt(t.cogs)} | ${fmt(t.total_opex)} | ${fmt(t.contribution_margin)} |\n`;
+      }
+      md += `\n---\n\n`;
+      md += views.map((v) => buildMarkdownFor(v.payload, v.mode)).join("\n---\n\n");
+
+      const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `pnl-${year}-vsetky-pohlady.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setMdExporting(false);
+    }
+  }, []);
 
   const downloadPdf = useCallback(async () => {
     const root = pdfExportRef.current;
@@ -440,7 +558,7 @@ export default function PnlPanel() {
   const chartData = useMemo((): ChartData<"bar"> | null => {
     if (!data) return null;
     const months = data.monthly;
-    if (mode === "xls") {
+    if (isXlsSheetOnly(mode)) {
       return {
         labels: months.map((m) => monthLabel(m.month_key)),
         datasets: [
@@ -573,7 +691,7 @@ export default function PnlPanel() {
           <span style={{ fontSize: "0.9rem", opacity: 0.85 }}>Zdroj</span>
           <select
             value={mode}
-            onChange={(e) => setMode(e.target.value as "accounting" | "xls" | "hybrid")}
+            onChange={(e) => setMode(e.target.value as PnlMode)}
             style={{
               padding: "4px 8px",
               borderRadius: 8,
@@ -583,9 +701,10 @@ export default function PnlPanel() {
             }}
             aria-label="Zdroj dát P&L"
           >
-            <option value="accounting">1. Účtovníctvo (denník)</option>
-            <option value="xls">2. XLS (Výsledky)</option>
-            <option value="hybrid">3. Hybrid (XLS + COGS 42 %)</option>
+            <option value="accounting">1. Účtovníctvo</option>
+            <option value="accounting_real">2. Účtovníctvo · reálne COGS</option>
+            <option value="xls">3. XLS (Výsledky)</option>
+            <option value="xls_real">4. XLS · reálne COGS</option>
           </select>
         </div>
 
@@ -593,9 +712,10 @@ export default function PnlPanel() {
           <button
             type="button"
             className="btn btn--outline btn--sm"
-            onClick={downloadMd}
+            onClick={() => void downloadMd()}
+            disabled={mdExporting}
           >
-            Stiahnuť MD
+            {mdExporting ? "Generujem MD…" : "Stiahnuť MD (4 pohľady)"}
           </button>
           <button
             type="button"
@@ -609,30 +729,16 @@ export default function PnlPanel() {
       </div>
 
       <div className="dashboard-pdf-root" ref={pdfExportRef}>
-      <h2 className="panel__title">
-        {mode === "xls"
-          ? `P&L (XLS Výsledky) ${meta.year}`
-          : mode === "hybrid"
-            ? `P&L — Hybrid ${meta.year}`
-            : `P&L — Účtovníctvo ${meta.year}`}
-      </h2>
+      <h2 className="panel__title">{pnlModeTitle(mode, String(meta.year))}</h2>
       <DashboardMetaBar
         items={[
           { label: "Rok", value: String(meta.year) },
-          {
-            label: "Model",
-            value:
-              mode === "hybrid"
-                ? "Hybrid (XLS + COGS)"
-                : mode === "xls"
-                  ? "XLS Výsledky"
-                  : "Účtovný denník",
-          },
+          { label: "Model", value: pnlModeShortLabel(mode) },
         ]}
       />
 
       {/* KPI scorecards */}
-      {mode === "xls" ? (
+      {isXlsSheetOnly(mode) ? (
         <div className="kpi-row" style={{ display: "flex", gap: "1rem", flexWrap: "wrap", margin: "1rem 0" }}>
           <KpiCard label="Výnosy (YTD)" value={formatMoney(t.total_revenue)} />
           <KpiCard
@@ -660,11 +766,13 @@ export default function PnlPanel() {
             sub={`${formatPct(cogsPct)} z tržieb${
               cogsPctOfGoods != null ? ` · ${formatPct(cogsPctOfGoods)} z tovaru` : ""
             } · benchmark 30–55 % · ${
-              mode === "accounting"
-                ? "z denníka (504)"
-                : t.cogs_journal < t.cogs_estimated
-                  ? `odhad ${(COGS_RATE * 100).toFixed(0)} % z tovaru`
-                  : "z denníka (504)"
+              usesRealCogs(mode)
+                ? `reálne COGS (odhad ${(COGS_RATE * 100).toFixed(0)} % z tovaru)`
+                : mode === "accounting"
+                  ? "z denníka (504)"
+                  : t.cogs_journal < t.cogs_estimated
+                    ? `odhad ${(COGS_RATE * 100).toFixed(0)} % z tovaru`
+                    : "z denníka (504)"
             }`}
           />
           <KpiCard
@@ -709,7 +817,7 @@ export default function PnlPanel() {
 
       {/* Monthly table */}
       <div className="table-wrap" style={{ overflowX: "auto" }}>
-        {mode === "xls" ? (
+        {isXlsSheetOnly(mode) ? (
           <table className="data-table">
             <thead>
               <tr>
@@ -786,7 +894,9 @@ export default function PnlPanel() {
                   title={
                     mode === "accounting"
                       ? "COGS = účet 504 z denníka (náklady na predaný tovar)"
-                      : `COGS = odhad ${(COGS_RATE * 100).toFixed(0)} % čistých tržieb za tovar`
+                      : usesRealCogs(mode)
+                        ? REAL_COGS_NOTE
+                        : `COGS = odhad ${(COGS_RATE * 100).toFixed(0)} % čistých tržieb za tovar`
                   }
                 >
                   COGS*
@@ -877,12 +987,12 @@ export default function PnlPanel() {
         <SortableExpensesTable
           expenses={topExpenses}
           title={
-            mode === "accounting"
+            isJournalBase(mode)
               ? "Všetci dodávatelia (náklady)"
               : "Nákladové položky (z XLS)"
           }
           sourceNote={
-            mode === "accounting"
+            isJournalBase(mode)
               ? undefined
               : "Položky zo sheetu Výsledky (XLS). Filtruje podľa Staff / Marketing / prevádzka podľa sekcie v XLS."
           }
@@ -894,15 +1004,15 @@ export default function PnlPanel() {
           formatHybridPnlNote(meta.note),
           ...(mode === "accounting"
             ? [
-                "Účtovníctvo = všetky výnosy 6xx a náklady 5xx z denníka. COGS = 504; OPEX zahŕňa aj odpisy 551. Staff/marketing sú podmnožina 518 (nie dvojité sčítanie). Ak účet v importe CSV nie je, v P&L nebude.",
+                "Účtovníctvo = všetky výnosy 6xx a náklady 5xx z denníka. COGS = 504; OPEX zahŕňa aj odpisy 551. Staff/marketing sú podmnožina 518 (nie dvojité sčítanie).",
               ]
-            : mode === "hybrid"
-              ? [
-                  `COGS = ${(COGS_RATE * 100).toFixed(0)} % čistých tržieb za tovar (nákup Orin / predané ks). Hybrid berie odhad, nie riadok 504. Fulfillment a brána sú v OPEX, nie v COGS.`,
-                ]
-              : [
-                  "XLS Výsledky = upravený sheet (nie 1:1 súčet denníka). Môže obsahovať reclass / alokácie.",
-                ]),
+            : mode === "accounting_real"
+              ? [REAL_COGS_NOTE, "Základ: tržby a OPEX z denníka (nie XLS)."]
+              : mode === "xls_real"
+                ? [REAL_COGS_NOTE, "Základ: tržby a OPEX z XLS Výsledky (môže obsahovať náklady mimo denníka)."]
+                : [
+                    "XLS Výsledky = upravený sheet (nie 1:1 súčet denníka). Môže obsahovať reclass / alokácie a položky mimo čistého 5xx.",
+                  ]),
         ]}
       />
       </div>

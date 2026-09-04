@@ -179,7 +179,7 @@ export function transformHybridPayload(xls: PnlXlsPayload): PnlHybridPayload {
       year: String(xls.meta.year),
       from: xls.meta.from,
       to: xls.meta.to,
-      note: `Hybrid: tržby a OPEX z XLS, COGS = ${(COGS_RATE * 100).toFixed(0)} % čistých tržieb za tovar (nákup Orin). Jan–${monthShortLabel(lastKey)} ${xls.meta.year}.`,
+      note: `XLS · reálne COGS: tržby a OPEX z XLS, COGS = ${(COGS_RATE * 100).toFixed(0)} % čistých tržieb za tovar (nákup Orin). Jan–${monthShortLabel(lastKey)} ${xls.meta.year}.`,
       last_actual_month: lastActual,
       last_month_key: lastKey,
     },
