@@ -299,7 +299,7 @@ function fmt(n: number): string {
 
 type PnlMode = "accounting" | "accounting_real" | "xls" | "xls_real";
 
-const REAL_COGS_NOTE = `Reálne COGS = odhad ${(COGS_RATE * 100).toFixed(0)} % čistých tržieb za tovar (nákup Orin / predané ks), nie riadok 504. Fulfillment a brána sú v OPEX.`;
+const REAL_COGS_NOTE = `Reálne COGS = odhad ${(COGS_RATE * 100).toFixed(0)} % čistých tržieb za tovar z XLS (produkty − doprava, Orin), nie riadok 504 a nie celý 604. Fulfillment a brána sú v OPEX.`;
 
 const ACCOUNT_LABELS: Record<string, string> = {
   "501": "Materiál",
@@ -351,12 +351,18 @@ function pnlModeShortLabel(mode: PnlMode): string {
   }
 }
 
-function transformAccountingRealCogs(payload: PnlPayload): PnlPayload {
+/** Reálne COGS: denník tržby/OPEX, COGS = 42 % × XLS tovar (bez dopravy). */
+function transformAccountingRealCogs(
+  payload: PnlPayload,
+  xlsGoodsByMonth: Record<string, number>
+): PnlPayload {
   const monthly = payload.monthly.map((m) => {
-    const cogs =
-      m.cogs_estimated > 0
-        ? m.cogs_estimated
-        : Math.round((m.sales_goods || 0) * COGS_RATE * 100) / 100;
+    const xlsGoods = xlsGoodsByMonth[m.month_key];
+    const goodsBase =
+      xlsGoods != null && Number.isFinite(xlsGoods) && xlsGoods > 0
+        ? xlsGoods
+        : m.sales_goods || 0;
+    const cogs = Math.round(goodsBase * COGS_RATE * 100) / 100;
     const gross_profit = m.total_revenue - cogs;
     return {
       ...m,
@@ -422,18 +428,28 @@ function buildMarkdownFor(payload: PnlPayload, mode: PnlMode): string {
   return md;
 }
 
-async function fetchPnlPayload(mode: PnlMode): Promise<PnlPayload> {
-  if (mode === "accounting_real") {
-    const base = await fetchPnlPayload("accounting");
-    return transformAccountingRealCogs(base);
-  }
-  const apiMode = mode === "xls_real" ? "xls" : mode;
+async function fetchPnlApi(apiMode: "accounting" | "xls"): Promise<unknown> {
   const res = await fetch(`/api/pnl?mode=${apiMode}`, { credentials: "include" });
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     throw new Error(body?.error ?? `HTTP ${res.status}`);
   }
-  const body = await res.json();
+  return res.json();
+}
+
+async function fetchPnlPayload(mode: PnlMode): Promise<PnlPayload> {
+  if (mode === "accounting_real") {
+    const [acctBody, xlsBody] = await Promise.all([
+      fetchPnlApi("accounting"),
+      fetchPnlApi("xls"),
+    ]);
+    const goodsByMonth: Record<string, number> = {};
+    for (const m of (xlsBody as PnlXlsPayload).monthly ?? []) {
+      goodsByMonth[m.month_key] = goodsRevenue(m);
+    }
+    return transformAccountingRealCogs(acctBody as PnlPayload, goodsByMonth);
+  }
+  const body = await fetchPnlApi(mode === "xls_real" ? "xls" : mode);
   if (mode === "xls_real") {
     const hybrid = transformHybridPayload(body as PnlXlsPayload);
     return {
@@ -1013,7 +1029,10 @@ export default function PnlPanel() {
                 "Účtovníctvo = všetky výnosy 6xx a náklady 5xx z denníka. COGS = 504; OPEX zahŕňa aj odpisy 551. Staff/marketing sú podmnožina 518 (nie dvojité sčítanie).",
               ]
             : mode === "accounting_real"
-              ? [REAL_COGS_NOTE, "Základ: tržby a OPEX z denníka (nie XLS)."]
+              ? [
+                  REAL_COGS_NOTE,
+                  "Základ: tržby a OPEX z denníka; COGS 42 % z XLS tovaru (bez dopravy), nie z 604.",
+                ]
               : mode === "xls_real"
                 ? [REAL_COGS_NOTE, "Základ: tržby a OPEX z XLS Výsledky (môže obsahovať náklady mimo denníka)."]
                 : [
