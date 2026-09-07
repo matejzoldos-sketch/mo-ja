@@ -9,7 +9,7 @@ Repo: [github.com/matejzoldos-sketch/mo-ja](https://github.com/matejzoldos-sketc
 - Python **3.12** (CI aj lokálne odporúčané)
 - Shopify **Admin API** so scopes: `read_inventory`, `read_locations`, **`read_products`** (bez neho Sklad nevie spájať predaj so skladom) a **`read_all_orders`** (pre YTD; bez neho ~posledných 60 dní). Alternatíva `read_orders` = kratšia história. Pre sessiony (Spend): **`read_reports`** (ShopifyQL `sessions`).
 - KPI „vracajúci sa“ nepotrebuje `read_customers` — sync berie `email` z objednávky (`customer_email`). Voliteľne `read_customers` + GraphQL `customer { id }` → `customer_id`.
-- Supabase projekt `kqsmsegcqdhuhiofxyuu` — pred sync/webom `supabase db push` (migrácie `001`–`094` plus timestampované scaling / marketing MER / P&L vrátane `pnl_cogs_rate_42_goods` / `moja_revoke_anon` / MER agency `honzabartos` Tatra fallback).
+- Supabase projekt `kqsmsegcqdhuhiofxyuu` — pred sync/webom `supabase db push` (migrácie `001`–`095` plus timestampované scaling / marketing MER / P&L vrátane `pnl_cogs_rate_42_goods` / `moja_revoke_anon` / MER agency `honzabartos` Tatra fallback / `pnl_accounting_journal_cogs_only` / `pnl_accounting_full_journal_accounts`).
 
 ### Shopify auth (od 1. 1. 2026)
 
@@ -58,11 +58,11 @@ npm install && npm run dev
 |-------|--------|
 | `/` | Predaj — KPI, grafy, objednávky (`get_shopify_dashboard_mvp`) |
 | `/zdravie` | Finančné zdravie — hybrid P&L + cash runway (executive); export MD/PDF |
-| `/sklad` | Inventár zo Shopify |
+| `/sklad` | Inventár: Shopify + potvrdený fyzický stav (EuShipments, Lazaretská), Pending Orin, odporúčaný runway; história z XLS Sklad_sumár |
 | `/cashflow` | Tatra banka + runway forecast |
 | `/marketing` | MER (revenue, ads, fees, mROAS) |
 | `/scaling` | Spend — executive rozhodnutie Meta spend (`get_executive_scaling_dashboard`) |
-| `/pnl` | P&L — hybrid (default, COGS 42 % z tovaru) / účtovníctvo / XLS Výsledky |
+| `/pnl` | P&L — štyri pohľady (predvolený **Účtovníctvo**); export MD všetkých pohľadov |
 | `/login` | Heslo (`DASHBOARD_PASSWORD`) |
 
 `/insighty` je WIP: `page.tsx` robí `redirect("/")`, položka je v `HeaderNav` skrytá. Engine (`web/lib/insights/`, `GET /api/insights`) je v kóde — návrh a stav v `docs/insights-dashboard-design.md`.
@@ -141,7 +141,22 @@ Migrácie od `072` (Meta Ads) a `076` (účtovný denník). Dashboard: `/marketi
 python etl/import_pnl_xls_results.py --xlsx-path "docs/MO-JA_report_2026.xlsx"
 ```
 
-Import ide do `pnl_xls_results_monthly` a `pnl_xls_expenses_monthly`. Dashboard `/pnl` (predvolený režim **Hybrid**: tržby a OPEX z XLS, COGS = **42 %** čistých tržieb za tovar — nákup Orin, nie účet 504 ani Shopify COGS). Ďalšie režimy: Účtovníctvo (`get_pnl_dashboard`: COGS = max(denník 504, 42 % tovaru)), XLS Výsledky (`get_pnl_xls_dashboard`). Cost-structure tabuľka má sekcie Tovar a Prevádzka.
+Import ide do `pnl_xls_results_monthly` a `pnl_xls_expenses_monthly`. Dashboard `/pnl` má štyri pohľady (predvolený **Účtovníctvo**):
+
+1. **Účtovníctvo** — `get_pnl_dashboard`: tržby 6xx a OPEX 5xx z denníka, COGS = účet **504** (bez 42 % flooru); OPEX zahŕňa aj odpisy 551.
+2. **Účtovníctvo · reálne COGS** — tržby a OPEX z denníka; COGS = **42 %** čistých tržieb za tovar z XLS (produkty − doprava, nákup Orin).
+3. **XLS (Výsledky)** — `get_pnl_xls_dashboard`.
+4. **XLS · reálne COGS** — tržby a OPEX z XLS, COGS = **42 %** tovaru (predtým „Hybrid“).
+
+Cost-structure tabuľka má sekcie Tovar a Prevádzka. MD export vie stiahnuť všetky štyri pohľady naraz. `/zdravie` ostáva na hybridnom modeli (XLS + 42 % tovaru).
+
+## Sklad
+
+```bash
+python etl/import_sklad_xls.py   # default: docs/MO-JA_report_2026.xlsx, hárok Sklad_sumár
+```
+
+Import ide do `physical_inventory_monthly` (história Swiss Point). Dashboard `/sklad` ukazuje aj potvrdený fyzický stav (EuShipments = e-shop, Lazaretská mimo Shopify) a Pending Orin — hodnoty a ETA sú v `web/lib/skladConfirmed.ts`. Odporúčaný runway = potvrdený stav ÷ predaj Shopify 30 dní, plus výhľad po naskladnení Orin.
 
 ## Tabuľky (výber)
 
@@ -149,6 +164,7 @@ Import ide do `pnl_xls_results_monthly` a `pnl_xls_expenses_monthly`. Dashboard 
 - Tatra: `tatra_transactions`, `tatra_account_balances`, view `tatra_cashflow_dashboard`
 - Marketing: `meta_ads_campaign_daily`, `accounting_journal_lines`, `marketing_expense_map`
 - P&L: `pnl_xls_results_monthly`, `pnl_xls_expenses_monthly`
+- Sklad (XLS): `physical_inventory_monthly` — potvrdený stav a Pending Orin sú v `web/lib/skladConfirmed.ts`
 
 PostgREST: migrácia `20260818133611_moja_revoke_anon` **revokuje** USAGE/SELECT/EXECUTE pre **anon** aj **authenticated** na schéme `public`. Dashboard aj ETL idú cez **service role** v Next.js API (`web/app/api/*`) a Python syncu.
 
