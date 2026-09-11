@@ -8,3 +8,14 @@ __pycache__/
 web/node_modules/
 web/.next/
 web/.env.local
+*.tsbuildinfo
+
+# Local secrets / CLI cache
+.tatra_code_verifier.txt
+supabase/.temp/
+supabase/supabase/
+
+# Local import dumps (keep out of git)
+docs/MOJA-Kampane-*.csv
+docs/*.xlsx
+docs/MO-JA_audit_strategia.*

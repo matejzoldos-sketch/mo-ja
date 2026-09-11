@@ -74,7 +74,7 @@ export function buildZdravieCostBuckets(input: {
     [
       {
         key: "cogs",
-        label: "COGS (42 % tovar)",
+        label: "COGS (reálne 42 % tovar)",
         color: "hsla(12, 55%, 48%, 0.9)",
         amount: cogs,
         kind: "pnl" as const,
@@ -85,7 +85,7 @@ export function buildZdravieCostBuckets(input: {
         action: cogsCrit
           ? "COGS nad benchmarkom — skontrolovať mix SKU a Orin unit cost"
           : inBand(cogsPct, 30, 55)
-            ? "Držať COGS pri ~42 % čistých tržieb za tovar (Orin)"
+            ? "Držať COGS pri ~42 % čistých tržieb za tovar z XLS (bez dopravy)"
             : "COGS pod pásmom — overiť, či XLS goods revenue sedí",
       },
       {

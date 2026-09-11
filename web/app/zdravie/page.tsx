@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "MO–JA finančné zdravie",
   description:
-    "Executive prehľad likvidity a P&L (hybridný model: XLS + COGS 42 % z tovaru)",
+    "Executive prehľad likvidity a P&L (XLS · reálne COGS: XLS + 42 % z tovaru bez dopravy)",
 };
 
 export default function ZdraviePage() {

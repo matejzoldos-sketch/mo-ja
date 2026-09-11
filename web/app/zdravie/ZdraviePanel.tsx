@@ -61,7 +61,8 @@ type ZdraviePayload = {
     lastSync: string | null;
     pnlNote: string;
     pnlYear: string;
-    mode: "hybrid";
+    mode: "xls_real";
+    pnlModelLabel?: string;
     cogsRate: number;
   };
   kpis: ZdravieKpis;
@@ -387,7 +388,7 @@ export default function ZdraviePanel() {
     const fm = (n: number) => formatMoney(n, c);
     const sc = scenario;
     let md = `# Finančné zdravie MO–JA — P&L ${meta.pnlYear}\n\n`;
-    md += `Účet ${meta.accountLabel} · sync banky ${meta.lastSync ?? "–"}\n\n`;
+    md += `Model: ${meta.pnlModelLabel ?? "XLS · reálne COGS"} · účet ${meta.accountLabel} · sync banky ${meta.lastSync ?? "–"}\n\n`;
     md += `> ${formatHybridPnlNote(meta.pnlNote)}\n\n`;
 
     md += `## Likvidita\n\n`;
@@ -541,6 +542,10 @@ export default function ZdraviePanel() {
       <DashboardMetaBar
         items={[
           { label: "P&L", value: meta.pnlYear },
+          {
+            label: "Model",
+            value: meta.pnlModelLabel ?? "XLS · reálne COGS",
+          },
           { label: "Účet", value: meta.accountLabel },
           {
             label: "Sync banky",
@@ -675,8 +680,10 @@ export default function ZdraviePanel() {
         <h2 className="zdravie-section-head__title">2. Výkonnosť — P&amp;L</h2>
         <p className="zdravie-section-head__sub">Ekonomický zisk</p>
         <p className="zdravie-section-head__lead">
-          Contribution margin po COGS a OPEX — hybridný model (XLS + odhad COGS
-          42&nbsp;% z tržieb za tovar, nie riadok 504).
+          Contribution margin po COGS a OPEX — rovnaký model ako na{" "}
+          <a href="/pnl">/pnl</a>: <strong>XLS · reálne COGS</strong> (tržby a
+          OPEX z XLS, COGS = 42&nbsp;% čistých tržieb za tovar bez dopravy, nie
+          riadok 504).
         </p>
       </header>
 
@@ -780,7 +787,7 @@ export default function ZdraviePanel() {
         <section className="chart-card" aria-labelledby="zdravie-mix-title">
           <h2 id="zdravie-mix-title">Rozpad nákladov YTD</h2>
           <p className="chart-card__subtitle">
-            P&amp;L YTD — COGS 42&nbsp;% + OPEX z XLS
+            P&amp;L YTD — XLS · reálne COGS (42&nbsp;% tovar + OPEX z XLS)
           </p>
           {costMixData ? (
             <Doughnut data={costMixData} options={costMixOpts} />
@@ -828,7 +835,7 @@ export default function ZdraviePanel() {
               Nákladová štruktúra
             </h2>
             <p className="chart-card__subtitle">
-              P&amp;L YTD · COGS 42&nbsp;% z tovaru · cash páky mimo P&amp;L súčtu
+              P&amp;L YTD · XLS · reálne COGS · cash páky mimo P&amp;L súčtu
             </p>
             <div className="table-scroll">
               <table className="data-table">
