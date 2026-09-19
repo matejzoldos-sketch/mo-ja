@@ -52,13 +52,14 @@ classified AS (
   SELECT
     j.*,
     CASE
+      WHEN j.bucket = 'google_ads' THEN 'google_ads'
       WHEN j.bucket = 'ads_skip' THEN 'ads_skip'
       WHEN j.bucket = 'fees' AND j.is_agency THEN 'agency'
       WHEN j.bucket = 'fees' THEN 'fees'
       ELSE 'unmapped'
     END AS role
   FROM journal j
-  WHERE j.bucket IN ('fees', 'ads_skip')
+  WHERE j.bucket IN ('fees', 'ads_skip', 'google_ads')
     OR (
       j.bucket IS NULL
       AND j.debit_account ~ '^(518|5015)'

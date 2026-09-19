@@ -1,5 +1,12 @@
 -- Marketing MER mapovanie pre nové položky.
--- Google Ireland Limited je Ads (denník skip), ostatné idú do Fees.
+-- Google Ireland Limited → google_ads (stĺpec Ads). Ostatné idú do Fees.
+
+ALTER TABLE public.marketing_expense_map
+  DROP CONSTRAINT IF EXISTS marketing_expense_map_bucket_check;
+
+ALTER TABLE public.marketing_expense_map
+  ADD CONSTRAINT marketing_expense_map_bucket_check
+  CHECK (bucket IN ('fees', 'exclude', 'ads_skip', 'google_ads'));
 
 INSERT INTO public.marketing_expense_map (
   priority,
@@ -25,9 +32,9 @@ FROM (
       'google ireland limited',
       'google reklamy',
       NULL,
-      'ads_skip',
       'google_ads',
-      'Google Ads spend z denníka; má ísť do Ads, nie do Fees.'
+      'google_ads',
+      'Google Ads platform spend z denníka → stĺpec Ads v MER.'
     ),
     (
       19,

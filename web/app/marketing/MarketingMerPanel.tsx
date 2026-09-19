@@ -138,7 +138,8 @@ function feePctBenchColor(pct: number | null): string | undefined {
 
 function expenseRoleLabel(role: string): string {
   if (role === "agency") return "Agentúra (PPC)";
-  if (role === "ads_skip") return "Ads (denník skip)";
+  if (role === "google_ads") return "Google Ads";
+  if (role === "ads_skip") return "Meta FP (skip)";
   if (role === "unmapped") return "Nemapované";
   return "Fees";
 }
@@ -454,9 +455,9 @@ export default function MarketingMerPanel() {
           Graf a tabuľka: {SERIES_LABEL}
         </p>
         <p className="dashboard-meta dashboard-meta--hint">
-          Ads = Meta CSV · Fees = denník 518/5015 podľa YTD Marketing & Promo ·
-          mROAS = Revenue / (Ads + Správa PPC) · VK Google agentúra je vo Fees,
-          nie v mROAS · Meta FP v denníku sa nepočíta dvakrát.
+          Ads = Meta CSV + Google platforma (denník) · Fees = denník 518/5015 ·
+          mROAS = Revenue / (Ads + Správa PPC) · VK Google agentúra vo Fees
+          agentúra · Meta FP v denníku = skip (už v Meta CSV).
         </p>
 
         <div className="kpi-grid kpi-grid--marketing-mer">
@@ -749,7 +750,8 @@ export default function MarketingMerPanel() {
                       <option value="">Všetky</option>
                       <option value="fees">Fees</option>
                       <option value="agency">Agentúra (PPC)</option>
-                      <option value="ads_skip">Ads (denník skip)</option>
+                      <option value="google_ads">Google Ads</option>
+                      <option value="ads_skip">Meta FP (skip)</option>
                       <option value="unmapped">Nemapované</option>
                     </select>
                   </td>
