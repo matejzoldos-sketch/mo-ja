@@ -185,14 +185,14 @@ function formatRatio(n: number | null | undefined, suffix = "×"): string {
   return `${n.toFixed(2)}${suffix}`;
 }
 
-/** Agency fee as % of Meta ads spend. Benchmark typically 10–20 %. */
-function feePctOfMedia(
-  adsSpend: number | null | undefined,
-  agencyFees: number | null | undefined
+/** Agentúra / platformový spend daného kanála (%). */
+function agencyPctOfChannelSpend(
+  channelSpend: number | null | undefined,
+  agencyFee: number | null | undefined
 ): number | null {
-  const ads = adsSpend ?? 0;
-  if (ads <= 0) return null;
-  return ((agencyFees ?? 0) / ads) * 100;
+  const spend = channelSpend ?? 0;
+  if (spend <= 0) return null;
+  return ((agencyFee ?? 0) / spend) * 100;
 }
 
 function formatPctOfMedia(n: number | null | undefined): string {
@@ -318,16 +318,44 @@ export default function MarketingMerPanel() {
   const intFmt = useCallback((v: number) => String(Math.round(v)), []);
   const pctFmt = useCallback((v: number) => formatPctOfMedia(v), []);
 
-  const feePctMedia = useMemo(
+  const feePctMeta = useMemo(
     () =>
       kpis
-        ? feePctOfMedia(merMediaSpend(kpis), merAgencyFees(kpis))
+        ? agencyPctOfChannelSpend(
+            merMetaSpend(kpis),
+            merMetaAgencyFee(kpis)
+          )
         : null,
     [kpis]
   );
-  const feePctMediaPrev = useMemo(
+  const feePctMetaPrev = useMemo(
     () =>
-      prev ? feePctOfMedia(merMediaSpend(prev), merAgencyFees(prev)) : null,
+      prev
+        ? agencyPctOfChannelSpend(
+            merMetaSpend(prev),
+            merMetaAgencyFee(prev)
+          )
+        : null,
+    [prev]
+  );
+  const feePctGoogle = useMemo(
+    () =>
+      kpis
+        ? agencyPctOfChannelSpend(
+            merGoogleSpend(kpis),
+            merGoogleAgencyFee(kpis)
+          )
+        : null,
+    [kpis]
+  );
+  const feePctGooglePrev = useMemo(
+    () =>
+      prev
+        ? agencyPctOfChannelSpend(
+            merGoogleSpend(prev),
+            merGoogleAgencyFee(prev)
+          )
+        : null,
     [prev]
   );
 
@@ -822,20 +850,46 @@ export default function MarketingMerPanel() {
               <div className="mer-scorecards__column">
                 <h3 className="mer-scorecards__column-title">Poplatky</h3>
                 <div className="kpi-grid kpi-grid--mer-column">
-                  <MerKpiTargetCard
-                    label="Agency fees"
-                    display="limit"
-                    value={merAgencyFees(kpis)}
-                    target={scorecardTargets?.agency_fees ?? null}
-                    formatValue={moneyFmt}
-                    formatTarget={moneyFmt}
-                    current={merAgencyFees(kpis)}
-                    previous={prev ? merAgencyFees(prev) : undefined}
-                    compareFormatValue={moneyFmt}
-                    higherIsBetterCompare={false}
-                    periodLabel={compareLabel}
-                    showMtdBadge={scorecardIsMtd}
-                  />
+                  <div className="kpi-card kpi-card--mer-sub">
+                    <div className="kpi-card__label-row">
+                      <span className="kpi-card__label">Meta agency</span>
+                      {scorecardIsMtd ? (
+                        <span className="mer-mtd-badge">MTD</span>
+                      ) : null}
+                    </div>
+                    <strong className="kpi-card__value">
+                      {formatMoney(merMetaAgencyFee(kpis), currency)}
+                    </strong>
+                    <KpiPeriodCompare
+                      current={merMetaAgencyFee(kpis)}
+                      previous={
+                        prev ? merMetaAgencyFee(prev) : undefined
+                      }
+                      formatValue={moneyFmt}
+                      higherIsBetter={false}
+                      periodLabel={compareLabel}
+                    />
+                  </div>
+                  <div className="kpi-card kpi-card--mer-sub">
+                    <div className="kpi-card__label-row">
+                      <span className="kpi-card__label">Google agency</span>
+                      {scorecardIsMtd ? (
+                        <span className="mer-mtd-badge">MTD</span>
+                      ) : null}
+                    </div>
+                    <strong className="kpi-card__value">
+                      {formatMoney(merGoogleAgencyFee(kpis), currency)}
+                    </strong>
+                    <KpiPeriodCompare
+                      current={merGoogleAgencyFee(kpis)}
+                      previous={
+                        prev ? merGoogleAgencyFee(prev) : undefined
+                      }
+                      formatValue={moneyFmt}
+                      higherIsBetter={false}
+                      periodLabel={compareLabel}
+                    />
+                  </div>
                   <div className="kpi-card kpi-card--mer-sub">
                     <div className="kpi-card__label-row">
                       <span className="kpi-card__label">Other fees</span>
@@ -856,16 +910,18 @@ export default function MarketingMerPanel() {
                   </div>
                   <div className="kpi-card kpi-card--mer-sub">
                     <div className="kpi-card__label-row">
-                      <span className="kpi-card__label">Fee % of media</span>
+                      <span className="kpi-card__label">
+                        Agency % · Meta spend
+                      </span>
                       {scorecardIsMtd ? (
                         <span className="mer-mtd-badge">MTD</span>
                       ) : null}
                     </div>
                     <strong
                       className="kpi-card__value"
-                      style={{ color: feePctBenchColor(feePctMedia) }}
+                      style={{ color: feePctBenchColor(feePctMeta) }}
                     >
-                      {formatPctOfMedia(feePctMedia)}
+                      {formatPctOfMedia(feePctMeta)}
                     </strong>
                     <span
                       className="kpi-card__hint"
@@ -874,15 +930,41 @@ export default function MarketingMerPanel() {
                         marginTop: "0.15rem",
                         fontSize: "0.8rem",
                         fontWeight: 500,
-                        color: feePctBenchColor(feePctMedia) ?? "inherit",
+                        color: feePctBenchColor(feePctMeta) ?? "inherit",
                         opacity: 0.9,
                       }}
                     >
-                      agency / media · bench. 10–20 %
+                      meta agency / meta spend · bench. 10–20 %
                     </span>
                     <KpiPeriodCompare
-                      current={feePctMedia}
-                      previous={feePctMediaPrev}
+                      current={feePctMeta}
+                      previous={feePctMetaPrev}
+                      formatValue={pctFmt}
+                      higherIsBetter={false}
+                      periodLabel={compareLabel}
+                    />
+                  </div>
+                  <div className="kpi-card kpi-card--mer-sub">
+                    <div className="kpi-card__label-row">
+                      <span className="kpi-card__label">
+                        Agency % · Google spend
+                      </span>
+                      {scorecardIsMtd ? (
+                        <span className="mer-mtd-badge">MTD</span>
+                      ) : null}
+                    </div>
+                    <strong
+                      className="kpi-card__value"
+                      style={{ color: feePctBenchColor(feePctGoogle) }}
+                    >
+                      {formatPctOfMedia(feePctGoogle)}
+                    </strong>
+                    <span className="kpi-card__hint">
+                      google agency / google spend
+                    </span>
+                    <KpiPeriodCompare
+                      current={feePctGoogle}
+                      previous={feePctGooglePrev}
                       formatValue={pctFmt}
                       higherIsBetter={false}
                       periodLabel={compareLabel}
