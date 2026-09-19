@@ -278,10 +278,15 @@ function normalizeMarketingPayload(raw: unknown): MarketingPayload | null {
   };
 }
 
-export default function MarketingUtmClient() {
+type MarketingUtmClientProps = {
+  embedded?: boolean;
+};
+
+export default function MarketingUtmClient({ embedded = false }: MarketingUtmClientProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const WrapperTag = embedded ? "section" : "main";
 
   const rangeRaw = searchParams.get("range");
   const monthRaw = searchParams.get("month");
@@ -578,6 +583,7 @@ export default function MarketingUtmClient() {
 
   return (
     <>
+      {!embedded ? (
       <header className="site-header site-header--sklad">
         <div className="site-header__inner">
           <HeaderBrand />
@@ -655,8 +661,9 @@ export default function MarketingUtmClient() {
           ) : null}
         </div>
       </header>
+      ) : null}
 
-      <main className="main-wrap">
+      <WrapperTag className="main-wrap">
         {loading && !data ? (
           <p className="msg">Načítavam marketing…</p>
         ) : null}
@@ -931,7 +938,7 @@ export default function MarketingUtmClient() {
             />
           </div>
         ) : null}
-      </main>
+      </WrapperTag>
     </>
   );
 }
