@@ -706,10 +706,20 @@ a:hover {
   margin-bottom: 1rem;
 }
 
-.marketing-mer__scorecard-switch {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.marketing-mer__toolbar .site-toolbar__filters {
+  flex: 0 1 auto;
   width: auto;
-  max-width: min(100%, 420px);
+}
+
+.marketing-mer__scorecard-switch {
+  display: inline-grid;
+  grid-template-columns: repeat(2, max-content);
+  width: fit-content;
+  max-width: 100%;
+}
+
+.marketing-mer__scorecard-switch .scaling-window__btn {
+  padding: 8px 12px;
 }
 
 .kpi-card {

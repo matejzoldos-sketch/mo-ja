@@ -684,25 +684,6 @@ export default function MarketingMerPanel() {
 
       {exportsReady && kpis && data ? (
       <div className="dashboard-pdf-root" ref={pdfExportRef}>
-        <h1 className="dashboard-card__title" style={{ marginBottom: "0.5rem" }}>
-          MER — CEO marketing dashboard
-        </h1>
-        <p className="dashboard-meta">
-          Scorecards: {scorecardMonthLabel}
-          {scorecardIsMtd ? (
-            <span className="mer-mtd-badge mer-mtd-badge--inline">
-              Priebežné dáta (MTD)
-            </span>
-          ) : null}
-          {" · "}
-          Graf a tabuľka: {SERIES_LABEL}
-        </p>
-        <p className="dashboard-meta dashboard-meta--hint">
-          Media = Meta CSV + Google (denník) · Agency = správa PPC · Other =
-          kreatíva a nástroje · Total MKT = media + agency + other · Blended
-          PNO = Total MKT / Revenue · Meta FP v denníku = skip.
-        </p>
-
         <div className="kpi-grid kpi-grid--marketing-mer">
           <MerKpiTargetCard
             label="Revenue"
