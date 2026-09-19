@@ -99,6 +99,17 @@ function merOtherFees(row: MerSpendFields): number {
   return Math.max(0, (row.fees_spend ?? 0) - merAgencyFees(row));
 }
 
+/** Ostatné MKT poplatky — zvyšok po media + agency, aby stĺpec = Total MKT. */
+function merOtherMktFees(row: MerSpendFields): number {
+  const media = merMediaSpend(row);
+  const agency = merAgencyFees(row);
+  const total = row.total_mkt_spend;
+  if (total != null && Number.isFinite(total)) {
+    return Math.max(0, total - media - agency);
+  }
+  return merOtherFees(row);
+}
+
 function merMetaSpend(row: MerSpendFields): number {
   return row.meta_spend ?? 0;
 }
@@ -449,8 +460,8 @@ export default function MarketingMerPanel() {
       datasets: [
         {
           type: "bar" as const,
-          label: "Meta spend",
-          data: data.monthly.map((r) => merMetaSpend(r)),
+          label: "Media Spend",
+          data: data.monthly.map((r) => merMediaSpend(r)),
           backgroundColor: "rgba(91, 141, 239, 0.92)",
           stack: "mkt",
           yAxisID: "y",
@@ -458,17 +469,8 @@ export default function MarketingMerPanel() {
         },
         {
           type: "bar" as const,
-          label: "Google spend",
-          data: data.monthly.map((r) => merGoogleSpend(r)),
-          backgroundColor: "rgba(52, 168, 83, 0.9)",
-          stack: "mkt",
-          yAxisID: "y",
-          order: 2,
-        },
-        {
-          type: "bar" as const,
-          label: "Meta agency fee",
-          data: data.monthly.map((r) => merMetaAgencyFee(r)),
+          label: "Agency Fees",
+          data: data.monthly.map((r) => merAgencyFees(r)),
           backgroundColor: "rgba(155, 89, 182, 0.88)",
           stack: "mkt",
           yAxisID: "y",
@@ -476,9 +478,9 @@ export default function MarketingMerPanel() {
         },
         {
           type: "bar" as const,
-          label: "Google agency fee",
-          data: data.monthly.map((r) => merGoogleAgencyFee(r)),
-          backgroundColor: "rgba(142, 68, 173, 0.55)",
+          label: "Other MKT Fees",
+          data: data.monthly.map((r) => merOtherMktFees(r)),
+          backgroundColor: "rgba(148, 138, 128, 0.88)",
           stack: "mkt",
           yAxisID: "y",
           order: 2,
@@ -536,6 +538,18 @@ export default function MarketingMerPanel() {
               }
               return `${ctx.dataset.label}: ${formatMoney(Number(v), "EUR")}`;
             },
+            afterBody: (items) => {
+              const idx = items[0]?.dataIndex;
+              if (idx == null || !data?.monthly[idx]) return [];
+              const row = data.monthly[idx];
+              const hasMktBar = items.some(
+                (it) => it.dataset.stack === "mkt"
+              );
+              if (!hasMktBar) return [];
+              return [
+                `Total MKT: ${formatMoney(row.total_mkt_spend, "EUR")}`,
+              ];
+            },
           },
         },
       },
@@ -560,7 +574,7 @@ export default function MarketingMerPanel() {
         },
       },
     }),
-    []
+    [data]
   );
 
   const expenseLines = data?.marketingExpenseLines ?? [];
@@ -964,8 +978,8 @@ export default function MarketingMerPanel() {
               Mesačný vývoj · {SERIES_LABEL}
             </h2>
             <p className="dashboard-meta dashboard-meta--hint">
-              Skladaný stĺpec = Meta spend · Google spend · Meta agency · Google
-              agency · čiary = Revenue (€) a MER (×)
+              Skladaný stĺpec = Total MKT (Media spend · Agency fees · Other MKT
+              fees) · čiary = Revenue (€) a MER (×)
             </p>
             <div style={{ height: 360 }}>
               <Chart
