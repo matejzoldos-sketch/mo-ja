@@ -118,6 +118,19 @@ function merGoogleSpend(row: MerSpendFields): number {
   return row.google_spend ?? 0;
 }
 
+/** PER (Media MER) = Revenue / Total Media Spend. */
+function merPer(row: MerSpendFields & { revenue: number }): number | null {
+  if (row.media_roas != null && Number.isFinite(row.media_roas)) {
+    return row.media_roas;
+  }
+  if (row.ad_roas != null && Number.isFinite(row.ad_roas)) {
+    return row.ad_roas;
+  }
+  const media = merMediaSpend(row);
+  if (media <= 0 || !Number.isFinite(row.revenue)) return null;
+  return row.revenue / media;
+}
+
 type MerPayload = {
   meta: {
     range: string;
@@ -509,6 +522,23 @@ export default function MarketingMerPanel() {
           borderWidth: 2,
           borderDash: [6, 4],
           pointRadius: 3,
+          pointBorderColor: "rgba(26, 31, 40, 0.85)",
+          yAxisID: "y1",
+          tension: 0.2,
+          order: 1,
+          spanGaps: true,
+        },
+        {
+          type: "line" as const,
+          label: "PER / Media MER",
+          data: data.monthly.map((r) => merPer(r)),
+          borderColor: "rgba(22, 163, 74, 1)",
+          backgroundColor: "transparent",
+          borderWidth: 2,
+          borderDash: [5, 5],
+          pointRadius: 3,
+          pointBorderColor: "rgba(22, 163, 74, 1)",
+          pointBackgroundColor: "#fff",
           yAxisID: "y1",
           tension: 0.2,
           order: 1,
@@ -533,10 +563,14 @@ export default function MarketingMerPanel() {
             label: (ctx) => {
               const v = ctx.parsed.y;
               if (v == null) return `${ctx.dataset.label}: —`;
-              if (ctx.dataset.label === "MER") {
-                return `MER: ${Number(v).toFixed(2)}×`;
+              const lbl = ctx.dataset.label ?? "";
+              if (lbl === "MER") {
+                return `MER (Revenue / Total MKT): ${Number(v).toFixed(2)}×`;
               }
-              return `${ctx.dataset.label}: ${formatMoney(Number(v), "EUR")}`;
+              if (lbl === "PER / Media MER") {
+                return `PER (Revenue / Media): ${Number(v).toFixed(2)}×`;
+              }
+              return `${lbl}: ${formatMoney(Number(v), "EUR")}`;
             },
             afterBody: (items) => {
               const idx = items[0]?.dataIndex;
@@ -563,7 +597,7 @@ export default function MarketingMerPanel() {
         },
         y1: {
           position: "right",
-          title: { display: true, text: "MER ×", color: "#1a1f28" },
+          title: { display: true, text: "MER / PER ×", color: "#1a1f28" },
           ticks: { color: "#1a1f28" },
           grid: { drawOnChartArea: false },
         },
@@ -978,8 +1012,9 @@ export default function MarketingMerPanel() {
               Mesačný vývoj · {SERIES_LABEL}
             </h2>
             <p className="dashboard-meta dashboard-meta--hint">
-              Skladaný stĺpec = Total MKT (Media spend · Agency fees · Other MKT
-              fees) · čiary = Revenue (€) a MER (×)
+              Stĺpec = Total MKT (Media · Agency · Other fees). Čiary: Revenue (€),
+              MER = Revenue / Total MKT (sivá), PER / Media MER = Revenue / Media
+              (zelená) — medzera medzi PER a MER ukazuje vplyv poplatkov.
             </p>
             <div style={{ height: 360 }}>
               <Chart
