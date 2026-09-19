@@ -144,6 +144,10 @@ function expenseRoleLabel(role: string): string {
   return "Fees";
 }
 
+function expenseRoleClass(role: string): string {
+  return `marketing-expense-role marketing-expense-role--${role.replace(/[^a-z0-9_]/g, "_")}`;
+}
+
 function formatIsoDateSk(iso: string | null | undefined): string {
   if (!iso || !/^\d{4}-\d{2}-\d{2}/.test(iso)) return "—";
   const [y, m, d] = iso.slice(0, 10).split("-");
@@ -410,6 +414,17 @@ export default function MarketingMerPanel() {
       ),
     [filteredExpenseLines]
   );
+
+  const expenseFiltersActive =
+    expenseSupplierFilter !== "" ||
+    expenseRoleFilter !== "" ||
+    expenseTextFilter.trim() !== "";
+
+  const clearExpenseFilters = () => {
+    setExpenseSupplierFilter("");
+    setExpenseRoleFilter("");
+    setExpenseTextFilter("");
+  };
 
   if (loading) {
     return <p className="msg">Načítavam MER…</p>;
@@ -688,20 +703,95 @@ export default function MarketingMerPanel() {
           </div>
         </section>
 
-        <section className="dashboard-card" style={{ marginTop: "1.25rem" }}>
-          <h2 className="dashboard-card__title">
-            Marketingové náklady (denník) · {SERIES_LABEL}
-          </h2>
-          <p className="dashboard-meta dashboard-meta--hint">
-            Jednotlivé riadky z účtovného denníka · filtre podľa dodávateľa a
-            zaradenia · zobrazených {filteredExpenseLines.length} z{" "}
-            {expenseLines.length}
-            {filteredExpenseLines.length > 0
-              ? ` · súčet ${formatMoney(filteredExpenseSum, currency)}`
-              : ""}
-          </p>
+        <section
+          className="dashboard-card marketing-expense-table"
+          style={{ marginTop: "1.25rem" }}
+        >
+          <div className="marketing-expense-table__head">
+            <div>
+              <h2 className="dashboard-card__title">
+                Marketingové náklady (denník) · {SERIES_LABEL}
+              </h2>
+              <p className="dashboard-meta dashboard-meta--hint">
+                Jednotlivé riadky z účtovného denníka · zobrazených{" "}
+                {filteredExpenseLines.length} z {expenseLines.length}
+                {filteredExpenseLines.length > 0
+                  ? ` · súčet ${formatMoney(filteredExpenseSum, currency)}`
+                  : ""}
+              </p>
+            </div>
+          </div>
+          <div className="marketing-expense-filters" role="search">
+            <div className="period-filter marketing-expense-filters__field">
+              <label
+                className="period-filter__label"
+                htmlFor="marketing-expense-supplier"
+              >
+                Dodávateľ
+              </label>
+              <select
+                id="marketing-expense-supplier"
+                className="period-filter__select"
+                value={expenseSupplierFilter}
+                onChange={(e) => setExpenseSupplierFilter(e.target.value)}
+              >
+                <option value="">Všetci</option>
+                {expenseSupplierOptions.map((label) => (
+                  <option key={label} value={label}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="period-filter marketing-expense-filters__field marketing-expense-filters__field--grow">
+              <label
+                className="period-filter__label"
+                htmlFor="marketing-expense-text"
+              >
+                Text
+              </label>
+              <input
+                id="marketing-expense-text"
+                type="search"
+                className="period-filter__select marketing-expense-filters__search"
+                placeholder="Doklad, popis, účet…"
+                value={expenseTextFilter}
+                onChange={(e) => setExpenseTextFilter(e.target.value)}
+              />
+            </div>
+            <div className="period-filter marketing-expense-filters__field">
+              <label
+                className="period-filter__label"
+                htmlFor="marketing-expense-role"
+              >
+                Zaradenie
+              </label>
+              <select
+                id="marketing-expense-role"
+                className="period-filter__select"
+                value={expenseRoleFilter}
+                onChange={(e) => setExpenseRoleFilter(e.target.value)}
+              >
+                <option value="">Všetky</option>
+                <option value="fees">Fees</option>
+                <option value="agency">Agentúra (PPC)</option>
+                <option value="google_ads">Google Ads</option>
+                <option value="ads_skip">Meta FP (skip)</option>
+                <option value="unmapped">Nemapované</option>
+              </select>
+            </div>
+            {expenseFiltersActive ? (
+              <button
+                type="button"
+                className="dashboard-export-btn marketing-expense-filters__clear"
+                onClick={clearExpenseFilters}
+              >
+                Zrušiť filtre
+              </button>
+            ) : null}
+          </div>
           <div className="table-wrap">
-            <table className="data-table data-table--compact data-table--filterable">
+            <table className="data-table data-table--compact">
               <thead>
                 <tr>
                   <th>Dátum</th>
@@ -710,52 +800,7 @@ export default function MarketingMerPanel() {
                   <th>Doklad</th>
                   <th>Účet</th>
                   <th>Zaradenie</th>
-                  <th>Suma</th>
-                </tr>
-                <tr className="data-table__filter-row">
-                  <td />
-                  <td>
-                    <select
-                      className="data-table__filter-input"
-                      value={expenseSupplierFilter}
-                      onChange={(e) => setExpenseSupplierFilter(e.target.value)}
-                      aria-label="Filter dodávateľ"
-                    >
-                      <option value="">Všetci</option>
-                      {expenseSupplierOptions.map((label) => (
-                        <option key={label} value={label}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    <input
-                      type="search"
-                      className="data-table__filter-input"
-                      placeholder="Hľadať v texte…"
-                      value={expenseTextFilter}
-                      onChange={(e) => setExpenseTextFilter(e.target.value)}
-                      aria-label="Filter text"
-                    />
-                  </td>
-                  <td colSpan={2} />
-                  <td>
-                    <select
-                      className="data-table__filter-input"
-                      value={expenseRoleFilter}
-                      onChange={(e) => setExpenseRoleFilter(e.target.value)}
-                      aria-label="Filter zaradenie"
-                    >
-                      <option value="">Všetky</option>
-                      <option value="fees">Fees</option>
-                      <option value="agency">Agentúra (PPC)</option>
-                      <option value="google_ads">Google Ads</option>
-                      <option value="ads_skip">Meta FP (skip)</option>
-                      <option value="unmapped">Nemapované</option>
-                    </select>
-                  </td>
-                  <td />
+                  <th className="num">Suma</th>
                 </tr>
               </thead>
               <tbody>
@@ -775,8 +820,14 @@ export default function MarketingMerPanel() {
                       <td>{row.line_text}</td>
                       <td>{row.doc_number || "—"}</td>
                       <td>{row.debit_account}</td>
-                      <td>{expenseRoleLabel(row.role)}</td>
-                      <td>{formatMoney(row.amount_eur, currency)}</td>
+                      <td>
+                        <span className={expenseRoleClass(row.role)}>
+                          {expenseRoleLabel(row.role)}
+                        </span>
+                      </td>
+                      <td className="num">
+                        {formatMoney(row.amount_eur, currency)}
+                      </td>
                     </tr>
                   ))
                 )}
