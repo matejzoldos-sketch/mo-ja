@@ -2,7 +2,8 @@
 
 import { KpiPeriodCompare } from "./KpiPeriodCompare";
 import {
-  scorecardFulfillment,
+  scorecardGoalFulfillment,
+  scorecardWithinLimit,
   targetProgressWidth,
   type MerTargetTone,
 } from "@/lib/marketingMerScorecard";
@@ -14,14 +15,16 @@ const TONE_COLORS: Record<MerTargetTone, string> = {
   neutral: "rgba(26, 31, 40, 0.25)",
 };
 
+export type MerKpiTargetDisplay = "goal" | "limit";
+
 type MerKpiTargetCardProps = {
   label: string;
   value: number | null;
   target: number | null;
   formatValue: (v: number) => string;
   formatTarget: (v: number) => string;
-  lowerIsBetter?: boolean;
-  targetPrefix?: string;
+  /** goal = výnosové (≥, progress); limit = nákladové (≤, badge) */
+  display?: MerKpiTargetDisplay;
   current?: number | null;
   previous?: number | null;
   compareFormatValue?: (v: number) => string;
@@ -36,8 +39,7 @@ export function MerKpiTargetCard({
   target,
   formatValue,
   formatTarget,
-  lowerIsBetter = false,
-  targetPrefix,
+  display = "goal",
   current,
   previous,
   compareFormatValue,
@@ -45,9 +47,15 @@ export function MerKpiTargetCard({
   periodLabel,
   showMtdBadge,
 }: MerKpiTargetCardProps) {
-  const status = scorecardFulfillment(value, target, lowerIsBetter);
-  const barWidth = targetProgressWidth(status, lowerIsBetter);
-  const prefix = targetPrefix ?? (lowerIsBetter ? "≤" : "≥");
+  const goalStatus =
+    display === "goal" ? scorecardGoalFulfillment(value, target) : null;
+  const barWidth =
+    goalStatus != null ? targetProgressWidth(goalStatus) : 0;
+  const withinLimit =
+    display === "limit" &&
+    value != null &&
+    target != null &&
+    scorecardWithinLimit(value, target);
 
   return (
     <div className="kpi-card kpi-card--mer-target">
@@ -62,14 +70,14 @@ export function MerKpiTargetCard({
       <strong className="kpi-card__value">
         {value == null ? "—" : formatValue(value)}
       </strong>
-      {target != null ? (
+      {target != null && display === "goal" ? (
         <div className="mer-target-meta">
           <span className="mer-target-meta__line">
-            Cieľ {prefix} {formatTarget(target)}
-            {status.fulfillmentPct != null ? (
+            Cieľ ≥ {formatTarget(target)}
+            {goalStatus?.fulfillmentPct != null ? (
               <span className="mer-target-meta__pct">
                 {" "}
-                · {status.fulfillmentPct.toFixed(0)} %
+                · {goalStatus.fulfillmentPct.toFixed(0)} %
               </span>
             ) : null}
           </span>
@@ -85,10 +93,31 @@ export function MerKpiTargetCard({
               className="mer-target-bar__fill"
               style={{
                 width: `${barWidth}%`,
-                backgroundColor: TONE_COLORS[status.tone],
+                backgroundColor: TONE_COLORS[goalStatus?.tone ?? "neutral"],
               }}
             />
           </div>
+        </div>
+      ) : null}
+      {target != null && display === "limit" && value != null ? (
+        <div className="mer-limit-meta">
+          <span
+            className={`mer-limit-badge${
+              withinLimit ? " mer-limit-badge--ok" : " mer-limit-badge--over"
+            }`}
+          >
+            {withinLimit ? "🟢 V NORME" : "🔴 PREKROČENÉ"}
+          </span>
+          <span className="mer-limit-meta__text">
+            (Max limit: {formatTarget(target)})
+          </span>
+        </div>
+      ) : null}
+      {target != null && display === "limit" && value == null ? (
+        <div className="mer-limit-meta">
+          <span className="mer-limit-meta__text">
+            (Max limit: {formatTarget(target)})
+          </span>
         </div>
       ) : null}
       {current != null && compareFormatValue ? (

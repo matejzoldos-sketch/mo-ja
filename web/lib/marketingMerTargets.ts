@@ -3,7 +3,9 @@ export type MerScorecardTargets = {
   revenue: number;
   total_mkt_spend: number;
   total_media_spend: number;
+  agency_fees: number;
   blended_pno_pct: number;
+  media_roas: number;
   mer: number;
 };
 
@@ -11,7 +13,9 @@ export const MER_SCORECARD_DEFAULT_TARGETS: MerScorecardTargets = {
   revenue: 14_000,
   total_mkt_spend: 4_500,
   total_media_spend: 3_000,
+  agency_fees: 1_500,
   blended_pno_pct: 30,
+  media_roas: 3.0,
   mer: 3.0,
 };
 
@@ -21,7 +25,9 @@ export const MER_MONTHLY_TARGETS: Record<string, Partial<MerScorecardTargets>> =
     revenue: 9_000,
     total_mkt_spend: 3_200,
     total_media_spend: 2_200,
+    agency_fees: 1_200,
     blended_pno_pct: 35,
+    media_roas: 2.5,
     mer: 2.5,
   },
   "2026-02": {

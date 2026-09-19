@@ -35,10 +35,10 @@ export function resolveScorecardMonth(mode: MerScorecardMode): string {
   return mode === "mtd" ? bratislavaYm() : lastCompletedCalendarYm();
 }
 
-export function scorecardFulfillment(
+/** Výnosové metriky: plnenie (value / target) × 100, vyššie je lepšie. */
+export function scorecardGoalFulfillment(
   value: number | null | undefined,
-  target: number | null | undefined,
-  lowerIsBetter: boolean
+  target: number | null | undefined
 ): MerTargetStatus {
   if (
     value == null ||
@@ -51,20 +51,6 @@ export function scorecardFulfillment(
   }
 
   const fulfillmentPct = (value / target) * 100;
-  const exceeded = lowerIsBetter ? value > target : false;
-
-  if (lowerIsBetter) {
-    if (exceeded) {
-      return { fulfillmentPct, tone: "red", exceeded: true };
-    }
-    if (fulfillmentPct <= 95) {
-      return { fulfillmentPct, tone: "green", exceeded: false };
-    }
-    if (fulfillmentPct <= 100) {
-      return { fulfillmentPct, tone: "orange", exceeded: false };
-    }
-    return { fulfillmentPct, tone: "red", exceeded: true };
-  }
 
   if (fulfillmentPct >= 95) {
     return { fulfillmentPct, tone: "green", exceeded: false };
@@ -75,14 +61,15 @@ export function scorecardFulfillment(
   return { fulfillmentPct, tone: "red", exceeded: false };
 }
 
-export function targetProgressWidth(
-  status: MerTargetStatus,
-  lowerIsBetter: boolean
-): number {
+export function scorecardWithinLimit(
+  value: number,
+  target: number
+): boolean {
+  if (!Number.isFinite(value) || !Number.isFinite(target)) return false;
+  return value <= target;
+}
+
+export function targetProgressWidth(status: MerTargetStatus): number {
   if (status.fulfillmentPct == null) return 0;
-  if (lowerIsBetter) {
-    if (status.exceeded) return 100;
-    return Math.min(100, status.fulfillmentPct);
-  }
   return Math.min(100, status.fulfillmentPct);
 }

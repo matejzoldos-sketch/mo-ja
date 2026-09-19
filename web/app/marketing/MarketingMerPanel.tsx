@@ -668,7 +668,6 @@ export default function MarketingMerPanel() {
         aria-label="Obdobie scorecards"
         style={{ marginBottom: "1rem" }}
       >
-        <span className="scaling-window__label">Scorecards</span>
         <div className="scaling-window__segmented marketing-scorecard-window__segmented">
           {SCORECARD_MODE_OPTIONS.map((opt) => (
             <button
@@ -709,11 +708,11 @@ export default function MarketingMerPanel() {
         <div className="kpi-grid kpi-grid--marketing-mer">
           <MerKpiTargetCard
             label="Revenue"
+            display="goal"
             value={kpis.revenue}
             target={scorecardTargets?.revenue ?? null}
             formatValue={moneyFmt}
             formatTarget={moneyFmt}
-            targetPrefix="≥"
             current={kpis.revenue}
             previous={prev?.revenue}
             compareFormatValue={moneyFmt}
@@ -758,11 +757,11 @@ export default function MarketingMerPanel() {
           </div>
           <MerKpiTargetCard
             label="Total media"
+            display="limit"
             value={merMediaSpend(kpis)}
             target={scorecardTargets?.total_media_spend ?? null}
             formatValue={moneyFmt}
             formatTarget={moneyFmt}
-            lowerIsBetter
             current={merMediaSpend(kpis)}
             previous={prev ? merMediaSpend(prev) : undefined}
             compareFormatValue={moneyFmt}
@@ -770,24 +769,20 @@ export default function MarketingMerPanel() {
             periodLabel={compareLabel}
             showMtdBadge={scorecardIsMtd}
           />
-          <div className="kpi-card">
-            <div className="kpi-card__label-row">
-              <span className="kpi-card__label">Agency fees</span>
-              {scorecardIsMtd ? (
-                <span className="mer-mtd-badge">MTD</span>
-              ) : null}
-            </div>
-            <strong className="kpi-card__value">
-              {formatMoney(merAgencyFees(kpis), currency)}
-            </strong>
-            <KpiPeriodCompare
-              current={merAgencyFees(kpis)}
-              previous={prev ? merAgencyFees(prev) : undefined}
-              formatValue={moneyFmt}
-              higherIsBetter={false}
-              periodLabel={compareLabel}
-            />
-          </div>
+          <MerKpiTargetCard
+            label="Agency fees"
+            display="limit"
+            value={merAgencyFees(kpis)}
+            target={scorecardTargets?.agency_fees ?? null}
+            formatValue={moneyFmt}
+            formatTarget={moneyFmt}
+            current={merAgencyFees(kpis)}
+            previous={prev ? merAgencyFees(prev) : undefined}
+            compareFormatValue={moneyFmt}
+            higherIsBetterCompare={false}
+            periodLabel={compareLabel}
+            showMtdBadge={scorecardIsMtd}
+          />
           <div className="kpi-card">
             <div className="kpi-card__label-row">
               <span className="kpi-card__label">Other fees</span>
@@ -808,11 +803,11 @@ export default function MarketingMerPanel() {
           </div>
           <MerKpiTargetCard
             label="Total MKT"
+            display="limit"
             value={kpis.total_mkt_spend}
             target={scorecardTargets?.total_mkt_spend ?? null}
             formatValue={moneyFmt}
             formatTarget={moneyFmt}
-            lowerIsBetter
             current={kpis.total_mkt_spend}
             previous={prev?.total_mkt_spend}
             compareFormatValue={moneyFmt}
@@ -822,11 +817,11 @@ export default function MarketingMerPanel() {
           />
           <MerKpiTargetCard
             label="Blended PNO"
+            display="limit"
             value={blendedPno}
             target={scorecardTargets?.blended_pno_pct ?? null}
             formatValue={pctFmt}
             formatTarget={pctFmt}
-            lowerIsBetter
             current={blendedPno ?? undefined}
             previous={prevBlendedPno ?? undefined}
             compareFormatValue={pctFmt}
@@ -834,30 +829,26 @@ export default function MarketingMerPanel() {
             periodLabel={compareLabel}
             showMtdBadge={scorecardIsMtd}
           />
-          <div className="kpi-card">
-            <div className="kpi-card__label-row">
-              <span className="kpi-card__label">Media ROAS</span>
-              {scorecardIsMtd ? (
-                <span className="mer-mtd-badge">MTD</span>
-              ) : null}
-            </div>
-            <strong className="kpi-card__value">
-              {formatRatio(kpis.media_roas ?? kpis.ad_roas)}
-            </strong>
-            <KpiPeriodCompare
-              current={kpis.media_roas ?? kpis.ad_roas}
-              previous={prev?.media_roas ?? prev?.ad_roas}
-              formatValue={ratioFmt}
-              periodLabel={compareLabel}
-            />
-          </div>
+          <MerKpiTargetCard
+            label="Media ROAS"
+            display="goal"
+            value={kpis.media_roas ?? kpis.ad_roas ?? null}
+            target={scorecardTargets?.media_roas ?? null}
+            formatValue={ratioFmt}
+            formatTarget={ratioFmt}
+            current={kpis.media_roas ?? kpis.ad_roas ?? undefined}
+            previous={prev?.media_roas ?? prev?.ad_roas ?? undefined}
+            compareFormatValue={ratioFmt}
+            periodLabel={compareLabel}
+            showMtdBadge={scorecardIsMtd}
+          />
           <MerKpiTargetCard
             label="MER"
+            display="goal"
             value={kpis.mer}
             target={scorecardTargets?.mer ?? null}
             formatValue={ratioFmt}
             formatTarget={ratioFmt}
-            targetPrefix="≥"
             current={kpis.mer ?? undefined}
             previous={prev?.mer ?? undefined}
             compareFormatValue={ratioFmt}
