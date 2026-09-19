@@ -1,4 +1,4 @@
-/** Markdown export for Spend (executive scaling) dashboard. */
+/** Markdown export for Meta Performance (executive scaling) dashboard. */
 
 export type ScalingExportCard = {
   title: string;
@@ -80,7 +80,7 @@ function metric(v: number | null, unit: string): string {
 
 export function buildScalingMarkdown(input: ScalingMarkdownInput): string {
   const lines: string[] = [];
-  lines.push("# MO–JA · Spend rozhodnutie");
+  lines.push("# MO–JA · Meta Performance");
   lines.push("");
   lines.push(
     `Okno: ${input.windowLabel ?? "aktuálny mesiac (MTD)"} (${input.windowFrom} → ${input.windowTo}, ${input.windowDays} dní)`

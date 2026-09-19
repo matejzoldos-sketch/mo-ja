@@ -902,7 +902,7 @@ export default function ZdraviePanel() {
             <p className="chart-card__subtitle zdravie-bucket-links">
               Detail: <a href="/pnl">P&amp;L</a> ·{" "}
               <a href="/cashflow">Cash flow</a> ·{" "}
-              <a href="/scaling">Spend</a>
+              <a href="/scaling">Meta Performance</a>
             </p>
           </section>
         </>
@@ -994,7 +994,7 @@ export default function ZdraviePanel() {
           <>
             Drill-down: <a href="/pnl">P&amp;L</a> ·{" "}
             <a href="/cashflow">Cash flow</a> ·{" "}
-            <a href="/scaling">Spend</a>
+            <a href="/scaling">Meta Performance</a>
           </>,
         ]}
       />

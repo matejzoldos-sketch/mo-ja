@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import ScalingClient from "./ScalingClient";
 
 export const metadata: Metadata = {
-  title: "MO–JA spend rozhodnutie",
-  description: "Executive scaling — či zvyšovať Meta Ads spend",
+  title: "MO–JA · Meta Performance",
+  description: "Meta Ads výkonnosť a rozhodnutie o spende",
 };
 
 export default function ScalingPage() {

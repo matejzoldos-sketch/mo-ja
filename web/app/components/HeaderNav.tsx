@@ -29,7 +29,12 @@ const SECTIONS: {
   { id: "sklad", label: "Sklad", path: "/sklad", subtitle: "Sklad" },
   { id: "insighty", label: "Insighty", path: "/insighty", subtitle: "Insighty" },
   { id: "marketing", label: "Marketing", path: "/marketing", subtitle: "Marketing" },
-  { id: "scaling", label: "Spend", path: "/scaling", subtitle: "Spend rozhodnutie" },
+  {
+    id: "scaling",
+    label: "Meta Performance",
+    path: "/scaling",
+    subtitle: "Meta Performance",
+  },
   { id: "pnl", label: "P&L", path: "/pnl", subtitle: "Výkaz ziskov a strát" },
 ];
 

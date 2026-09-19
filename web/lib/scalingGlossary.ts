@@ -1,4 +1,4 @@
-/** Micro-glossary for Spend decision dashboard (non-technical readers). */
+/** Micro-glossary for Meta Performance dashboard (non-technical readers). */
 
 export type GlossaryTerm = {
   id: string;

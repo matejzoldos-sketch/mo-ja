@@ -21,35 +21,59 @@ ChartJS.register(...registerables);
 const SERIES_RANGE = "365d" as const;
 const SERIES_LABEL = "Od 1. 1. 2026";
 
-type MerKpis = {
-  revenue: number;
-  orders: number;
-  aov: number | null;
+type MerSpendFields = {
+  meta_spend?: number;
+  google_spend?: number;
+  total_media_spend?: number;
+  agency_fees?: number;
+  other_fees?: number;
   ads_spend: number;
   fees_spend: number;
   agency_fees_spend?: number;
   total_mkt_spend: number;
-  currency: string;
+  blended_pno_pct?: number | null;
+  media_roas?: number | null;
   mer: number | null;
-  ad_roas: number | null;
+  ad_roas?: number | null;
   m_roas?: number | null;
 };
 
-type MerMonthRow = {
+type MerKpis = MerSpendFields & {
+  revenue: number;
+  orders: number;
+  aov: number | null;
+  currency: string;
+};
+
+type MerMonthRow = MerSpendFields & {
   month: string;
   revenue: number;
   orders: number;
   aov: number | null;
-  ads_spend: number;
-  fees_spend: number;
-  agency_fees_spend?: number;
-  total_mkt_spend: number;
-  mer: number | null;
-  ad_roas: number | null;
-  m_roas?: number | null;
   mom_revenue_pct: number | null;
   yoy_revenue_pct: number | null;
 };
+
+function merMediaSpend(row: MerSpendFields): number {
+  return row.total_media_spend ?? row.ads_spend ?? 0;
+}
+
+function merAgencyFees(row: MerSpendFields): number {
+  return row.agency_fees ?? row.agency_fees_spend ?? 0;
+}
+
+function merOtherFees(row: MerSpendFields): number {
+  if (row.other_fees != null) return row.other_fees;
+  return Math.max(0, (row.fees_spend ?? 0) - merAgencyFees(row));
+}
+
+function merMetaSpend(row: MerSpendFields): number {
+  return row.meta_spend ?? 0;
+}
+
+function merGoogleSpend(row: MerSpendFields): number {
+  return row.google_spend ?? 0;
+}
 
 type MerPayload = {
   meta: {
@@ -100,6 +124,17 @@ type MarketingExpenseLine = {
   bucket: string | null;
   role: "fees" | "agency" | "ads_skip" | "unmapped" | string;
 };
+
+type ExpenseSortKey =
+  | "entry_date"
+  | "supplier"
+  | "line_text"
+  | "doc_number"
+  | "debit_account"
+  | "role"
+  | "amount_eur";
+
+type ExpenseSortDir = "asc" | "desc";
 
 function formatMoney(n: number, currency = "EUR"): string {
   return new Intl.NumberFormat("sk-SK", {
@@ -162,6 +197,9 @@ export default function MarketingMerPanel() {
   const [expenseSupplierFilter, setExpenseSupplierFilter] = useState("");
   const [expenseRoleFilter, setExpenseRoleFilter] = useState("");
   const [expenseTextFilter, setExpenseTextFilter] = useState("");
+  const [expenseSortKey, setExpenseSortKey] =
+    useState<ExpenseSortKey>("entry_date");
+  const [expenseSortDir, setExpenseSortDir] = useState<ExpenseSortDir>("desc");
   const pdfExportRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
@@ -217,11 +255,15 @@ export default function MarketingMerPanel() {
   const pctFmt = useCallback((v: number) => formatPctOfMedia(v), []);
 
   const feePctMedia = useMemo(
-    () => (kpis ? feePctOfMedia(kpis.ads_spend, kpis.agency_fees_spend) : null),
+    () =>
+      kpis
+        ? feePctOfMedia(merMediaSpend(kpis), merAgencyFees(kpis))
+        : null,
     [kpis]
   );
   const feePctMediaPrev = useMemo(
-    () => (prev ? feePctOfMedia(prev.ads_spend, prev.agency_fees_spend) : null),
+    () =>
+      prev ? feePctOfMedia(merMediaSpend(prev), merAgencyFees(prev)) : null,
     [prev]
   );
 
@@ -304,54 +346,46 @@ export default function MarketingMerPanel() {
     }
   }, [data]);
 
-  const chartData: ChartData<"bar" | "line"> | null = useMemo(() => {
+  const chartData: ChartData<"bar"> | null = useMemo(() => {
     if (!data?.monthly.length) return null;
     return {
       labels: data.monthly.map((r) => formatMonthLabelSk(`${r.month}-01`)),
       datasets: [
         {
-          type: "bar" as const,
           label: "Revenue",
           data: data.monthly.map((r) => r.revenue),
-          backgroundColor: "rgba(245, 197, 24, 0.85)",
-          yAxisID: "y",
-          order: 2,
+          backgroundColor: "rgba(245, 197, 24, 0.9)",
+          stack: "revenue",
         },
         {
-          type: "line" as const,
-          label: "Ads",
-          data: data.monthly.map((r) => r.ads_spend),
-          borderColor: "#5b8def",
-          backgroundColor: "#5b8def",
-          tension: 0.25,
-          yAxisID: "y",
-          order: 1,
+          label: "Meta spend",
+          data: data.monthly.map((r) => merMetaSpend(r)),
+          backgroundColor: "rgba(91, 141, 239, 0.92)",
+          stack: "mkt",
         },
         {
-          type: "line" as const,
-          label: "Fees",
-          data: data.monthly.map((r) => r.fees_spend),
-          borderColor: "#e07b4a",
-          backgroundColor: "#e07b4a",
-          tension: 0.25,
-          yAxisID: "y",
-          order: 1,
+          label: "Google spend",
+          data: data.monthly.map((r) => merGoogleSpend(r)),
+          backgroundColor: "rgba(52, 168, 83, 0.9)",
+          stack: "mkt",
         },
         {
-          type: "line" as const,
-          label: "Total MKT",
-          data: data.monthly.map((r) => r.total_mkt_spend),
-          borderColor: "#1a1f28",
-          backgroundColor: "#1a1f28",
-          tension: 0.25,
-          yAxisID: "y",
-          order: 0,
+          label: "Agency fees",
+          data: data.monthly.map((r) => merAgencyFees(r)),
+          backgroundColor: "rgba(155, 89, 182, 0.88)",
+          stack: "mkt",
+        },
+        {
+          label: "Other fees",
+          data: data.monthly.map((r) => merOtherFees(r)),
+          backgroundColor: "rgba(224, 123, 74, 0.9)",
+          stack: "mkt",
         },
       ],
     };
   }, [data]);
 
-  const chartOptions: ChartOptions<"bar" | "line"> = useMemo(
+  const chartOptions: ChartOptions<"bar"> = useMemo(
     () => ({
       responsive: true,
       maintainAspectRatio: false,
@@ -364,10 +398,12 @@ export default function MarketingMerPanel() {
       },
       scales: {
         y: {
+          stacked: true,
           ticks: { color: "#1a1f28" },
           grid: { color: "rgba(26,31,40,0.08)" },
         },
         x: {
+          stacked: true,
           ticks: { color: "#1a1f28", maxRotation: 45 },
           grid: { display: false },
         },
@@ -406,14 +442,61 @@ export default function MarketingMerPanel() {
     expenseTextFilter,
   ]);
 
+  const sortedExpenseLines = useMemo(() => {
+    const copy = [...filteredExpenseLines];
+    const dir = expenseSortDir === "asc" ? 1 : -1;
+    copy.sort((a, b) => {
+      if (expenseSortKey === "amount_eur") {
+        return (Number(a.amount_eur) - Number(b.amount_eur)) * dir;
+      }
+      let av: string;
+      let bv: string;
+      if (expenseSortKey === "role") {
+        av = expenseRoleLabel(a.role);
+        bv = expenseRoleLabel(b.role);
+      } else {
+        av = String(a[expenseSortKey] ?? "");
+        bv = String(b[expenseSortKey] ?? "");
+      }
+      return av.localeCompare(bv, "sk", { sensitivity: "base" }) * dir;
+    });
+    return copy;
+  }, [filteredExpenseLines, expenseSortKey, expenseSortDir]);
+
   const filteredExpenseSum = useMemo(
     () =>
-      filteredExpenseLines.reduce(
+      sortedExpenseLines.reduce(
         (sum, row) => sum + Number(row.amount_eur || 0),
         0
       ),
-    [filteredExpenseLines]
+    [sortedExpenseLines]
   );
+
+  const toggleExpenseSort = (key: ExpenseSortKey) => {
+    const textAscDefault =
+      key === "supplier" ||
+      key === "line_text" ||
+      key === "doc_number" ||
+      key === "debit_account" ||
+      key === "role";
+    if (expenseSortKey === key) {
+      setExpenseSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setExpenseSortKey(key);
+      setExpenseSortDir(
+        key === "amount_eur" || key === "entry_date"
+          ? "desc"
+          : textAscDefault
+            ? "asc"
+            : "desc"
+      );
+    }
+  };
+
+  const expenseSortIndicator = (key: ExpenseSortKey) => {
+    if (expenseSortKey !== key) return null;
+    return expenseSortDir === "asc" ? " ▲" : " ▼";
+  };
 
   const expenseFiltersActive =
     expenseSupplierFilter !== "" ||
@@ -462,7 +545,7 @@ export default function MarketingMerPanel() {
 
       <div className="dashboard-pdf-root" ref={pdfExportRef}>
         <h1 className="dashboard-card__title" style={{ marginBottom: "0.5rem" }}>
-          MER — Marketing efficiency
+          MER — CEO marketing dashboard
         </h1>
         <p className="dashboard-meta">
           Scorecards: {scorecardMonthLabel}
@@ -470,9 +553,9 @@ export default function MarketingMerPanel() {
           Graf a tabuľka: {SERIES_LABEL}
         </p>
         <p className="dashboard-meta dashboard-meta--hint">
-          Ads = Meta CSV + Google platforma (denník) · Fees = denník 518/5015 ·
-          mROAS = Revenue / (Ads + Správa PPC) · VK Google agentúra vo Fees
-          agentúra · Meta FP v denníku = skip (už v Meta CSV).
+          Media = Meta CSV + Google (denník) · Agency = správa PPC · Other =
+          kreatíva a nástroje · Total MKT = media + agency + other · Blended
+          PNO = Total MKT / Revenue · Meta FP v denníku = skip.
         </p>
 
         <div className="kpi-grid kpi-grid--marketing-mer">
@@ -489,52 +572,115 @@ export default function MarketingMerPanel() {
             />
           </div>
           <div className="kpi-card">
-            <span className="kpi-card__label">Orders</span>
+            <span className="kpi-card__label">Meta spend</span>
             <strong className="kpi-card__value">
-              {(kpis.orders ?? 0).toLocaleString("sk-SK")}
+              {formatMoney(merMetaSpend(kpis), currency)}
             </strong>
             <KpiPeriodCompare
-              current={kpis.orders}
-              previous={prev?.orders}
-              formatValue={intFmt}
-              periodLabel={compareLabel}
-            />
-          </div>
-          <div className="kpi-card">
-            <span className="kpi-card__label">AOV</span>
-            <strong className="kpi-card__value">
-              {kpis.aov == null ? "—" : formatMoney(kpis.aov, currency)}
-            </strong>
-            <KpiPeriodCompare
-              current={kpis.aov}
-              previous={prev?.aov}
-              formatValue={moneyFmt}
-              periodLabel={compareLabel}
-            />
-          </div>
-          <div className="kpi-card">
-            <span className="kpi-card__label">Ads spend</span>
-            <strong className="kpi-card__value">
-              {formatMoney(kpis.ads_spend, currency)}
-            </strong>
-            <KpiPeriodCompare
-              current={kpis.ads_spend}
-              previous={prev?.ads_spend}
+              current={merMetaSpend(kpis)}
+              previous={prev ? merMetaSpend(prev) : undefined}
               formatValue={moneyFmt}
               higherIsBetter={false}
               periodLabel={compareLabel}
             />
           </div>
           <div className="kpi-card">
-            <span className="kpi-card__label">Fees</span>
+            <span className="kpi-card__label">Google spend</span>
             <strong className="kpi-card__value">
-              {formatMoney(kpis.fees_spend, currency)}
+              {formatMoney(merGoogleSpend(kpis), currency)}
             </strong>
             <KpiPeriodCompare
-              current={kpis.fees_spend}
-              previous={prev?.fees_spend}
+              current={merGoogleSpend(kpis)}
+              previous={prev ? merGoogleSpend(prev) : undefined}
               formatValue={moneyFmt}
               higherIsBetter={false}
+              periodLabel={compareLabel}
+            />
+          </div>
+          <div className="kpi-card">
+            <span className="kpi-card__label">Total media</span>
+            <strong className="kpi-card__value">
+              {formatMoney(merMediaSpend(kpis), currency)}
+            </strong>
+            <KpiPeriodCompare
+              current={merMediaSpend(kpis)}
+              previous={prev ? merMediaSpend(prev) : undefined}
+              formatValue={moneyFmt}
+              higherIsBetter={false}
+              periodLabel={compareLabel}
+            />
+          </div>
+          <div className="kpi-card">
+            <span className="kpi-card__label">Agency fees</span>
+            <strong className="kpi-card__value">
+              {formatMoney(merAgencyFees(kpis), currency)}
+            </strong>
+            <KpiPeriodCompare
+              current={merAgencyFees(kpis)}
+              previous={prev ? merAgencyFees(prev) : undefined}
+              formatValue={moneyFmt}
+              higherIsBetter={false}
+              periodLabel={compareLabel}
+            />
+          </div>
+          <div className="kpi-card">
+            <span className="kpi-card__label">Other fees</span>
+            <strong className="kpi-card__value">
+              {formatMoney(merOtherFees(kpis), currency)}
+            </strong>
+            <KpiPeriodCompare
+              current={merOtherFees(kpis)}
+              previous={prev ? merOtherFees(prev) : undefined}
+              formatValue={moneyFmt}
+              higherIsBetter={false}
+              periodLabel={compareLabel}
+            />
+          </div>
+          <div className="kpi-card">
+            <span className="kpi-card__label">Total MKT</span>
+            <strong className="kpi-card__value">
+              {formatMoney(kpis.total_mkt_spend, currency)}
+            </strong>
+            <KpiPeriodCompare
+              current={kpis.total_mkt_spend}
+              previous={prev?.total_mkt_spend}
+              formatValue={moneyFmt}
+              higherIsBetter={false}
+              periodLabel={compareLabel}
+            />
+          </div>
+          <div className="kpi-card">
+            <span className="kpi-card__label">Blended PNO</span>
+            <strong className="kpi-card__value">
+              {formatPctOfMedia(kpis.blended_pno_pct)}
+            </strong>
+            <KpiPeriodCompare
+              current={kpis.blended_pno_pct}
+              previous={prev?.blended_pno_pct}
+              formatValue={pctFmt}
+              higherIsBetter={false}
+              periodLabel={compareLabel}
+            />
+          </div>
+          <div className="kpi-card">
+            <span className="kpi-card__label">Media ROAS</span>
+            <strong className="kpi-card__value">
+              {formatRatio(kpis.media_roas ?? kpis.ad_roas)}
+            </strong>
+            <KpiPeriodCompare
+              current={kpis.media_roas ?? kpis.ad_roas}
+              previous={prev?.media_roas ?? prev?.ad_roas}
+              formatValue={ratioFmt}
+              periodLabel={compareLabel}
+            />
+          </div>
+          <div className="kpi-card">
+            <span className="kpi-card__label">MER</span>
+            <strong className="kpi-card__value">{formatRatio(kpis.mer)}</strong>
+            <KpiPeriodCompare
+              current={kpis.mer}
+              previous={prev?.mer}
+              formatValue={ratioFmt}
               periodLabel={compareLabel}
             />
           </div>
@@ -557,60 +703,13 @@ export default function MarketingMerPanel() {
                 opacity: 0.9,
               }}
             >
-              benchmark 10–20 %
+              agency / media · bench. 10–20 %
             </span>
             <KpiPeriodCompare
               current={feePctMedia}
               previous={feePctMediaPrev}
               formatValue={pctFmt}
               higherIsBetter={false}
-              periodLabel={compareLabel}
-            />
-          </div>
-          <div className="kpi-card">
-            <span className="kpi-card__label">Total MKT</span>
-            <strong className="kpi-card__value">
-              {formatMoney(kpis.total_mkt_spend, currency)}
-            </strong>
-            <KpiPeriodCompare
-              current={kpis.total_mkt_spend}
-              previous={prev?.total_mkt_spend}
-              formatValue={moneyFmt}
-              higherIsBetter={false}
-              periodLabel={compareLabel}
-            />
-          </div>
-          <div className="kpi-card">
-            <span className="kpi-card__label">MER</span>
-            <strong className="kpi-card__value">{formatRatio(kpis.mer)}</strong>
-            <KpiPeriodCompare
-              current={kpis.mer}
-              previous={prev?.mer}
-              formatValue={ratioFmt}
-              periodLabel={compareLabel}
-            />
-          </div>
-          <div className="kpi-card">
-            <span className="kpi-card__label">Ad ROAS</span>
-            <strong className="kpi-card__value">
-              {formatRatio(kpis.ad_roas)}
-            </strong>
-            <KpiPeriodCompare
-              current={kpis.ad_roas}
-              previous={prev?.ad_roas}
-              formatValue={ratioFmt}
-              periodLabel={compareLabel}
-            />
-          </div>
-          <div className="kpi-card">
-            <span className="kpi-card__label">mROAS</span>
-            <strong className="kpi-card__value">
-              {formatRatio(kpis.m_roas)}
-            </strong>
-            <KpiPeriodCompare
-              current={kpis.m_roas}
-              previous={prev?.m_roas}
-              formatValue={ratioFmt}
               periodLabel={compareLabel}
             />
           </div>
@@ -621,7 +720,11 @@ export default function MarketingMerPanel() {
             <h2 className="dashboard-card__title">
               Mesačný vývoj · {SERIES_LABEL}
             </h2>
-            <div style={{ height: 320 }}>
+            <p className="dashboard-meta dashboard-meta--hint">
+              Žltý stĺpec = revenue · skladaný stĺpec = Meta + Google + agency +
+              other fees (Total MKT)
+            </p>
+            <div style={{ height: 360 }}>
               <Chart type="bar" data={chartData} options={chartOptions} />
             </div>
           </section>
@@ -637,23 +740,14 @@ export default function MarketingMerPanel() {
                 <tr>
                   <th>Mesiac</th>
                   <th>Revenue</th>
-                  <th>Orders</th>
-                  <th>AOV</th>
-                  <th>Ads</th>
-                  <th>Fees</th>
-                  <th title="Správa PPC / agentúra">Fees agentúra</th>
-                  <th title="Agentúra fees / Ads spend">
-                    Fee % media
-                    <div style={{ fontWeight: 400, fontSize: "0.7rem", opacity: 0.75 }}>
-                      bench. 10–20 %
-                    </div>
-                  </th>
+                  <th>Meta spend</th>
+                  <th>Google spend</th>
+                  <th>Total media</th>
+                  <th>Agency fees</th>
+                  <th>Other fees</th>
                   <th>Total MKT</th>
+                  <th>Blended PNO</th>
                   <th>MER</th>
-                  <th>Ad ROAS</th>
-                  <th title="Revenue / (Ads + Fees agentúry)">mROAS</th>
-                  <th>MoM Rev</th>
-                  <th>YoY Rev</th>
                 </tr>
               </thead>
               <tbody>
@@ -661,41 +755,21 @@ export default function MarketingMerPanel() {
                   <tr key={row.month}>
                     <td>{formatMonthLabelSk(`${row.month}-01`)}</td>
                     <td>{formatMoney(row.revenue, currency)}</td>
-                    <td>{(row.orders ?? 0).toLocaleString("sk-SK")}</td>
+                    <td>{formatMoney(merMetaSpend(row), currency)}</td>
+                    <td>{formatMoney(merGoogleSpend(row), currency)}</td>
+                    <td>{formatMoney(merMediaSpend(row), currency)}</td>
+                    <td>{formatMoney(merAgencyFees(row), currency)}</td>
+                    <td>{formatMoney(merOtherFees(row), currency)}</td>
+                    <td>{formatMoney(row.total_mkt_spend, currency)}</td>
                     <td>
-                      {row.aov == null ? "—" : formatMoney(row.aov, currency)}
-                    </td>
-                    <td>{formatMoney(row.ads_spend, currency)}</td>
-                    <td>{formatMoney(row.fees_spend, currency)}</td>
-                    <td>
-                      {formatMoney(row.agency_fees_spend ?? 0, currency)}
-                    </td>
-                    <td
-                      style={{
-                        color: feePctBenchColor(
-                          feePctOfMedia(row.ads_spend, row.agency_fees_spend)
-                        ),
-                        fontWeight: 600,
-                      }}
-                    >
                       {formatPctOfMedia(
-                        feePctOfMedia(row.ads_spend, row.agency_fees_spend)
+                        row.blended_pno_pct ??
+                          (row.revenue > 0
+                            ? (row.total_mkt_spend / row.revenue) * 100
+                            : null)
                       )}
                     </td>
-                    <td>{formatMoney(row.total_mkt_spend, currency)}</td>
                     <td>{formatRatio(row.mer)}</td>
-                    <td>{formatRatio(row.ad_roas)}</td>
-                    <td>{formatRatio(row.m_roas)}</td>
-                    <td>
-                      {row.mom_revenue_pct == null
-                        ? "—"
-                        : `${row.mom_revenue_pct > 0 ? "+" : ""}${row.mom_revenue_pct} %`}
-                    </td>
-                    <td>
-                      {row.yoy_revenue_pct == null
-                        ? "—"
-                        : `${row.yoy_revenue_pct > 0 ? "+" : ""}${row.yoy_revenue_pct} %`}
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -791,20 +865,76 @@ export default function MarketingMerPanel() {
             ) : null}
           </div>
           <div className="table-wrap">
-            <table className="data-table data-table--compact">
+            <table className="data-table data-table--compact data-table--sortable">
               <thead>
                 <tr>
-                  <th>Dátum</th>
-                  <th>Dodávateľ</th>
-                  <th>Text</th>
-                  <th>Doklad</th>
-                  <th>Účet</th>
-                  <th>Zaradenie</th>
-                  <th className="num">Suma</th>
+                  <th>
+                    <button
+                      type="button"
+                      className="data-table__sort-btn"
+                      onClick={() => toggleExpenseSort("entry_date")}
+                    >
+                      Dátum{expenseSortIndicator("entry_date")}
+                    </button>
+                  </th>
+                  <th>
+                    <button
+                      type="button"
+                      className="data-table__sort-btn"
+                      onClick={() => toggleExpenseSort("supplier")}
+                    >
+                      Dodávateľ{expenseSortIndicator("supplier")}
+                    </button>
+                  </th>
+                  <th>
+                    <button
+                      type="button"
+                      className="data-table__sort-btn"
+                      onClick={() => toggleExpenseSort("line_text")}
+                    >
+                      Text{expenseSortIndicator("line_text")}
+                    </button>
+                  </th>
+                  <th>
+                    <button
+                      type="button"
+                      className="data-table__sort-btn"
+                      onClick={() => toggleExpenseSort("doc_number")}
+                    >
+                      Doklad{expenseSortIndicator("doc_number")}
+                    </button>
+                  </th>
+                  <th>
+                    <button
+                      type="button"
+                      className="data-table__sort-btn"
+                      onClick={() => toggleExpenseSort("debit_account")}
+                    >
+                      Účet{expenseSortIndicator("debit_account")}
+                    </button>
+                  </th>
+                  <th>
+                    <button
+                      type="button"
+                      className="data-table__sort-btn"
+                      onClick={() => toggleExpenseSort("role")}
+                    >
+                      Zaradenie{expenseSortIndicator("role")}
+                    </button>
+                  </th>
+                  <th className="num">
+                    <button
+                      type="button"
+                      className="data-table__sort-btn data-table__sort-btn--num"
+                      onClick={() => toggleExpenseSort("amount_eur")}
+                    >
+                      Suma{expenseSortIndicator("amount_eur")}
+                    </button>
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {filteredExpenseLines.length === 0 ? (
+                {sortedExpenseLines.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="msg">
                       {expenseLines.length === 0
@@ -813,7 +943,7 @@ export default function MarketingMerPanel() {
                     </td>
                   </tr>
                 ) : (
-                  filteredExpenseLines.map((row) => (
+                  sortedExpenseLines.map((row) => (
                     <tr key={row.line_hash}>
                       <td>{formatIsoDateSk(row.entry_date)}</td>
                       <td>{row.supplier}</td>

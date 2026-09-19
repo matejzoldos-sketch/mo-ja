@@ -297,25 +297,37 @@ export type MerMarkdownInput = {
     revenue: number;
     orders?: number;
     aov?: number | null;
+    meta_spend?: number;
+    google_spend?: number;
+    total_media_spend?: number;
+    agency_fees?: number;
+    other_fees?: number;
     ads_spend: number;
     fees_spend: number;
     agency_fees_spend?: number;
     total_mkt_spend: number;
+    blended_pno_pct?: number | null;
+    media_roas?: number | null;
     mer: number | null;
-    ad_roas: number | null;
+    ad_roas?: number | null;
     m_roas?: number | null;
   };
   monthly: {
     month: string;
     revenue: number;
-    orders?: number;
-    aov?: number | null;
+    meta_spend?: number;
+    google_spend?: number;
+    total_media_spend?: number;
+    agency_fees?: number;
+    other_fees?: number;
     ads_spend: number;
     fees_spend: number;
     agency_fees_spend?: number;
     total_mkt_spend: number;
+    blended_pno_pct?: number | null;
+    media_roas?: number | null;
     mer: number | null;
-    ad_roas: number | null;
+    ad_roas?: number | null;
     m_roas?: number | null;
     mom_revenue_pct?: number | null;
     yoy_revenue_pct: number | null;
@@ -353,7 +365,7 @@ export function buildMarketingMerMarkdown(input: MerMarkdownInput): string {
   }
   lines.push("");
   lines.push(
-    "_Ads = Meta CSV · Fees = účtovný denník (518/5015) · Meta FP v denníku sa nepočíta dvakrát._"
+    "_Media = Meta CSV + Google denník · Agency/Other fees z denníka · Total MKT = media + agency + other · Meta FP = skip._"
   );
   lines.push("");
 
@@ -371,22 +383,26 @@ export function buildMarketingMerMarkdown(input: MerMarkdownInput): string {
             ? "—"
             : formatMoney(input.kpis.aov, input.currency),
         ],
-        ["Ads spend", formatMoney(input.kpis.ads_spend, input.currency)],
-        ["Fees", formatMoney(input.kpis.fees_spend, input.currency)],
+        ["Meta spend", formatMoney(input.kpis.meta_spend ?? 0, input.currency)],
+        ["Google spend", formatMoney(input.kpis.google_spend ?? 0, input.currency)],
         [
-          "Fees agentúra",
-          formatMoney(input.kpis.agency_fees_spend ?? 0, input.currency),
+          "Total media",
+          formatMoney(input.kpis.total_media_spend ?? input.kpis.ads_spend, input.currency),
         ],
         [
-          "Fee % of media",
-          input.kpis.ads_spend > 0
-            ? `${(((input.kpis.agency_fees_spend ?? 0) / input.kpis.ads_spend) * 100).toFixed(1)} % (benchmark 10–20 %)`
-            : "—",
+          "Agency fees",
+          formatMoney(input.kpis.agency_fees ?? input.kpis.agency_fees_spend ?? 0, input.currency),
         ],
+        ["Other fees", formatMoney(input.kpis.other_fees ?? 0, input.currency)],
         ["Total MKT", formatMoney(input.kpis.total_mkt_spend, input.currency)],
+        [
+          "Blended PNO",
+          input.kpis.blended_pno_pct == null
+            ? "—"
+            : `${input.kpis.blended_pno_pct.toFixed(1)} %`,
+        ],
+        ["Media ROAS", formatRatioMd(input.kpis.media_roas ?? input.kpis.ad_roas ?? null)],
         ["MER", formatRatioMd(input.kpis.mer)],
-        ["Ad ROAS", formatRatioMd(input.kpis.ad_roas)],
-        ["mROAS", formatRatioMd(input.kpis.m_roas ?? null)],
       ]
     )
   );
@@ -397,28 +413,31 @@ export function buildMarketingMerMarkdown(input: MerMarkdownInput): string {
     lines.push("");
     lines.push(
       mdTable(
-        ["Mesiac", "Revenue", "Orders", "AOV", "Ads", "Fees", "Fees agentúra", "Fee % media", "Total MKT", "MER", "Ad ROAS", "mROAS", "MoM Rev", "YoY Rev"],
+        [
+          "Mesiac",
+          "Revenue",
+          "Meta",
+          "Google",
+          "Total media",
+          "Agency",
+          "Other",
+          "Total MKT",
+          "Blended PNO",
+          "MER",
+        ],
         input.monthly.map((r) => [
           r.month,
           formatMoney(r.revenue, input.currency),
-          r.orders ?? "—",
-          r.aov == null ? "—" : formatMoney(r.aov, input.currency),
-          formatMoney(r.ads_spend, input.currency),
-          formatMoney(r.fees_spend, input.currency),
-          formatMoney(r.agency_fees_spend ?? 0, input.currency),
-          r.ads_spend > 0
-            ? `${(((r.agency_fees_spend ?? 0) / r.ads_spend) * 100).toFixed(1)} %`
-            : "—",
+          formatMoney(r.meta_spend ?? 0, input.currency),
+          formatMoney(r.google_spend ?? 0, input.currency),
+          formatMoney(r.total_media_spend ?? r.ads_spend, input.currency),
+          formatMoney(r.agency_fees ?? r.agency_fees_spend ?? 0, input.currency),
+          formatMoney(r.other_fees ?? 0, input.currency),
           formatMoney(r.total_mkt_spend, input.currency),
+          r.blended_pno_pct == null
+            ? "—"
+            : `${r.blended_pno_pct.toFixed(1)} %`,
           formatRatioMd(r.mer),
-          formatRatioMd(r.ad_roas),
-          formatRatioMd(r.m_roas ?? null),
-          r.mom_revenue_pct == null
-            ? "—"
-            : `${r.mom_revenue_pct > 0 ? "+" : ""}${r.mom_revenue_pct} %`,
-          r.yoy_revenue_pct == null
-            ? "—"
-            : `${r.yoy_revenue_pct > 0 ? "+" : ""}${r.yoy_revenue_pct} %`,
         ])
       )
     );

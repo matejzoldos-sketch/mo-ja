@@ -529,7 +529,7 @@ export default function ExecutiveScalingDashboard() {
     }
   }, [data]);
 
-  if (loading) return <p className="msg">Načítavam spend rozhodnutie…</p>;
+  if (loading) return <p className="msg">Načítavam Meta Performance…</p>;
   if (err) {
     return (
       <p className="msg msg-error">
@@ -586,7 +586,7 @@ export default function ExecutiveScalingDashboard() {
     <div className="scaling-dash">
       <div className="scaling-dash__toolbar">
         <div className="scaling-dash__intro">
-          <h1 className="dashboard-card__title">Spend rozhodnutie</h1>
+          <h1 className="dashboard-card__title">Meta Performance</h1>
           <p className="scaling-dash__sub">
             {meta.window_label ?? "Aktuálny mesiac"} ({meta.window_from} → {meta.window_to},{" "}
             {meta.window_days} dní) · ciele: PNO ≤ {meta.targets.blended_pno_pct_max} % · CR ≥{" "}
