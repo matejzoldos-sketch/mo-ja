@@ -711,15 +711,10 @@ a:hover {
   width: auto;
 }
 
-.marketing-mer__scorecard-switch {
-  display: inline-grid;
-  grid-template-columns: repeat(2, max-content);
-  width: fit-content;
-  max-width: 100%;
-}
-
-.marketing-mer__scorecard-switch .scaling-window__btn {
-  padding: 8px 12px;
+.marketing-mer__scorecard-filter .period-filter__select {
+  min-width: 0;
+  width: auto;
+  max-width: 11rem;
 }
 
 .kpi-card {

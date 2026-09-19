@@ -28,8 +28,8 @@ const SCORECARD_MODE_OPTIONS: {
   key: MerScorecardMode;
   label: string;
 }[] = [
-  { key: "completed", label: "Ukončený mesiac" },
-  { key: "mtd", label: "Prebiehajúci mesiac" },
+  { key: "completed", label: "Ukončený" },
+  { key: "mtd", label: "Prebiehajúci" },
 ];
 
 type MerSpendFields = {
@@ -633,25 +633,23 @@ export default function MarketingMerPanel() {
   return (
     <div className="marketing-mer">
       <div className="site-toolbar marketing-mer__toolbar">
-        <div
-          className="site-toolbar__filters"
-          role="group"
-          aria-label="Obdobie scorecards"
-        >
-          <div className="scaling-window__segmented marketing-mer__scorecard-switch">
-            {SCORECARD_MODE_OPTIONS.map((opt) => (
-              <button
-                key={opt.key}
-                type="button"
-                className={`scaling-window__btn${
-                  scorecardMode === opt.key ? " is-active" : ""
-                }`}
-                aria-pressed={scorecardMode === opt.key}
-                onClick={() => setScorecardMode(opt.key)}
-              >
-                {opt.label}
-              </button>
-            ))}
+        <div className="site-toolbar__filters">
+          <div className="period-filter marketing-mer__scorecard-filter">
+            <select
+              className="period-filter__select"
+              value={scorecardMode}
+              aria-label="Obdobie scorecards (ukončený alebo prebiehajúci mesiac)"
+              title="Ukončený = posledný celý mesiac · Prebiehajúci = MTD"
+              onChange={(e) =>
+                setScorecardMode(e.target.value as MerScorecardMode)
+              }
+            >
+              {SCORECARD_MODE_OPTIONS.map((opt) => (
+                <option key={opt.key} value={opt.key}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
         {exportsReady ? (
