@@ -86,6 +86,19 @@ type MerPayload = {
     debit_account: string;
     amount_eur: number;
   }[];
+  marketingExpenseLines?: MarketingExpenseLine[];
+};
+
+type MarketingExpenseLine = {
+  line_hash: string;
+  entry_date: string;
+  doc_number: string;
+  supplier: string;
+  line_text: string;
+  debit_account: string;
+  amount_eur: number;
+  bucket: string | null;
+  role: "fees" | "agency" | "ads_skip" | "unmapped" | string;
 };
 
 function formatMoney(n: number, currency = "EUR"): string {
@@ -123,9 +136,10 @@ function feePctBenchColor(pct: number | null): string | undefined {
   return "var(--clr-red, #dc2626)";
 }
 
-function supplierRoleLabel(role: string): string {
+function expenseRoleLabel(role: string): string {
   if (role === "agency") return "Agentúra (PPC)";
   if (role === "ads_skip") return "Ads (denník skip)";
+  if (role === "unmapped") return "Nemapované";
   return "Fees";
 }
 
@@ -140,6 +154,9 @@ export default function MarketingMerPanel() {
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [pdfExporting, setPdfExporting] = useState(false);
+  const [expenseSupplierFilter, setExpenseSupplierFilter] = useState("");
+  const [expenseRoleFilter, setExpenseRoleFilter] = useState("");
+  const [expenseTextFilter, setExpenseTextFilter] = useState("");
   const pdfExportRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
@@ -354,53 +371,44 @@ export default function MarketingMerPanel() {
     []
   );
 
-  const feesByMonth = useMemo(() => {
-    const rows = data?.feesBreakdown ?? [];
-    if (!rows.length) return null;
+  const expenseLines = data?.marketingExpenseLines ?? [];
 
-    const amountByKey = new Map<string, number>();
-    const monthsSet = new Set<string>();
-    const labelTotals = new Map<string, number>();
+  const expenseSupplierOptions = useMemo(() => {
+    const labels = new Set<string>();
+    for (const row of expenseLines) labels.add(row.supplier);
+    return Array.from(labels).sort((a, b) => a.localeCompare(b, "sk"));
+  }, [expenseLines]);
 
-    for (const row of rows) {
-      const month =
-        typeof row.month === "string" && /^\d{4}-\d{2}$/.test(row.month)
-          ? row.month
-          : null;
-      if (!month) continue;
-      monthsSet.add(month);
-      labelTotals.set(
-        row.label,
-        (labelTotals.get(row.label) ?? 0) + Number(row.amount_eur || 0)
-      );
-      amountByKey.set(
-        `${month}|${row.label}`,
-        (amountByKey.get(`${month}|${row.label}`) ?? 0) +
-          Number(row.amount_eur || 0)
-      );
-    }
+  const filteredExpenseLines = useMemo(() => {
+    const textNeedle = expenseTextFilter.trim().toLowerCase();
+    return expenseLines.filter((row) => {
+      if (expenseSupplierFilter && row.supplier !== expenseSupplierFilter) {
+        return false;
+      }
+      if (expenseRoleFilter && row.role !== expenseRoleFilter) {
+        return false;
+      }
+      if (textNeedle) {
+        const hay = `${row.line_text} ${row.doc_number} ${row.debit_account}`.toLowerCase();
+        if (!hay.includes(textNeedle)) return false;
+      }
+      return true;
+    });
+  }, [
+    expenseLines,
+    expenseSupplierFilter,
+    expenseRoleFilter,
+    expenseTextFilter,
+  ]);
 
-    if (!monthsSet.size) return null;
-
-    const months = Array.from(monthsSet).sort();
-    const labels = Array.from(labelTotals.entries())
-      .sort((a, b) => b[1] - a[1])
-      .map(([label]) => label);
-
-    return {
-      months,
-      labels,
-      amountAt: (month: string, label: string) =>
-        amountByKey.get(`${month}|${label}`) ?? 0,
-      monthTotal: (month: string) =>
-        labels.reduce(
-          (sum, label) => sum + (amountByKey.get(`${month}|${label}`) ?? 0),
-          0
-        ),
-      labelTotal: (label: string) => labelTotals.get(label) ?? 0,
-      grandTotal: Array.from(labelTotals.values()).reduce((a, b) => a + b, 0),
-    };
-  }, [data?.feesBreakdown]);
+  const filteredExpenseSum = useMemo(
+    () =>
+      filteredExpenseLines.reduce(
+        (sum, row) => sum + Number(row.amount_eur || 0),
+        0
+      ),
+    [filteredExpenseLines]
+  );
 
   if (loading) {
     return <p className="msg">Načítavam MER…</p>;
@@ -679,155 +687,101 @@ export default function MarketingMerPanel() {
           </div>
         </section>
 
-        {(data.marketingSuppliers ?? []).length > 0 ? (
-          <section className="dashboard-card" style={{ marginTop: "1.25rem" }}>
-            <h2 className="dashboard-card__title">
-              Marketingoví dodávatelia · {SERIES_LABEL}
-            </h2>
-            <p className="dashboard-meta dashboard-meta--hint">
-              Fees idú do MER. Agentúra (PPC) ide aj do mROAS. Ads skip = Meta
-              faktúry v denníku (spend z CSV). Mimo MER: LIDET, LeRi konzultácie,
-              YTD, SuperFaktura, právne, GS1, Visuel/web.
-            </p>
-            <div className="table-wrap">
-              <table className="data-table data-table--compact">
-                <thead>
-                  <tr>
-                    <th>Dodávateľ</th>
-                    <th>Zaradenie</th>
-                    <th>Suma</th>
-                    <th>Riadky</th>
-                    <th>Od</th>
-                    <th>Do</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(data.marketingSuppliers ?? []).map((row) => (
-                    <tr key={`${row.role}-${row.label}`}>
-                      <td>{row.label}</td>
-                      <td>{supplierRoleLabel(row.role)}</td>
-                      <td>{formatMoney(row.amount_eur, currency)}</td>
-                      <td>{row.line_count.toLocaleString("sk-SK")}</td>
-                      <td>{formatIsoDateSk(row.first_date)}</td>
-                      <td>{formatIsoDateSk(row.last_date)}</td>
-                    </tr>
-                  ))}
-                  <tr>
-                    <td>
-                      <strong>Fees spolu</strong>
-                    </td>
-                    <td />
-                    <td>
-                      <strong>
-                        {formatMoney(
-                          (data.marketingSuppliers ?? [])
-                            .filter((r) => r.role !== "ads_skip")
-                            .reduce((sum, r) => sum + Number(r.amount_eur || 0), 0),
-                          currency
-                        )}
-                      </strong>
-                    </td>
-                    <td colSpan={3} />
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </section>
-        ) : null}
-
-        {feesByMonth ? (
-          <section className="dashboard-card" style={{ marginTop: "1.25rem" }}>
-            <h2 className="dashboard-card__title">
-              Fees breakdown (denník) · po mesiacoch
-            </h2>
-            <div className="table-wrap">
-              <table className="data-table data-table--compact">
-                <thead>
-                  <tr>
-                    <th>Mesiac</th>
-                    {feesByMonth.labels.map((label) => (
-                      <th key={label} title={label}>
-                        {label}
-                      </th>
-                    ))}
-                    <th>Spolu</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {feesByMonth.months.map((month) => (
-                    <tr key={month}>
-                      <td>{formatMonthLabelSk(month)}</td>
-                      {feesByMonth.labels.map((label) => {
-                        const amount = feesByMonth.amountAt(month, label);
-                        return (
-                          <td key={`${month}-${label}`}>
-                            {amount > 0 ? formatMoney(amount, currency) : "—"}
-                          </td>
-                        );
-                      })}
-                      <td>
-                        {formatMoney(feesByMonth.monthTotal(month), currency)}
-                      </td>
-                    </tr>
-                  ))}
-                  <tr>
-                    <td>
-                      <strong>Spolu</strong>
-                    </td>
-                    {feesByMonth.labels.map((label) => (
-                      <td key={`total-${label}`}>
-                        <strong>
-                          {formatMoney(feesByMonth.labelTotal(label), currency)}
-                        </strong>
-                      </td>
-                    ))}
-                    <td>
-                      <strong>
-                        {formatMoney(feesByMonth.grandTotal, currency)}
-                      </strong>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </section>
-        ) : (
-          <p className="msg" style={{ marginTop: "1rem" }}>
-            Fees z denníka zatiaľ nie sú v databáze — spusti{" "}
-            <code>python3 etl/import_accounting_journal_csv.py</code> po migrácii
-            076.
+        <section className="dashboard-card" style={{ marginTop: "1.25rem" }}>
+          <h2 className="dashboard-card__title">
+            Marketingové náklady (denník) · {SERIES_LABEL}
+          </h2>
+          <p className="dashboard-meta dashboard-meta--hint">
+            Jednotlivé riadky z účtovného denníka · filtre podľa dodávateľa a
+            zaradenia · zobrazených {filteredExpenseLines.length} z{" "}
+            {expenseLines.length}
+            {filteredExpenseLines.length > 0
+              ? ` · súčet ${formatMoney(filteredExpenseSum, currency)}`
+              : ""}
           </p>
-        )}
-
-        {data.unmappedExpenses.length > 0 ? (
-          <section className="dashboard-card" style={{ marginTop: "1.25rem" }}>
-            <h2 className="dashboard-card__title">
-              Nemapované náklady (na overenie s klientom)
-            </h2>
-            <div className="table-wrap">
-              <table className="data-table data-table--compact">
-                <thead>
+          <div className="table-wrap">
+            <table className="data-table data-table--compact data-table--filterable">
+              <thead>
+                <tr>
+                  <th>Dátum</th>
+                  <th>Dodávateľ</th>
+                  <th>Text</th>
+                  <th>Doklad</th>
+                  <th>Účet</th>
+                  <th>Zaradenie</th>
+                  <th>Suma</th>
+                </tr>
+                <tr className="data-table__filter-row">
+                  <td />
+                  <td>
+                    <select
+                      className="data-table__filter-input"
+                      value={expenseSupplierFilter}
+                      onChange={(e) => setExpenseSupplierFilter(e.target.value)}
+                      aria-label="Filter dodávateľ"
+                    >
+                      <option value="">Všetci</option>
+                      {expenseSupplierOptions.map((label) => (
+                        <option key={label} value={label}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      type="search"
+                      className="data-table__filter-input"
+                      placeholder="Hľadať v texte…"
+                      value={expenseTextFilter}
+                      onChange={(e) => setExpenseTextFilter(e.target.value)}
+                      aria-label="Filter text"
+                    />
+                  </td>
+                  <td colSpan={2} />
+                  <td>
+                    <select
+                      className="data-table__filter-input"
+                      value={expenseRoleFilter}
+                      onChange={(e) => setExpenseRoleFilter(e.target.value)}
+                      aria-label="Filter zaradenie"
+                    >
+                      <option value="">Všetky</option>
+                      <option value="fees">Fees</option>
+                      <option value="agency">Agentúra (PPC)</option>
+                      <option value="ads_skip">Ads (denník skip)</option>
+                      <option value="unmapped">Nemapované</option>
+                    </select>
+                  </td>
+                  <td />
+                </tr>
+              </thead>
+              <tbody>
+                {filteredExpenseLines.length === 0 ? (
                   <tr>
-                    <th>Dodávateľ</th>
-                    <th>Text</th>
-                    <th>Účet</th>
-                    <th>Suma</th>
+                    <td colSpan={7} className="msg">
+                      {expenseLines.length === 0
+                        ? "Žiadne riadky — skontroluj import denníka alebo migráciu expense lines."
+                        : "Žiadny riadok nevyhovuje filtrom."}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {data.unmappedExpenses.map((row, i) => (
-                    <tr key={`${row.label}-${i}`}>
-                      <td>{row.label}</td>
+                ) : (
+                  filteredExpenseLines.map((row) => (
+                    <tr key={row.line_hash}>
+                      <td>{formatIsoDateSk(row.entry_date)}</td>
+                      <td>{row.supplier}</td>
                       <td>{row.line_text}</td>
+                      <td>{row.doc_number || "—"}</td>
                       <td>{row.debit_account}</td>
+                      <td>{expenseRoleLabel(row.role)}</td>
                       <td>{formatMoney(row.amount_eur, currency)}</td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        ) : null}
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
     </div>
   );

@@ -35,16 +35,25 @@ export async function GET(request: Request) {
   }
 
   try {
-    const rpcRes = await supabasePostgrestRpc<Record<string, unknown>>(
-      supabaseUrl,
-      serviceKey,
-      "get_shopify_marketing_mer_dashboard",
-      {
-        p_range: range,
-        ...(month ? { p_month: month } : {}),
-        ...(year ? { p_year: year } : {}),
-      }
-    );
+    const rpcArgs = {
+      p_range: range,
+      ...(month ? { p_month: month } : {}),
+      ...(year ? { p_year: year } : {}),
+    };
+    const [rpcRes, linesRes] = await Promise.all([
+      supabasePostgrestRpc<Record<string, unknown>>(
+        supabaseUrl,
+        serviceKey,
+        "get_shopify_marketing_mer_dashboard",
+        rpcArgs
+      ),
+      supabasePostgrestRpc<unknown[]>(
+        supabaseUrl,
+        serviceKey,
+        "get_marketing_mer_expense_lines",
+        rpcArgs
+      ),
+    ]);
     if (rpcRes.error) {
       return NextResponse.json(
         { error: formatRpcError(rpcRes.error, "marketing-mer") },
@@ -57,7 +66,13 @@ export async function GET(request: Request) {
         { status: 500, headers: jsonNoStoreHeaders }
       );
     }
-    return NextResponse.json(rpcRes.data, { headers: jsonNoStoreHeaders });
+    const marketingExpenseLines = Array.isArray(linesRes.data)
+      ? linesRes.data
+      : [];
+    return NextResponse.json(
+      { ...rpcRes.data, marketingExpenseLines },
+      { headers: jsonNoStoreHeaders }
+    );
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json(
