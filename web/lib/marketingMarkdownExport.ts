@@ -300,6 +300,8 @@ export type MerMarkdownInput = {
     meta_spend?: number;
     google_spend?: number;
     total_media_spend?: number;
+    meta_agency_fee?: number;
+    google_agency_fee?: number;
     agency_fees?: number;
     other_fees?: number;
     ads_spend: number;
@@ -318,6 +320,8 @@ export type MerMarkdownInput = {
     meta_spend?: number;
     google_spend?: number;
     total_media_spend?: number;
+    meta_agency_fee?: number;
+    google_agency_fee?: number;
     agency_fees?: number;
     other_fees?: number;
     ads_spend: number;
@@ -390,7 +394,15 @@ export function buildMarketingMerMarkdown(input: MerMarkdownInput): string {
           formatMoney(input.kpis.total_media_spend ?? input.kpis.ads_spend, input.currency),
         ],
         [
-          "Agency fees",
+          "Meta agency fee",
+          formatMoney(input.kpis.meta_agency_fee ?? 0, input.currency),
+        ],
+        [
+          "Google agency fee",
+          formatMoney(input.kpis.google_agency_fee ?? 0, input.currency),
+        ],
+        [
+          "Agency fees (spolu)",
           formatMoney(input.kpis.agency_fees ?? input.kpis.agency_fees_spend ?? 0, input.currency),
         ],
         ["Other fees", formatMoney(input.kpis.other_fees ?? 0, input.currency)],
@@ -419,7 +431,8 @@ export function buildMarketingMerMarkdown(input: MerMarkdownInput): string {
           "Meta",
           "Google",
           "Total media",
-          "Agency",
+          "Meta agency",
+          "Google agency",
           "Other",
           "Total MKT",
           "Blended PNO",
@@ -431,7 +444,8 @@ export function buildMarketingMerMarkdown(input: MerMarkdownInput): string {
           formatMoney(r.meta_spend ?? 0, input.currency),
           formatMoney(r.google_spend ?? 0, input.currency),
           formatMoney(r.total_media_spend ?? r.ads_spend, input.currency),
-          formatMoney(r.agency_fees ?? r.agency_fees_spend ?? 0, input.currency),
+          formatMoney(r.meta_agency_fee ?? 0, input.currency),
+          formatMoney(r.google_agency_fee ?? 0, input.currency),
           formatMoney(r.other_fees ?? 0, input.currency),
           formatMoney(r.total_mkt_spend, input.currency),
           r.blended_pno_pct == null
@@ -452,11 +466,15 @@ export function buildMarketingMerMarkdown(input: MerMarkdownInput): string {
         ["Dodávateľ", "Zaradenie", "Suma", "Riadky", "Od", "Do"],
         (input.marketingSuppliers ?? []).map((r) => [
           r.label,
-          r.role === "agency"
-            ? "Agentúra (PPC)"
-            : r.role === "ads_skip"
-              ? "Ads (denník skip)"
-              : "Fees",
+          r.role === "meta_agency"
+            ? "Agentúra Meta"
+            : r.role === "google_agency"
+              ? "Agentúra Google"
+              : r.role === "agency"
+                ? "Agentúra (PPC)"
+                : r.role === "ads_skip"
+                  ? "Ads (denník skip)"
+                  : "Fees",
           formatMoney(r.amount_eur, input.currency),
           r.line_count,
           r.first_date,

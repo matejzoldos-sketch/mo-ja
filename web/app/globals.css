@@ -597,6 +597,74 @@ a:hover {
   font-size: clamp(1.05rem, 1.35vw, 1.35rem);
 }
 
+.kpi-grid--marketing-mer .kpi-card--mer-target {
+  min-height: 108px;
+}
+
+.kpi-card__label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.mer-mtd-badge {
+  display: inline-block;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-muted, #5c6573);
+  background: rgba(245, 197, 24, 0.22);
+  border: 1px solid rgba(245, 197, 24, 0.45);
+  border-radius: 4px;
+  padding: 1px 5px;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.mer-mtd-badge--inline {
+  margin-left: 0.35rem;
+  vertical-align: middle;
+}
+
+.mer-target-meta {
+  margin-top: 0.35rem;
+}
+
+.mer-target-meta__line {
+  display: block;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  color: var(--text-muted, #5c6573);
+  font-weight: 500;
+}
+
+.mer-target-meta__pct {
+  font-weight: 700;
+  color: var(--text-dark, #1a1f28);
+}
+
+.mer-target-bar {
+  margin-top: 0.3rem;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(26, 31, 40, 0.08);
+  overflow: hidden;
+}
+
+.mer-target-bar__fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.2s ease;
+}
+
+.marketing-scorecard-window__segmented {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 520px;
+}
+
 .kpi-card {
   background: var(--surface);
   border-radius: var(--radius-md);
