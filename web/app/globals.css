@@ -579,26 +579,69 @@ a:hover {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
-.kpi-grid--marketing-mer {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+.mer-scorecards {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
-.kpi-grid--marketing-mer .kpi-card {
+.mer-scorecards__heading {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  letter-spacing: -0.01em;
+}
+
+.mer-scorecards__split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.mer-scorecards__column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.mer-scorecards__column-title {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.kpi-grid--mer-primary {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.kpi-grid--mer-column {
+  grid-template-columns: 1fr;
+  flex: 1;
+}
+
+.mer-scorecards .kpi-card,
+.mer-scorecards .kpi-card--mer-target {
   min-height: 88px;
   padding: 14px 16px;
 }
 
-.kpi-grid--marketing-mer .kpi-card__label {
+.mer-scorecards .kpi-card--mer-target {
+  min-height: 108px;
+}
+
+.mer-scorecards .kpi-card__label {
   font-size: 0.75rem;
   line-height: 1.3;
 }
 
-.kpi-grid--marketing-mer .kpi-card__value {
+.mer-scorecards .kpi-card__value {
   font-size: clamp(1.05rem, 1.35vw, 1.35rem);
-}
-
-.kpi-grid--marketing-mer .kpi-card--mer-target {
-  min-height: 108px;
 }
 
 .kpi-card__label-row {
@@ -803,8 +846,8 @@ a:hover {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .kpi-grid--marketing-mer {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .kpi-grid--mer-primary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -815,9 +858,12 @@ a:hover {
     grid-template-columns: 1fr;
   }
 
-  .kpi-grid--secondary,
-  .kpi-grid--marketing-mer {
+  .kpi-grid--secondary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mer-scorecards__split {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -826,7 +872,7 @@ a:hover {
   .kpi-grid--hero-2,
   .kpi-grid--account,
   .kpi-grid--secondary,
-  .kpi-grid--marketing-mer {
+  .kpi-grid--mer-primary {
     grid-template-columns: 1fr;
   }
 }
