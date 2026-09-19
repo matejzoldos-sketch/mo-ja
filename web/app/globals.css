@@ -699,14 +699,17 @@ a:hover {
   font-weight: 500;
 }
 
-.marketing-scorecard-window {
-  justify-content: flex-start;
+.marketing-mer__toolbar {
+  padding-left: 0;
+  padding-right: 0;
+  padding-bottom: 0;
+  margin-bottom: 1rem;
 }
 
-.marketing-scorecard-window__segmented {
-  grid-template-columns: repeat(2, auto);
+.marketing-mer__scorecard-switch {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   width: auto;
-  max-width: none;
+  max-width: min(100%, 420px);
 }
 
 .kpi-card {

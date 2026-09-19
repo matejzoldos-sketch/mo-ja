@@ -628,63 +628,61 @@ export default function MarketingMerPanel() {
     setExpenseTextFilter("");
   };
 
-  if (loading) {
-    return <p className="msg">Načítavam MER…</p>;
-  }
-  if (err) {
-    return <p className="msg msg--error">{err}</p>;
-  }
-  if (!data || !kpis) {
-    return <p className="msg">Žiadne dáta.</p>;
-  }
+  const exportsReady = Boolean(data && kpis && !loading && !err);
 
   return (
     <div className="marketing-mer">
-      <div
-        className="site-toolbar__actions"
-        style={{ marginBottom: "0.75rem" }}
-      >
-        <button
-          type="button"
-          className="dashboard-export-btn"
-          onClick={downloadMd}
+      <div className="site-toolbar marketing-mer__toolbar">
+        <div
+          className="site-toolbar__filters"
+          role="group"
+          aria-label="Obdobie scorecards"
         >
-          Stiahnuť MD
-        </button>
-        <button
-          type="button"
-          className="dashboard-export-btn dashboard-export-btn--accent"
-          disabled={pdfExporting}
-          aria-busy={pdfExporting}
-          onClick={() => void downloadPdf()}
-        >
-          {pdfExporting ? "Generujem PDF…" : "Stiahnuť PDF"}
-        </button>
-      </div>
-
-      <div
-        className="scaling-window marketing-scorecard-window"
-        role="group"
-        aria-label="Obdobie scorecards"
-        style={{ marginBottom: "1rem" }}
-      >
-        <div className="scaling-window__segmented marketing-scorecard-window__segmented">
-          {SCORECARD_MODE_OPTIONS.map((opt) => (
-            <button
-              key={opt.key}
-              type="button"
-              className={`scaling-window__btn${
-                scorecardMode === opt.key ? " is-active" : ""
-              }`}
-              aria-pressed={scorecardMode === opt.key}
-              onClick={() => setScorecardMode(opt.key)}
-            >
-              {opt.label}
-            </button>
-          ))}
+          <div className="scaling-window__segmented marketing-mer__scorecard-switch">
+            {SCORECARD_MODE_OPTIONS.map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                className={`scaling-window__btn${
+                  scorecardMode === opt.key ? " is-active" : ""
+                }`}
+                aria-pressed={scorecardMode === opt.key}
+                onClick={() => setScorecardMode(opt.key)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
+        {exportsReady ? (
+          <div className="site-toolbar__actions">
+            <button
+              type="button"
+              className="dashboard-export-btn"
+              onClick={downloadMd}
+            >
+              Stiahnuť MD
+            </button>
+            <button
+              type="button"
+              className="dashboard-export-btn dashboard-export-btn--accent"
+              disabled={pdfExporting}
+              aria-busy={pdfExporting}
+              onClick={() => void downloadPdf()}
+            >
+              {pdfExporting ? "Generujem PDF…" : "Stiahnuť PDF"}
+            </button>
+          </div>
+        ) : null}
       </div>
 
+      {loading ? <p className="msg">Načítavam MER…</p> : null}
+      {err ? <p className="msg msg--error">{err}</p> : null}
+      {!loading && !err && (!data || !kpis) ? (
+        <p className="msg">Žiadne dáta.</p>
+      ) : null}
+
+      {exportsReady && kpis && data ? (
       <div className="dashboard-pdf-root" ref={pdfExportRef}>
         <h1 className="dashboard-card__title" style={{ marginBottom: "0.5rem" }}>
           MER — CEO marketing dashboard
@@ -1150,6 +1148,7 @@ export default function MarketingMerPanel() {
           </div>
         </section>
       </div>
+      ) : null}
     </div>
   );
 }
