@@ -97,7 +97,13 @@ export async function GET(request: Request) {
     const scorecardPayload = scorecardRes.data ?? {};
     const scorecardKpis =
       (scorecardPayload.kpis as Record<string, unknown> | undefined) ?? null;
-    const targets = getMerTargetsForMonth(scorecardMonth);
+    const scorecardKpisForTargets = scorecardPayload.kpis as
+      | { revenue?: number }
+      | undefined;
+    const targets = getMerTargetsForMonth(
+      scorecardMonth,
+      scorecardKpisForTargets?.revenue
+    );
     const bratislavaYm = resolveScorecardMonth("mtd");
     return NextResponse.json(
       {

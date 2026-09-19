@@ -1,4 +1,27 @@
-/** CEO MER scorecard targets — uprav podľa mesačného plánu. */
+/** CEO MER scorecard targets — break-even revenue + % limity z tržieb. */
+
+export const MER_MKT_MAX_REVENUE_PCT = 18;
+export const MER_PNO_MAX_PCT = 18;
+export const MER_GOAL_MIN = 5.5;
+export const MER_AGENCY_PCT_OF_MEDIA_MAX = 20;
+
+/** Break-even / cieľ Revenue (ziskové P&L). */
+export const MER_REVENUE_GOAL = 19_300;
+export const MER_REVENUE_PNL_WARNING_MIN = 16_000;
+export const MER_REVENUE_BREAK_EVEN_NOTE =
+  "Break-even hranica pre ziskový P&L je 19 300 €";
+
+export type MerRevenuePnlZone = "profit" | "below_be" | "loss";
+
+export function classifyRevenuePnl(
+  revenue: number | null | undefined
+): MerRevenuePnlZone | null {
+  if (revenue == null || !Number.isFinite(revenue)) return null;
+  if (revenue >= MER_REVENUE_GOAL) return "profit";
+  if (revenue >= MER_REVENUE_PNL_WARNING_MIN) return "below_be";
+  return "loss";
+}
+
 export type MerScorecardTargets = {
   revenue: number;
   total_mkt_spend: number;
@@ -7,88 +30,41 @@ export type MerScorecardTargets = {
   blended_pno_pct: number;
   media_roas: number;
   mer: number;
+  agency_pct_of_media_max: number;
 };
 
-export const MER_SCORECARD_DEFAULT_TARGETS: MerScorecardTargets = {
-  revenue: 14_000,
-  total_mkt_spend: 4_500,
+export const MER_SCORECARD_DEFAULT_TARGETS: Omit<
+  MerScorecardTargets,
+  "total_mkt_spend"
+> & { total_mkt_spend?: number } = {
+  revenue: MER_REVENUE_GOAL,
   total_media_spend: 3_000,
   agency_fees: 1_500,
-  blended_pno_pct: 20,
+  blended_pno_pct: MER_PNO_MAX_PCT,
   media_roas: 3.0,
-  mer: 3.5,
+  mer: MER_GOAL_MIN,
+  agency_pct_of_media_max: MER_AGENCY_PCT_OF_MEDIA_MAX,
 };
 
-/** Mesačné ciele (EUR / % / ×). Chýbajúce polia doplní default. */
-export const MER_MONTHLY_TARGETS: Record<string, Partial<MerScorecardTargets>> = {
-  "2026-01": {
-    revenue: 9_000,
-    total_mkt_spend: 3_200,
-    total_media_spend: 2_200,
-    agency_fees: 1_200,
-    blended_pno_pct: 20,
-    media_roas: 2.5,
-    mer: 3.5,
-  },
-  "2026-02": {
-    revenue: 10_500,
-    total_mkt_spend: 3_800,
-    total_media_spend: 2_600,
-    blended_pno_pct: 20,
-    mer: 3.5,
-  },
-  "2026-03": {
-    revenue: 11_500,
-    total_mkt_spend: 4_000,
-    total_media_spend: 2_800,
-    blended_pno_pct: 20,
-    mer: 3.5,
-  },
-  "2026-04": {
-    revenue: 12_000,
-    total_mkt_spend: 4_200,
-    total_media_spend: 2_900,
-    blended_pno_pct: 20,
-    mer: 3.5,
-  },
-  "2026-05": {
-    revenue: 12_500,
-    total_mkt_spend: 4_300,
-    total_media_spend: 3_000,
-    blended_pno_pct: 20,
-    mer: 3.5,
-  },
-  "2026-06": {
-    revenue: 13_000,
-    total_mkt_spend: 4_400,
-    total_media_spend: 3_100,
-    blended_pno_pct: 20,
-    mer: 3.5,
-  },
-  "2026-07": {
-    revenue: 14_000,
-    total_mkt_spend: 4_500,
-    total_media_spend: 3_200,
-    blended_pno_pct: 20,
-    mer: 3.5,
-  },
-  "2026-08": {
-    revenue: 14_500,
-    total_mkt_spend: 4_600,
-    total_media_spend: 3_300,
-    blended_pno_pct: 20,
-    mer: 3.5,
-  },
-  "2026-09": {
-    revenue: 15_000,
-    total_mkt_spend: 4_700,
-    total_media_spend: 3_400,
-    blended_pno_pct: 20,
-    mer: 3.5,
-  },
-};
+export function getMerTargetsForMonth(
+  _ym: string,
+  revenueActual?: number | null
+): MerScorecardTargets {
+  const revenueForMkt =
+    revenueActual != null && revenueActual > 0
+      ? revenueActual
+      : MER_REVENUE_GOAL;
 
-export function getMerTargetsForMonth(ym: string): MerScorecardTargets {
-  const override = MER_MONTHLY_TARGETS[ym] ?? {};
-  return { ...MER_SCORECARD_DEFAULT_TARGETS, ...override };
+  return {
+    revenue: MER_REVENUE_GOAL,
+    total_mkt_spend: Math.round(
+      (revenueForMkt * MER_MKT_MAX_REVENUE_PCT) / 100
+    ),
+    total_media_spend: MER_SCORECARD_DEFAULT_TARGETS.total_media_spend,
+    agency_fees: MER_SCORECARD_DEFAULT_TARGETS.agency_fees,
+    blended_pno_pct: MER_PNO_MAX_PCT,
+    media_roas: MER_SCORECARD_DEFAULT_TARGETS.media_roas,
+    mer: MER_GOAL_MIN,
+    agency_pct_of_media_max: MER_AGENCY_PCT_OF_MEDIA_MAX,
+  };
 }

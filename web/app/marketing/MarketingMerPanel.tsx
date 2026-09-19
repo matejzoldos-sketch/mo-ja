@@ -11,7 +11,12 @@ import {
 import { previousPeriodLabel } from "@/lib/dashboardPeriodCompare";
 import { KpiPeriodCompare } from "../components/KpiPeriodCompare";
 import { MerKpiTargetCard } from "../components/MerKpiTargetCard";
-import type { MerScorecardTargets } from "@/lib/marketingMerTargets";
+import {
+  getMerTargetsForMonth,
+  MER_MKT_MAX_REVENUE_PCT,
+  MER_PNO_MAX_PCT,
+  type MerScorecardTargets,
+} from "@/lib/marketingMerTargets";
 import type { MerScorecardMode } from "@/lib/marketingMerScorecard";
 import {
   buildMarketingMerMarkdown,
@@ -200,13 +205,6 @@ function formatPctOfMedia(n: number | null | undefined): string {
   return `${n.toFixed(1)} %`;
 }
 
-function feePctBenchColor(pct: number | null): string | undefined {
-  if (pct == null) return undefined;
-  if (pct >= 10 && pct <= 20) return "var(--clr-green, #16a34a)";
-  if (pct > 20 && pct <= 30) return "var(--clr-amber, #ca8a04)";
-  return "var(--clr-red, #dc2626)";
-}
-
 function expenseRoleLabel(role: string): string {
   if (role === "meta_agency") return "Agentúra Meta";
   if (role === "google_agency") return "Agentúra Google";
@@ -270,7 +268,13 @@ export default function MarketingMerPanel() {
   const currency = data?.scorecard?.kpis?.currency ?? data?.kpis.currency ?? "EUR";
   const kpis = data?.scorecard?.kpis ?? data?.kpisMom ?? data?.kpis ?? null;
   const prev = data?.scorecard?.kpisPrevious ?? data?.kpisPrevious ?? null;
-  const scorecardTargets = data?.scorecard?.targets ?? null;
+  const scorecardTargets = useMemo((): MerScorecardTargets | null => {
+    const month = data?.scorecard?.month;
+    if (!month) return null;
+    if (data?.scorecard?.targets) return data.scorecard.targets;
+    if (kpis) return getMerTargetsForMonth(month, kpis.revenue);
+    return null;
+  }, [data?.scorecard, kpis]);
   const scorecardIsMtd = data?.scorecard?.isMtd ?? false;
   const scorecardMonthLabel = useMemo(() => {
     const ym = data?.scorecard?.month;
@@ -718,7 +722,7 @@ export default function MarketingMerPanel() {
             <div className="kpi-grid kpi-grid--mer-primary">
               <MerKpiTargetCard
                 label="Revenue"
-                display="goal"
+                display="revenue"
                 value={kpis.revenue}
                 target={scorecardTargets?.revenue ?? null}
                 formatValue={moneyFmt}
@@ -736,6 +740,15 @@ export default function MarketingMerPanel() {
                 target={scorecardTargets?.total_mkt_spend ?? null}
                 formatValue={moneyFmt}
                 formatTarget={moneyFmt}
+                limitCaption={`max ${MER_MKT_MAX_REVENUE_PCT} %`}
+                limitDetail={
+                  scorecardTargets?.total_mkt_spend != null
+                    ? `≤ ${MER_MKT_MAX_REVENUE_PCT} % tržieb · limit ${formatMoney(
+                        scorecardTargets.total_mkt_spend,
+                        currency
+                      )}`
+                    : null
+                }
                 current={kpis.total_mkt_spend}
                 previous={prev?.total_mkt_spend}
                 compareFormatValue={moneyFmt}
@@ -750,6 +763,7 @@ export default function MarketingMerPanel() {
                 target={scorecardTargets?.blended_pno_pct ?? null}
                 formatValue={pctFmt}
                 formatTarget={pctFmt}
+                limitCaption={`max ${MER_PNO_MAX_PCT.toFixed(1)} %`}
                 current={blendedPno ?? undefined}
                 previous={prevBlendedPno ?? undefined}
                 compareFormatValue={pctFmt}
@@ -908,68 +922,36 @@ export default function MarketingMerPanel() {
                       periodLabel={compareLabel}
                     />
                   </div>
-                  <div className="kpi-card kpi-card--mer-sub">
-                    <div className="kpi-card__label-row">
-                      <span className="kpi-card__label">
-                        Agency % · Meta spend
-                      </span>
-                      {scorecardIsMtd ? (
-                        <span className="mer-mtd-badge">MTD</span>
-                      ) : null}
-                    </div>
-                    <strong
-                      className="kpi-card__value"
-                      style={{ color: feePctBenchColor(feePctMeta) }}
-                    >
-                      {formatPctOfMedia(feePctMeta)}
-                    </strong>
-                    <span
-                      className="kpi-card__hint"
-                      style={{
-                        display: "block",
-                        marginTop: "0.15rem",
-                        fontSize: "0.8rem",
-                        fontWeight: 500,
-                        color: feePctBenchColor(feePctMeta) ?? "inherit",
-                        opacity: 0.9,
-                      }}
-                    >
-                      meta agency / meta spend · bench. 10–20 %
-                    </span>
-                    <KpiPeriodCompare
-                      current={feePctMeta}
-                      previous={feePctMetaPrev}
-                      formatValue={pctFmt}
-                      higherIsBetter={false}
-                      periodLabel={compareLabel}
-                    />
-                  </div>
-                  <div className="kpi-card kpi-card--mer-sub">
-                    <div className="kpi-card__label-row">
-                      <span className="kpi-card__label">
-                        Agency % · Google spend
-                      </span>
-                      {scorecardIsMtd ? (
-                        <span className="mer-mtd-badge">MTD</span>
-                      ) : null}
-                    </div>
-                    <strong
-                      className="kpi-card__value"
-                      style={{ color: feePctBenchColor(feePctGoogle) }}
-                    >
-                      {formatPctOfMedia(feePctGoogle)}
-                    </strong>
-                    <span className="kpi-card__hint">
-                      google agency / google spend
-                    </span>
-                    <KpiPeriodCompare
-                      current={feePctGoogle}
-                      previous={feePctGooglePrev}
-                      formatValue={pctFmt}
-                      higherIsBetter={false}
-                      periodLabel={compareLabel}
-                    />
-                  </div>
+                  <MerKpiTargetCard
+                    label="Agency % · Meta spend"
+                    display="limit"
+                    value={feePctMeta}
+                    target={scorecardTargets?.agency_pct_of_media_max ?? null}
+                    formatValue={pctFmt}
+                    formatTarget={pctFmt}
+                    limitCaption="max 20 %"
+                    current={feePctMeta ?? undefined}
+                    previous={feePctMetaPrev ?? undefined}
+                    compareFormatValue={pctFmt}
+                    higherIsBetterCompare={false}
+                    periodLabel={compareLabel}
+                    showMtdBadge={scorecardIsMtd}
+                  />
+                  <MerKpiTargetCard
+                    label="Agency % · Google spend"
+                    display="limit"
+                    value={feePctGoogle}
+                    target={scorecardTargets?.agency_pct_of_media_max ?? null}
+                    formatValue={pctFmt}
+                    formatTarget={pctFmt}
+                    limitCaption="max 20 %"
+                    current={feePctGoogle ?? undefined}
+                    previous={feePctGooglePrev ?? undefined}
+                    compareFormatValue={pctFmt}
+                    higherIsBetterCompare={false}
+                    periodLabel={compareLabel}
+                    showMtdBadge={scorecardIsMtd}
+                  />
                 </div>
               </div>
             </div>

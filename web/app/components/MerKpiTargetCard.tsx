@@ -2,11 +2,28 @@
 
 import { KpiPeriodCompare } from "./KpiPeriodCompare";
 import {
+  classifyRevenuePnl,
+  MER_REVENUE_BREAK_EVEN_NOTE,
+  type MerRevenuePnlZone,
+} from "@/lib/marketingMerTargets";
+import {
   scorecardGoalFulfillment,
   scorecardWithinLimit,
   targetProgressWidth,
   type MerTargetTone,
 } from "@/lib/marketingMerScorecard";
+
+const REVENUE_PNL_LABELS: Record<MerRevenuePnlZone, string> = {
+  profit: "🟢 ZISKOVÉ P&L",
+  below_be: "🟠 POD BODOM ZVRATU",
+  loss: "🔴 STRATOVÉ P&L",
+};
+
+const REVENUE_PNL_BADGE_CLASS: Record<MerRevenuePnlZone, string> = {
+  profit: "mer-limit-badge--ok",
+  below_be: "mer-limit-badge--warn",
+  loss: "mer-limit-badge--over",
+};
 
 const TONE_COLORS: Record<MerTargetTone, string> = {
   green: "var(--clr-green, #16a34a)",
@@ -15,7 +32,7 @@ const TONE_COLORS: Record<MerTargetTone, string> = {
   neutral: "rgba(26, 31, 40, 0.25)",
 };
 
-export type MerKpiTargetDisplay = "goal" | "limit";
+export type MerKpiTargetDisplay = "goal" | "limit" | "revenue";
 
 type MerKpiTargetCardProps = {
   label: string;
@@ -31,6 +48,10 @@ type MerKpiTargetCardProps = {
   higherIsBetterCompare?: boolean;
   periodLabel?: string;
   showMtdBadge?: boolean;
+  /** Text v badge, napr. „max 18 %“. */
+  limitCaption?: string;
+  /** Doplňujúci riadok pod badge (napr. limit v €). */
+  limitDetail?: string | null;
 };
 
 export function MerKpiTargetCard({
@@ -46,9 +67,14 @@ export function MerKpiTargetCard({
   higherIsBetterCompare,
   periodLabel,
   showMtdBadge,
+  limitCaption,
+  limitDetail,
 }: MerKpiTargetCardProps) {
+  const showGoalProgress = display === "goal" || display === "revenue";
   const goalStatus =
-    display === "goal" ? scorecardGoalFulfillment(value, target) : null;
+    showGoalProgress ? scorecardGoalFulfillment(value, target) : null;
+  const revenuePnl =
+    display === "revenue" ? classifyRevenuePnl(value) : null;
   const barWidth =
     goalStatus != null ? targetProgressWidth(goalStatus) : 0;
   const withinLimit =
@@ -70,7 +96,7 @@ export function MerKpiTargetCard({
       <strong className="kpi-card__value">
         {value == null ? "—" : formatValue(value)}
       </strong>
-      {target != null && display === "goal" ? (
+      {target != null && showGoalProgress ? (
         <div className="mer-target-meta">
           <span className="mer-target-meta__line">
             Cieľ ≥ {formatTarget(target)}
@@ -99,6 +125,19 @@ export function MerKpiTargetCard({
           </div>
         </div>
       ) : null}
+      {display === "revenue" && revenuePnl != null ? (
+        <div className="mer-limit-meta">
+          <span
+            className={`mer-limit-badge ${REVENUE_PNL_BADGE_CLASS[revenuePnl]}`}
+            title={MER_REVENUE_BREAK_EVEN_NOTE}
+          >
+            {REVENUE_PNL_LABELS[revenuePnl]}
+          </span>
+          <span className="mer-limit-meta__text mer-revenue-footnote">
+            {MER_REVENUE_BREAK_EVEN_NOTE}
+          </span>
+        </div>
+      ) : null}
       {target != null && display === "limit" && value != null ? (
         <div className="mer-limit-meta">
           <span
@@ -107,16 +146,23 @@ export function MerKpiTargetCard({
             }`}
           >
             {withinLimit ? "🟢 V NORME" : "🔴 PREKROČENÉ"}
+            {limitCaption ? ` (${limitCaption})` : ""}
           </span>
-          <span className="mer-limit-meta__text">
-            (Max limit: {formatTarget(target)})
-          </span>
+          {limitDetail ? (
+            <span className="mer-limit-meta__text">{limitDetail}</span>
+          ) : !limitCaption ? (
+            <span className="mer-limit-meta__text">
+              (Max limit: {formatTarget(target)})
+            </span>
+          ) : null}
         </div>
       ) : null}
       {target != null && display === "limit" && value == null ? (
         <div className="mer-limit-meta">
           <span className="mer-limit-meta__text">
-            (Max limit: {formatTarget(target)})
+            {limitCaption
+              ? `(${limitCaption})`
+              : `(Max limit: ${formatTarget(target)})`}
           </span>
         </div>
       ) : null}
