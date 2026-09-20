@@ -17,7 +17,10 @@ import {
   MER_PNO_MAX_PCT,
   type MerScorecardTargets,
 } from "@/lib/marketingMerTargets";
-import type { MerScorecardMode } from "@/lib/marketingMerScorecard";
+import {
+  resolveScorecardMonth,
+  type MerScorecardMode,
+} from "@/lib/marketingMerScorecard";
 import {
   buildMarketingMerMarkdown,
   downloadMarketingMarkdown,
@@ -466,15 +469,24 @@ export default function MarketingMerPanel() {
     }
   }, [data]);
 
+  const monthlyChartRows = useMemo(() => {
+    if (!data?.monthly.length) return [];
+    if (scorecardMode !== "completed") return data.monthly;
+    const inProgressYm = resolveScorecardMonth("mtd");
+    return data.monthly.filter((r) => r.month !== inProgressYm);
+  }, [data?.monthly, scorecardMode]);
+
   const chartData = useMemo(() => {
-    if (!data?.monthly.length) return null;
+    if (!monthlyChartRows.length) return null;
     return {
-      labels: data.monthly.map((r) => formatMonthLabelSk(`${r.month}-01`)),
+      labels: monthlyChartRows.map((r) =>
+        formatMonthLabelSk(`${r.month}-01`)
+      ),
       datasets: [
         {
           type: "bar" as const,
           label: "Media Spend",
-          data: data.monthly.map((r) => merMediaSpend(r)),
+          data: monthlyChartRows.map((r) => merMediaSpend(r)),
           backgroundColor: "rgba(91, 141, 239, 0.92)",
           stack: "mkt",
           yAxisID: "y",
@@ -483,7 +495,7 @@ export default function MarketingMerPanel() {
         {
           type: "bar" as const,
           label: "Agency Fees",
-          data: data.monthly.map((r) => merAgencyFees(r)),
+          data: monthlyChartRows.map((r) => merAgencyFees(r)),
           backgroundColor: "rgba(155, 89, 182, 0.88)",
           stack: "mkt",
           yAxisID: "y",
@@ -492,7 +504,7 @@ export default function MarketingMerPanel() {
         {
           type: "bar" as const,
           label: "Other MKT Fees",
-          data: data.monthly.map((r) => merOtherMktFees(r)),
+          data: monthlyChartRows.map((r) => merOtherMktFees(r)),
           backgroundColor: "rgba(148, 138, 128, 0.88)",
           stack: "mkt",
           yAxisID: "y",
@@ -501,7 +513,7 @@ export default function MarketingMerPanel() {
         {
           type: "line" as const,
           label: "Revenue",
-          data: data.monthly.map((r) => r.revenue),
+          data: monthlyChartRows.map((r) => r.revenue),
           borderColor: "rgba(245, 197, 24, 1)",
           backgroundColor: "rgba(245, 197, 24, 0.15)",
           borderWidth: 3,
@@ -516,7 +528,7 @@ export default function MarketingMerPanel() {
         {
           type: "line" as const,
           label: "MER",
-          data: data.monthly.map((r) => r.mer),
+          data: monthlyChartRows.map((r) => r.mer),
           borderColor: "rgba(26, 31, 40, 0.85)",
           backgroundColor: "transparent",
           borderWidth: 2,
@@ -531,7 +543,7 @@ export default function MarketingMerPanel() {
         {
           type: "line" as const,
           label: "PER / Media MER",
-          data: data.monthly.map((r) => merPer(r)),
+          data: monthlyChartRows.map((r) => merPer(r)),
           borderColor: "rgba(22, 163, 74, 1)",
           backgroundColor: "transparent",
           borderWidth: 2,
@@ -546,7 +558,7 @@ export default function MarketingMerPanel() {
         },
       ],
     };
-  }, [data]);
+  }, [monthlyChartRows]);
 
   const chartOptions = useMemo<ChartOptions<"bar">>(
     () => ({
@@ -574,8 +586,8 @@ export default function MarketingMerPanel() {
             },
             afterBody: (items) => {
               const idx = items[0]?.dataIndex;
-              if (idx == null || !data?.monthly[idx]) return [];
-              const row = data.monthly[idx];
+              if (idx == null || !monthlyChartRows[idx]) return [];
+              const row = monthlyChartRows[idx];
               const hasMktBar = items.some(
                 (it) => it.dataset.stack === "mkt"
               );
@@ -608,7 +620,7 @@ export default function MarketingMerPanel() {
         },
       },
     }),
-    [data]
+    [monthlyChartRows]
   );
 
   const expenseLines = data?.marketingExpenseLines ?? [];
