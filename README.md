@@ -1,15 +1,15 @@
 # mo-ja — Shopify → Supabase → dashboard
 
-Analytický stack pre e-shop **MO–JA**: sync objednávok a skladu zo Shopify, cashflow z Tatra banky a Next.js dashboard (Predaj, Zdravie, Sklad, Cash flow, Marketing / MER, Spend, P&L) na Vercel.
+Analytický stack pre e-shop **MO–JA**: sync objednávok a skladu zo Shopify, cashflow z Tatra banky a Next.js dashboard (Predaj, Zdravie, Sklad, Cash flow, Marketing / MER, Meta Performance, P&L) na Vercel.
 
 Repo: [github.com/matejzoldos-sketch/mo-ja](https://github.com/matejzoldos-sketch/mo-ja)
 
 ## Požiadavky
 
 - Python **3.12** (CI aj lokálne odporúčané)
-- Shopify **Admin API** so scopes: `read_inventory`, `read_locations`, **`read_products`** (bez neho Sklad nevie spájať predaj so skladom) a **`read_all_orders`** (pre YTD; bez neho ~posledných 60 dní). Alternatíva `read_orders` = kratšia história. Pre sessiony (Spend): **`read_reports`** (ShopifyQL `sessions`).
+- Shopify **Admin API** so scopes: `read_inventory`, `read_locations`, **`read_products`** (bez neho Sklad nevie spájať predaj so skladom) a **`read_all_orders`** (pre YTD; bez neho ~posledných 60 dní). Alternatíva `read_orders` = kratšia história. Pre sessiony (Meta Performance): **`read_reports`** (ShopifyQL `sessions`).
 - KPI „vracajúci sa“ nepotrebuje `read_customers` — sync berie `email` z objednávky (`customer_email`). Voliteľne `read_customers` + GraphQL `customer { id }` → `customer_id`.
-- Supabase projekt `kqsmsegcqdhuhiofxyuu` — pred sync/webom `supabase db push` (migrácie `001`–`095` plus timestampované scaling / marketing MER / P&L vrátane `pnl_cogs_rate_42_goods` / `moja_revoke_anon` / MER agency `honzabartos` Tatra fallback / `pnl_accounting_journal_cogs_only` / `pnl_accounting_full_journal_accounts`).
+- Supabase projekt `kqsmsegcqdhuhiofxyuu` — pred sync/webom `supabase db push` (migrácie `001`–`095` plus timestampované scaling / marketing MER / P&L vrátane `pnl_cogs_rate_42_goods` / `moja_revoke_anon` / MER agency `honzabartos` Tatra fallback / `pnl_accounting_journal_cogs_only` / `pnl_accounting_full_journal_accounts` / Predaj net sales after discounts / MER Google Ads v Ads stĺpci / CEO Meta–Google split / agentúra alikvot).
 
 ### Shopify auth (od 1. 1. 2026)
 
@@ -56,16 +56,16 @@ npm install && npm run dev
 
 | Route | Modul |
 |-------|--------|
-| `/` | Predaj — KPI, grafy, objednávky (`get_shopify_dashboard_mvp`) |
+| `/` | Predaj — KPI, grafy, objednávky (`get_shopify_dashboard_mvp`; tržby = net product revenue po zľavách) |
 | `/zdravie` | Finančné zdravie — hybrid P&L + cash runway (executive); export MD/PDF |
 | `/sklad` | Inventár: Shopify + potvrdený fyzický stav (EuShipments, Lazaretská), Pending Orin, odporúčaný runway; história z XLS Sklad_sumár |
 | `/cashflow` | Tatra banka + runway forecast |
-| `/marketing` | MER (revenue, ads, fees, mROAS) |
-| `/scaling` | Spend — executive rozhodnutie Meta spend (`get_executive_scaling_dashboard`) |
+| `/marketing` | MER — CEO scorecards (Meta/Google media, agentúra, PER / Media MER), filterovateľné riadky denníka |
+| `/scaling` | Meta Performance — executive rozhodnutie Meta spend (`get_executive_scaling_dashboard`) |
 | `/pnl` | P&L — štyri pohľady (predvolený **Účtovníctvo**); export MD všetkých pohľadov |
 | `/login` | Heslo (`DASHBOARD_PASSWORD`) |
 
-`/insighty` je WIP: `page.tsx` robí `redirect("/")`, položka je v `HeaderNav` skrytá. Engine (`web/lib/insights/`, `GET /api/insights`) je v kóde — návrh a stav v `docs/insights-dashboard-design.md`.
+`/insighty` je WIP: `page.tsx` robí `redirect("/")`, položka je v `HeaderNav` skrytá. Engine (`web/lib/insights/`, `GET /api/insights`) je v kóde — návrh a stav v `docs/insights-dashboard-design.md`. UTM tab na `/marketing` (`MarketingUtmClient.tsx`) je v kóde, zatiaľ skrytý.
 
 - Mock bez DB: pridaj `?mock=1` k volaniu API (Predaj, analytics, marketing, insights).
 - Idle logout: default 30 min (`NEXT_PUBLIC_DASHBOARD_IDLE_MINUTES`).
@@ -133,7 +133,12 @@ python etl/import_meta_ads_csv.py   # default: docs/MOJA-Kampane-20.-6.-2023-20.
 python etl/import_accounting_journal_csv.py   # default: docs/Moja - Denník.csv
 ```
 
-Migrácie od `072` (Meta Ads) a `076` (účtovný denník). Dashboard: `/marketing`. Agentúrny fee (`honzabartos.cz`) ide z denníka; ak v mesiaci chýba, MER použije Tatra debet ako odhad.
+Migrácie od `072` (Meta Ads) a `076` (účtovný denník). Dashboard: `/marketing`.
+
+- **Ads / media:** Meta spend z CSV (`meta_ads_campaign_daily`); Google Ads spend z denníka (bucket `google_ads`). Meta FP v denníku ostáva `ads_skip` (bez double-count).
+- **Agentúra:** Google agency len z denníka. Meta agency: denník → ak v mesiaci chýba celá agency z denníka, Tatra debet `honzabartos` → dočasný fix 1014,71 €/mes od 2026-09-01 (kým nepríde faktúra). Prebiehajúci mesiac sa alikvotuje podľa uplynutých dní.
+- **Scorecards:** predvolene ukončený mesiac (voliteľne MTD); MER = Revenue / Total MKT, PER / Media MER = Revenue / Media; break-even tržby 19 300 € (`web/lib/marketingMerTargets.ts`).
+- UTM atribúcia (`MarketingUtmClient.tsx`) nie je v živom `/marketing`.
 
 ## P&L
 
