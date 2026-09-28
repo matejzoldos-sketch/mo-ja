@@ -56,7 +56,7 @@ npm install && npm run dev
 
 | Route | Modul |
 |-------|--------|
-| `/` | Predaj — KPI, grafy, objednávky (`get_shopify_dashboard_mvp`; tržby = net product revenue po zľavách) |
+| `/` | Predaj — KPI, grafy, objednávky (`get_shopify_dashboard_summary` + `get_shopify_dashboard_kpis`; heatmapa `get_shopify_order_time_heatmap`; analytika `get_shopify_dashboard_mvp` cez `/api/dashboard/analytics`; tržby = net product revenue po zľavách) |
 | `/zdravie` | Finančné zdravie — hybrid P&L + cash runway (executive); export MD/PDF |
 | `/sklad` | Inventár: Shopify + potvrdený fyzický stav (EuShipments, Lazaretská), Pending Orin, odporúčaný runway; história z XLS Sklad_sumár |
 | `/cashflow` | Tatra banka + runway forecast |
@@ -67,7 +67,8 @@ npm install && npm run dev
 
 `/insighty` je WIP: `page.tsx` robí `redirect("/")`, položka je v `HeaderNav` skrytá. Engine (`web/lib/insights/`, `GET /api/insights`) je v kóde — návrh a stav v `docs/insights-dashboard-design.md`. UTM tab na `/marketing` (`MarketingUtmClient.tsx`) je v kóde, zatiaľ skrytý.
 
-- Mock bez DB: pridaj `?mock=1` k volaniu API (Predaj, analytics, marketing, insights).
+- Mock bez DB: pridaj `?mock=1` k volaniu API (`/api/dashboard`, `/api/dashboard/analytics`, `/api/dashboard/sku-ytd`, `/api/marketing`, `/api/insights`).
+- Prihlásenie: cookie `dashboard_session` (30 dní) alebo `Authorization: Bearer` s rovnakým secretom (`DASHBOARD_PASSWORD` / `DASHBOARD_TOKEN`). `/api/auth/login` rate-limituje zlyhania (8 / 15 min / IP → 429).
 - Idle logout: default 30 min (`NEXT_PUBLIC_DASHBOARD_IDLE_MINUTES`).
 - Vercel: Root Directory = `web`, rovnaké env ako `web/.env.example`.
 
@@ -129,15 +130,15 @@ OAuth refresh token: `docs/tatra-oauth-callback/` + `scripts/tatra_oauth_pkce.py
 ## Marketing (MER)
 
 ```bash
-python etl/import_meta_ads_csv.py   # default: docs/MOJA-Kampane-20.-6.-2023-20.-7.-2026.csv
+python etl/import_meta_ads_csv.py   # default: docs/MOJA-Kampane-1.-1.-2026-8.-8.-2026.csv
 python etl/import_accounting_journal_csv.py   # default: docs/Moja - Denník.csv
 ```
 
-Migrácie od `072` (Meta Ads) a `076` (účtovný denník). Dashboard: `/marketing`.
+Migrácie od `072` (Meta Ads) a `076` (účtovný denník). Dashboard `/marketing` volá `GET /api/marketing/mer` (scorecards, graf, filterovateľné riadky denníka cez `get_marketing_mer_expense_lines`). Skrytý UTM tab by volal `GET /api/marketing`.
 
 - **Ads / media:** Meta spend z CSV (`meta_ads_campaign_daily`); Google Ads spend z denníka (bucket `google_ads`). Meta FP v denníku ostáva `ads_skip` (bez double-count).
-- **Agentúra:** Google agency len z denníka. Meta agency: denník → ak v mesiaci chýba celá agency z denníka, Tatra debet `honzabartos` → dočasný fix 1014,71 €/mes od 2026-09-01 (kým nepríde faktúra). Prebiehajúci mesiac sa alikvotuje podľa uplynutých dní.
-- **Scorecards:** predvolene ukončený mesiac (voliteľne MTD); MER = Revenue / Total MKT, PER / Media MER = Revenue / Media; break-even tržby 19 300 € (`web/lib/marketingMerTargets.ts`).
+- **Agentúra:** Google agency len z denníka. Meta agency: riadky denníka (`meta_agency_journal`) → ak chýbajú, debet Tatra `honzabartos` → od 2026-09-01 dočasný fix 1014,71 €/mes (kým nepríde faktúra). Prebiehajúci mesiac sa alikvotuje podľa uplynutých dní.
+- **Scorecards:** predvolene ukončený mesiac (voliteľne MTD); MER = Revenue / Total MKT, PER / Media MER = Revenue / Media; break-even tržby 19 300 € (`web/lib/marketingMerTargets.ts`). Pri režime **Ukončený** mesačný graf neukazuje prebiehajúci kalendárny mesiac (tabuľka mesiacov ho stále obsahuje). API: `GET /api/marketing/mer?scorecardMode=completed|mtd`.
 - UTM atribúcia (`MarketingUtmClient.tsx`) nie je v živom `/marketing`.
 
 ## P&L

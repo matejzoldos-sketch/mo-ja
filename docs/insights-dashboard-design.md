@@ -2,7 +2,7 @@
 
 Dokument popisuje, ako pridať vrstvu **interpretácie** nad existujúce dáta predaja a skladu. Cieľ: po otvorení dashboardu hneď vidieť *čo si vyžaduje pozornosť* a *kde je priestor na rast* — bez ručného čítania všetkých grafov.
 
-## Stav v kóde (august 2026)
+## Stav v kóde (september 2026)
 
 Engine a API **sú v repozitári**, stránka `/insighty` **nie je zapnutá** (redirect na Predaj):
 
@@ -12,11 +12,11 @@ Engine a API **sú v repozitári**, stránka `/insighty` **nie je zapnutá** (re
 | `GET /api/insights?range=&kpi_product=` | v kóde; default `range=90d`; `?mock=1` |
 | `web/app/insighty/InsightyClient.tsx` | v kóde, nepoužíva sa kým `page.tsx` redirectuje |
 | `web/app/insighty/page.tsx` | `redirect("/")` |
-| `HeaderNav` — Insighty | v `SECTIONS`, skryté cez `HIDDEN_NAV_SECTIONS` |
+| `HeaderNav` — Insighty | v `SECTIONS`, skryté cez `HIDDEN_NAV_SECTIONS`; URL `/insighty` aj tak `redirect("/")` |
 
 Aktuálne ID pravidiel v `evaluate.ts` (nie identické s katalógom v §5–6): `revenue_14d_decline` / `revenue_14d_growth`, `returning_low` / `returning_high`, `one_time_high` / `one_time_low`, `first_second_slow` / `first_second_fast`, `sku_units_drop` / `sku_units_up`, `stock_zero_with_demand`, `stockout_soon`, `overstock_days`, `slow_mover_stock`, `utm_*` (coverage, channel, campaign, Meta, …), `no_strong_signals`.
 
-Prahové hodnoty: `web/lib/insights/config.ts` (`INSIGHT_THRESHOLDS`, `INSIGHTS_DEFAULT_RANGE = "90d"`).
+Prahové hodnoty: `web/lib/insights/config.ts` (`INSIGHT_THRESHOLDS`, `INSIGHTS_DEFAULT_RANGE = "90d"`). Engine volá `get_shopify_dashboard_summary` + `get_shopify_dashboard_kpis` (nie MVP), plus `get_shopify_sku_units_daily_ytd`, `get_shopify_inventory_dashboard`, `get_shopify_marketing_dashboard`. Delty tržieb: posledných 14 dní vs. predchádzajúcich 14 dní v `evaluate.ts`. Query `range=ytd` API mapuje na `365d`.
 
 Katalóg nižšie je **pôvodný návrh** (máj 2026), nie zoznam toho, čo UI dnes ukazuje.
 
@@ -58,6 +58,8 @@ Každá karta insightu:
 
 ## 3. Architektúra dát
 
+Diagram je **pôvodný návrh**. Implementácia používa summary/KPI RPC (pozri „Stav v kóde“).
+
 ```mermaid
 flowchart LR
   subgraph sources [Zdroje]
@@ -83,11 +85,12 @@ flowchart LR
 
 `GET /api/insights?range=365d&kpi_product=all`
 
-1. Paralelne načíta **aktuálne** a **predchádzajúce** obdobie (rovnaká dĺžka okna):
-   - `get_shopify_dashboard_mvp(range)` → KPI, daily, monthly, purchase distribution, interval histogram, top products
-   - `get_shopify_dashboard_mvp(prev_range)` — nový parameter alebo druhý call s vypočítaným `from/to` pred oknom
-   - voliteľne `get_shopify_inventory_dashboard()` pre skladové insighty (bez produktového filtra, alebo mapovanie SKU)
-2. `evaluateInsights(current, previous, inventory)` → pole `Insight[]`
+**Návrh (máj 2026):** dva call `get_shopify_dashboard_mvp` (aktuálne + predchádzajúce okno) + inventár.
+
+**Implementácia (2026):** `GET /api/insights` volá `get_shopify_dashboard_summary` + `get_shopify_dashboard_kpis` (nie MVP), `get_shopify_sku_units_daily_ytd`, `get_shopify_inventory_dashboard`, `get_shopify_marketing_dashboard`. Delty tržieb: 14d vs. predchádzajúcich 14d v `evaluate.ts`.
+
+1. Načíta dashboard summary/KPI, SKU YTD, inventár a marketing RPC
+2. `evaluateInsights(...)` → pole `Insight[]`
 3. Zoradenie: `severity` (critical → info), potom `priority`
 
 ### Typ `Insight`
@@ -111,7 +114,9 @@ type Insight = {
 
 ## 4. Porovnanie období (technická poznámka)
 
-Väčšina pravidiel potrebuje **delta** oproti predchádzajúcemu obdobiu rovnakej dĺžky:
+**Implementácia:** engine robí 14d slice comparison v `evaluate.ts` (nie druhý full RPC pre celé range). `range=ytd` v API sa mapuje na `365d`.
+
+Väčšina pravidiel v **návrhu** potrebuje **delta** oproti predchádzajúcemu obdobiu rovnakej dĺžky:
 
 | `range` | Aktuálne okno | Predchádzajúce okno |
 |---------|----------------|---------------------|
@@ -119,7 +124,7 @@ Väčšina pravidiel potrebuje **delta** oproti predchádzajúcemu obdobiu rovna
 | `90d` | posledných 90 dní | 90 dní pred tým |
 | `365d` | od spustenia (Nov 2025) | *špeciálne* — porovnať posledných 90d vs. predchádzajúcich 90d v rámci YTD, alebo Q1 vs Q2; v MVP stačí **posledný mesiac vs. predchádzajúci mesiac** z `monthlyNewVsReturning` |
 
-**Implementácia:** buď rozšíriť RPC o `p_compare: 'previous_period'`, alebo v API route dva RPC call s explicitnými dátumami (už máte `meta.from` / `meta.to` v odpovedi).
+**Návrh (máj 2026):** buď rozšíriť RPC o `p_compare: 'previous_period'`, alebo v API route dva RPC call s explicitnými dátumami (už máte `meta.from` / `meta.to` v odpovedi).
 
 ---
 
@@ -177,7 +182,7 @@ Prepojenie Predaj ↔ Sklad: match podľa `product_title` / SKU z `topProducts` 
 
 ## 7. Konfigurácia prahov
 
-Súbor `web/lib/insights/config.ts`:
+Súbor `web/lib/insights/config.ts`. Aktuálne kľúče sú iné ako ukážka nižšie (`revenue14dDeclinePctWarn`, `stockoutWarnDays: 30`, UTM prahy, …). Ukážka je historický návrh:
 
 ```ts
 export const INSIGHT_THRESHOLDS = {
@@ -202,7 +207,7 @@ Prahov môže byť menej pri `365d` (iná šumová hladina) — v configu per `r
 - [x] `web/lib/insights/` — typy, config, `evaluate.ts`
 - [x] `GET /api/insights` — dashboard + inventory + marketing RPC, `evaluateInsights`
 - [x] `web/app/insighty/InsightyClient.tsx` (stránka zatiaľ `redirect("/")`)
-- [x] `HeaderSectionSelect` — voľba „Insighty“ v `SECTIONS` (skrytá v menu)
+- [x] `HeaderSectionSelect` — voľba „Insighty“ v `SECTIONS`, odfiltrované v `HIDDEN_NAV_SECTIONS` (nie je v segmented nav ani v `<select>`). URL `/insighty` redirectuje na `/`.
 - [ ] Zapnúť `page.tsx` (odstrániť redirect) a odskryť nav
 - [x] Žiadna nová migrácia SQL len pre insighty
 
@@ -285,4 +290,4 @@ Prahov môže byť menej pri `365d` (iná šumová hladina) — v configu per `r
 
 ---
 
-*Návrh v1 — máj 2026; stav v kóde doplnený august 2026. Ďalší krok: odstrániť redirect na `/insighty` po schválení prahov.*
+*Návrh v1 — máj 2026; stav v kóde doplnený september 2026. Ďalší krok: odstrániť redirect na `/insighty` po schválení prahov.*
