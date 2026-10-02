@@ -136,7 +136,7 @@ python etl/import_accounting_journal_csv.py   # default: docs/Moja - Denník.csv
 
 Migrácie od `072` (Meta Ads) a `076` (účtovný denník). Dashboard `/marketing` volá `GET /api/marketing/mer` (scorecards, graf, filterovateľné riadky denníka cez `get_marketing_mer_expense_lines`). Skrytý UTM tab by volal `GET /api/marketing`.
 
-- **Ads / media:** Meta spend z CSV (`meta_ads_campaign_daily`); Google Ads spend z denníka (bucket `google_ads`). Meta FP v denníku ostáva `ads_skip` (bez double-count).
+- **Ads / media:** Meta spend z CSV (`meta_ads_campaign_daily`); Google Ads z denníka (`google_ads`), ak v mesiaci chýba — z Tatra MOJA účtu (POS `Google ADS*`, nie Workspace). Meta FP v denníku ostáva `ads_skip` (bez double-count).
 - **Agentúra:** Google agency len z denníka. Meta agency: riadky denníka (`meta_agency_journal`) → ak chýbajú, debet Tatra `honzabartos` → od 2026-09-01 dočasný fix 1014,71 €/mes (kým nepríde faktúra). Prebiehajúci mesiac sa alikvotuje podľa uplynutých dní.
 - **Scorecards:** predvolene ukončený mesiac (voliteľne MTD); MER = Revenue / Total MKT, PER / Media MER = Revenue / Media; break-even tržby 19 300 € (`web/lib/marketingMerTargets.ts`). Pri režime **Ukončený** mesačný graf neukazuje prebiehajúci kalendárny mesiac (tabuľka mesiacov ho stále obsahuje). API: `GET /api/marketing/mer?scorecardMode=completed|mtd`.
 - UTM atribúcia (`MarketingUtmClient.tsx`) nie je v živom `/marketing`.
