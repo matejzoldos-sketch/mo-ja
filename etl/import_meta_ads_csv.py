@@ -96,6 +96,14 @@ def _pick_click_value(row: dict) -> Optional[float]:
     return None
 
 
+def _row_text(row: dict, *keys: str) -> str:
+    for k in keys:
+        v = (row.get(k) or "").strip()
+        if v:
+            return v
+    return ""
+
+
 def _pick_view_value(row: dict) -> Optional[float]:
     exact = _pick_num(
         row,
@@ -126,10 +134,10 @@ def parse_csv_rows(path: Path) -> List[dict]:
 
         for row_num, row in enumerate(reader, start=2):
             raw_date = (row.get("Začiatok vykazovania") or "").strip()
-            name = (row.get("Názov kampane") or "").strip()
+            name = _row_text(row, "Názov kampane", "Názov zostavy reklám")
             if not raw_date or not name:
                 log.warning(
-                    "Preskočený riadok %s: chýba dátum alebo názov kampane",
+                    "Preskočený riadok %s: chýba dátum alebo názov (kampaň / zostava)",
                     row_num,
                 )
                 continue
@@ -161,7 +169,9 @@ def parse_csv_rows(path: Path) -> List[dict]:
                 {
                     "report_date": report_date.isoformat(),
                     "campaign_name": name,
-                    "delivery_status": (row.get("Doručenie kampane") or "").strip()
+                    "delivery_status": _row_text(
+                        row, "Doručenie kampane", "Doručenie zostavy reklám"
+                    )
                     or None,
                     "results": results,
                     "result_indicator": (row.get("Result indicator") or "").strip()
@@ -195,7 +205,16 @@ def parse_csv_rows(path: Path) -> List[dict]:
     return out
 
 
-def upsert_supabase(rows: List[dict], batch_size: int = 500) -> None:
+def delete_report_dates(sb: Any, dates: List[str]) -> None:
+    """Odstráni existujúce riadky pre dni v importe (aby sa nemiešali kampane a zostavy)."""
+    for d in sorted(set(dates)):
+        sb.table("meta_ads_campaign_daily").delete().eq("report_date", d).execute()
+    log.info("Vymazané existujúce záznamy pre %s dní", len(set(dates)))
+
+
+def upsert_supabase(
+    rows: List[dict], batch_size: int = 500, replace_dates: bool = True
+) -> None:
     url = os.environ.get("SUPABASE_URL")
     key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_KEY")
     if not url or not key:
@@ -203,6 +222,9 @@ def upsert_supabase(rows: List[dict], batch_size: int = 500) -> None:
 
     sb = create_client(url, key)
     now = datetime.now(timezone.utc).isoformat()
+
+    if replace_dates and rows:
+        delete_report_dates(sb, [r["report_date"] for r in rows])
 
     for i in range(0, len(rows), batch_size):
         chunk = [{**r, "imported_at": now} for r in rows[i : i + batch_size]]
@@ -218,6 +240,11 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="Import Meta Ads CSV do mo-ja Supabase")
     ap.add_argument("--csv-path", type=Path, default=DEFAULT_CSV)
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument(
+        "--no-replace-dates",
+        action="store_true",
+        help="Nemazať existujúce riadky pre dni v CSV (default: najprv vymazať deň, potom upsert)",
+    )
     args = ap.parse_args()
 
     if not args.csv_path.is_file():
@@ -232,7 +259,7 @@ def main() -> None:
         log.info("Dry-run: spend=%.2f EUR, kampaní=%s", spend, campaigns)
         return
 
-    upsert_supabase(rows)
+    upsert_supabase(rows, replace_dates=not args.no_replace_dates)
 
 
 if __name__ == "__main__":
