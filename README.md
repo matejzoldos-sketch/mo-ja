@@ -9,7 +9,7 @@ Repo: [github.com/matejzoldos-sketch/mo-ja](https://github.com/matejzoldos-sketc
 - Python **3.12** (CI aj lokálne odporúčané)
 - Shopify **Admin API** so scopes: `read_inventory`, `read_locations`, **`read_products`** (bez neho Sklad nevie spájať predaj so skladom) a **`read_all_orders`** (pre YTD; bez neho ~posledných 60 dní). Alternatíva `read_orders` = kratšia história. Pre sessiony (Meta Performance): **`read_reports`** (ShopifyQL `sessions`).
 - KPI „vracajúci sa“ nepotrebuje `read_customers` — sync berie `email` z objednávky (`customer_email`). Voliteľne `read_customers` + GraphQL `customer { id }` → `customer_id`.
-- Supabase projekt `kqsmsegcqdhuhiofxyuu` — pred sync/webom `supabase db push` (migrácie `001`–`095` plus timestampované scaling / marketing MER / P&L vrátane `pnl_cogs_rate_42_goods` / `moja_revoke_anon` / MER agency `honzabartos` Tatra fallback / `pnl_accounting_journal_cogs_only` / `pnl_accounting_full_journal_accounts` / Predaj net sales after discounts / MER Google Ads v Ads stĺpci / CEO Meta–Google split / agentúra alikvot).
+- Supabase projekt `kqsmsegcqdhuhiofxyuu` — pred sync/webom `supabase db push` (migrácie `001`–`095` plus timestampované scaling / marketing MER / P&L vrátane `pnl_cogs_rate_42_goods` / `moja_revoke_anon` / MER agency `honzabartos` Tatra fallback / `pnl_accounting_journal_cogs_only` / `pnl_accounting_full_journal_accounts` / Predaj net sales after discounts / MER Google Ads v Ads stĺpci / CEO Meta–Google split / agentúra alikvot / Google Ads Tatra fallback / VK Google agentúra Tatra fallback).
 
 ### Shopify auth (od 1. 1. 2026)
 
@@ -37,7 +37,7 @@ Root `.env`: Shopify + Supabase + Tatra (`TATRA_*`; `TATRA_ENV` default v skript
 |-------|------|
 | `sync_shopify.py` | Hlavný Shopify → Supabase sync |
 | `etl/sync_tatra.py` | Tatra AIS → Supabase |
-| `etl/import_meta_ads_csv.py` | Meta Ads CSV → MER |
+| `etl/import_meta_ads_csv.py` | Meta Ads CSV (kampaň alebo zostava reklám) → MER; pred upsertom vymaže dni v súbore |
 | `etl/import_accounting_journal_csv.py` | Účtovný denník → MER / P&L |
 | `etl/import_pnl_xls_results.py` | XLS „Výsledky“ → `pnl_xls_*` |
 | `etl/import_sklad_xls.py` | XLS „Sklad_sumár“ → `physical_inventory_monthly` (fyzický sklad) |
@@ -134,9 +134,11 @@ python etl/import_meta_ads_csv.py   # default: docs/MOJA-Kampane-1.-1.-2026-8.-8
 python etl/import_accounting_journal_csv.py   # default: docs/Moja - Denník.csv
 ```
 
+CSV môže byť export **kampaní** alebo **zostáv reklám** (`Názov kampane` / `Názov zostavy reklám`). Pred upsertom sa pre každý `report_date` v súbore vymažú existujúce riadky v `meta_ads_campaign_daily` (aby sa nemiešala granularita); `--no-replace-dates` mazanie vypne.
+
 Migrácie od `072` (Meta Ads) a `076` (účtovný denník). Dashboard `/marketing` volá `GET /api/marketing/mer` (scorecards, graf, filterovateľné riadky denníka cez `get_marketing_mer_expense_lines`). Skrytý UTM tab by volal `GET /api/marketing`.
 
-- **Ads / media:** Meta spend z CSV (`meta_ads_campaign_daily`); Google Ads z denníka (`google_ads`), ak v mesiaci chýba — z Tatra MOJA účtu (POS `Google ADS*`, nie Workspace). Meta FP v denníku ostáva `ads_skip` (bez double-count).
+- **Ads / media:** Meta spend z CSV (`meta_ads_campaign_daily`; kampaň alebo ad set, default replace dní); Google Ads z denníka (`google_ads`), ak v mesiaci chýba — z Tatra MOJA účtu (POS `Google ADS*`, nie Workspace). Meta FP v denníku ostáva `ads_skip` (bez double-count).
 - **Agentúra:** Google agentúra (VK) z denníka, ak v mesiaci chýba — z Tatra MOJA účtu. Meta agency: riadky denníka (`meta_agency_journal`) → ak chýbajú, debet Tatra `honzabartos` → od 2026-09-01 dočasný fix 1014,71 €/mes (kým nepríde faktúra). Prebiehajúci mesiac sa alikvotuje podľa uplynutých dní.
 - **Scorecards:** predvolene ukončený mesiac (voliteľne MTD); MER = Revenue / Total MKT, PER / Media MER = Revenue / Media; break-even tržby 19 300 € (`web/lib/marketingMerTargets.ts`). Pri režime **Ukončený** mesačný graf neukazuje prebiehajúci kalendárny mesiac (tabuľka mesiacov ho stále obsahuje). API: `GET /api/marketing/mer?scorecardMode=completed|mtd`.
 - UTM atribúcia (`MarketingUtmClient.tsx`) nie je v živom `/marketing`.
