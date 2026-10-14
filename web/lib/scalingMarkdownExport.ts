@@ -54,6 +54,7 @@ export type ScalingMarkdownInput = {
   attribution?: {
     meta_click_sales: number;
     meta_view_sales: number;
+    meta_reported_sales_split: number;
     shopify_utm_net_sales: number;
     view_through_ratio_pct: number | null;
     attribution_split_is_proxy: boolean;
@@ -153,16 +154,17 @@ export function buildScalingMarkdown(input: ScalingMarkdownInput): string {
 
   if (input.attribution) {
     const a = input.attribution;
+    const gap = a.meta_reported_sales_split - a.shopify_utm_net_sales;
+    const overPct =
+      a.shopify_utm_net_sales > 0
+        ? ((100 * gap) / a.shopify_utm_net_sales).toFixed(1)
+        : null;
     lines.push("## Meta vs Shopify UTM (YTD)");
     lines.push("");
-    lines.push(
-      a.attribution_split_is_proxy
-        ? `- Meta nadhodnotenie vs UTM: ${a.view_through_ratio_pct ?? "—"} %`
-        : `- Meta View-Through Ratio: ${a.view_through_ratio_pct ?? "—"} %`
-    );
-    lines.push(`- Meta click sales: ${money(a.meta_click_sales)}`);
-    lines.push(`- Meta view sales: ${money(a.meta_view_sales)}`);
-    lines.push(`- Shopify UTM net sales: ${money(a.shopify_utm_net_sales)}`);
+    lines.push(`- Meta nad Shopify UTM: ${overPct != null ? `${overPct} %` : "—"}`);
+    lines.push(`- Shopify Meta UTM net sales: ${money(a.shopify_utm_net_sales)}`);
+    lines.push(`- Meta report (purchase value): ${money(a.meta_reported_sales_split)}`);
+    lines.push(`- Rozdiel (Meta − UTM): ${money(gap)}`);
     if (a.warn_message) lines.push(`- ${a.warn_message}`);
     lines.push("");
   }

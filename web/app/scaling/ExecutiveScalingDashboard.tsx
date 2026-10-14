@@ -117,9 +117,26 @@ const SPEND = "#c45c26";
 const PNO = "#dc2626";
 const CR = "#2563eb";
 const AOV = "#7c3aed";
-const META_CLICK = "#0f4c5c";
-const META_VIEW = "#f97316";
+const META_REPORT = "#f97316";
 const UTM = "#16a34a";
+
+function monthMetaReportedSales(m: MonthRow): number {
+  if (m.meta_reported_sales != null && m.meta_reported_sales > 0) {
+    return m.meta_reported_sales;
+  }
+  const split = (m.meta_click_sales ?? 0) + (m.meta_view_sales ?? 0);
+  if (split > 0) return split;
+  if (m.meta_reported_sales_est != null && m.meta_reported_sales_est > 0) {
+    return m.meta_reported_sales_est;
+  }
+  return 0;
+}
+
+function attributionMetaOverUtmPct(a: AttributionSummary): number | null {
+  if (a.shopify_utm_net_sales <= 0) return null;
+  const gap = a.meta_reported_sales_split - a.shopify_utm_net_sales;
+  return (100 * gap) / a.shopify_utm_net_sales;
+}
 
 function formatMoney(n: number): string {
   return new Intl.NumberFormat("sk-SK", {
@@ -339,55 +356,28 @@ export default function ExecutiveScalingDashboard() {
     []
   );
 
-  const auditIsProxy =
-    data?.meta.attribution?.attribution_split_is_proxy !== false;
-
   const auditChart = useMemo(() => {
     if (!data?.monthly?.length) return null;
     return {
       labels: data.monthly.map((m) => formatMonthLabelSk(m.month)),
       datasets: [
         {
-          type: "bar" as const,
-          label: auditIsProxy ? "Zhoda s Shopify UTM" : "Meta click sales (7d)",
-          data: data.monthly.map((m) => m.meta_click_sales ?? 0),
-          backgroundColor: META_CLICK,
-          borderColor: META_CLICK,
-          stack: "meta",
-          yAxisID: "y",
-          order: 2,
-        },
-        {
-          type: "bar" as const,
-          label: auditIsProxy ? "Meta navyše vs UTM" : "Meta view-through (1d)",
-          data: data.monthly.map((m) => m.meta_view_sales ?? 0),
-          backgroundColor: "rgba(249, 115, 22, 0.72)",
-          borderColor: META_VIEW,
-          borderWidth: 1,
-          borderDash: [4, 2],
-          stack: "meta",
-          yAxisID: "y",
-          order: 2,
-        },
-        {
-          type: "line" as const,
-          label: "Shopify UTM net sales",
+          label: "Shopify Meta UTM (netto)",
           data: data.monthly.map((m) => m.utm_meta_net_sales),
+          backgroundColor: "rgba(22, 163, 74, 0.82)",
           borderColor: UTM,
-          backgroundColor: UTM,
-          borderWidth: 3,
-          pointRadius: 4,
-          pointBackgroundColor: "#fff",
-          pointBorderColor: UTM,
-          pointBorderWidth: 2,
-          yAxisID: "y",
-          tension: 0.25,
-          order: 1,
-          spanGaps: true,
+          borderWidth: 1,
+        },
+        {
+          label: "Meta report (purchase value)",
+          data: data.monthly.map((m) => monthMetaReportedSales(m)),
+          backgroundColor: "rgba(249, 115, 22, 0.78)",
+          borderColor: META_REPORT,
+          borderWidth: 1,
         },
       ],
     };
-  }, [data, auditIsProxy]);
+  }, [data]);
 
   const auditOptions = useMemo<ChartOptions>(
     () => ({
@@ -402,13 +392,27 @@ export default function ExecutiveScalingDashboard() {
               const v = Number(ctx.parsed.y ?? 0);
               return `${ctx.dataset.label}: ${formatMoney(v)}`;
             },
+            afterBody: (items) => {
+              if (items.length < 2) return [];
+              const byLabel = new Map(
+                items.map((it) => [String(it.dataset.label), Number(it.parsed.y ?? 0)])
+              );
+              const utm = byLabel.get("Shopify Meta UTM (netto)") ?? 0;
+              const meta = byLabel.get("Meta report (purchase value)") ?? 0;
+              const gap = meta - utm;
+              if (gap === 0) return [];
+              const pct = utm > 0 ? (100 * gap) / utm : null;
+              return [
+                `Rozdiel (Meta − UTM): ${formatMoney(gap)}`,
+                pct != null ? `Meta nad UTM: ${pct.toFixed(1)} %` : "",
+              ].filter(Boolean);
+            },
           },
         },
       },
       scales: {
-        x: { stacked: true },
+        x: {},
         y: {
-          stacked: true,
           position: "left",
           title: { display: true, text: "Tržby €" },
           grid: { color: "rgba(15,23,42,0.06)" },
@@ -809,9 +813,8 @@ export default function ExecutiveScalingDashboard() {
         <div className="chart-card scaling-chart">
           <h3>Audit pravdivosti Meta Ads</h3>
           <p className="scaling-chart__hint">
-            {meta.attribution?.attribution_split_is_proxy !== false
-              ? "Meta reportované tržby vs Shopify UTM — oranžová = Meta navyše oproti UTM"
-              : "Attribution cannibalization — Meta click vs view-through vs Shopify UTM"}
+            Dva stĺpce: čo Meta tvrdí (oranžová) vs čo Shopify vidí na Meta UTM (zelená). Vyšší
+            oranžový = väčší risk prikrášľovania v Ads Manageri.
           </p>
           {meta.attribution ? (
             <div
@@ -820,50 +823,23 @@ export default function ExecutiveScalingDashboard() {
               }`}
             >
               <div className="scaling-attr-badge__metric">
-                {meta.attribution.attribution_split_is_proxy ? (
-                  <>
-                    <MetricTip
-                      label="Meta nadhodnotenie vs UTM"
-                      tip={SCALING_METRIC_TIPS.view_through}
-                    />{" "}
-                    <strong>
-                      {meta.attribution.view_through_ratio_pct != null
-                        ? `${meta.attribution.view_through_ratio_pct.toFixed(1)} %`
-                        : "—"}
-                    </strong>
-                  </>
-                ) : (
-                  <>
-                    <MetricTip
-                      label="View-Through Ratio"
-                      tip={SCALING_METRIC_TIPS.view_through}
-                    />{" "}
-                    <strong>
-                      {meta.attribution.headline
-                        ? meta.attribution.headline.replace(
-                            /^Meta View-Through Ratio:?\s*/i,
-                            ""
-                          )
-                        : meta.attribution.view_through_ratio_pct != null
-                          ? `${meta.attribution.view_through_ratio_pct.toFixed(1)} %`
-                          : "—"}
-                    </strong>
-                  </>
-                )}
+                <MetricTip
+                  label="Meta nad Shopify UTM (YTD)"
+                  tip="Koľko % Meta purchase value prekračuje netto tržby z objednávok s Meta UTM v Shopify (YTD). Nie je to view-through podiel z CSV."
+                />{" "}
+                <strong>
+                  {(() => {
+                    const pct = attributionMetaOverUtmPct(meta.attribution);
+                    return pct != null ? `${pct.toFixed(1)} %` : "—";
+                  })()}
+                </strong>
               </div>
               <div className="scaling-attr-badge__detail">
-                {meta.attribution.attribution_split_is_proxy ? (
-                  <>
-                    UTM {formatMoney(meta.attribution.shopify_utm_net_sales)} · Meta navyše{" "}
-                    {formatMoney(meta.attribution.meta_view_sales)} · Meta spolu{" "}
-                    {formatMoney(meta.attribution.meta_reported_sales_split)}
-                  </>
-                ) : (
-                  <>
-                    Click {formatMoney(meta.attribution.meta_click_sales)} · View{" "}
-                    {formatMoney(meta.attribution.meta_view_sales)} · UTM{" "}
-                    {formatMoney(meta.attribution.shopify_utm_net_sales)}
-                  </>
+                Shopify UTM {formatMoney(meta.attribution.shopify_utm_net_sales)} · Meta report{" "}
+                {formatMoney(meta.attribution.meta_reported_sales_split)} · Rozdiel{" "}
+                {formatMoney(
+                  meta.attribution.meta_reported_sales_split -
+                    meta.attribution.shopify_utm_net_sales
                 )}
               </div>
               {meta.attribution.view_through_warn &&
@@ -875,7 +851,7 @@ export default function ExecutiveScalingDashboard() {
           ) : null}
           <div className="scaling-chart__canvas">
             {auditChart ? (
-              <Chart type="bar" data={auditChart as ChartData<"bar">} options={auditOptions} />
+              <Chart type="bar" data={auditChart} options={auditOptions} />
             ) : null}
           </div>
         </div>
