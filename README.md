@@ -61,7 +61,7 @@ npm install && npm run dev
 | `/sklad` | Inventár: Shopify + potvrdený fyzický stav (EuShipments, Lazaretská), Pending Orin, odporúčaný runway; história z XLS Sklad_sumár |
 | `/cashflow` | Tatra banka + runway forecast |
 | `/marketing` | MER — CEO scorecards (Meta/Google media, agentúra, PER / Media MER), filterovateľné riadky denníka |
-| `/scaling` | Meta Performance — executive rozhodnutie Meta spend (`get_executive_scaling_dashboard`) |
+| `/scaling` | Meta Performance — executive rozhodnutie Meta spend (`get_executive_scaling_dashboard`); sekcia **Audit pravdivosti Meta Ads** — mesačný graf dvoch stĺpcov (zelená Shopify Meta UTM netto vs oranžová Meta report purchase value), YTD badge **Meta nad Shopify UTM** |
 | `/pnl` | P&L — štyri pohľady (predvolený **Účtovníctvo**); export MD všetkých pohľadov |
 | `/login` | Heslo (`DASHBOARD_PASSWORD`) |
 
@@ -138,7 +138,7 @@ CSV môže byť export **kampaní** alebo **zostáv reklám** (`Názov kampane` 
 
 Migrácie od `072` (Meta Ads) a `076` (účtovný denník). Dashboard `/marketing` volá `GET /api/marketing/mer` (scorecards, graf, filterovateľné riadky denníka cez `get_marketing_mer_expense_lines`). Skrytý UTM tab by volal `GET /api/marketing`.
 
-- **Ads / media:** Meta spend z CSV (`meta_ads_campaign_daily`; kampaň alebo ad set, default replace dní); Google Ads z denníka (`google_ads`), ak v mesiaci chýba — z Tatra MOJA účtu (POS `Google ADS*`, nie Workspace). Meta FP v denníku ostáva `ads_skip` (bez double-count).
+- **Ads / media:** Meta spend z CSV (`meta_ads_campaign_daily`; kampaň alebo ad set, default replace dní); Google Ads z denníka (`google_ads`), ak v mesiaci chýba — z Tatra MOJA účtu (debet: `tradingPartyIdentification` google+ads, text „google reklamy“, nie Workspace). Meta FP v denníku ostáva `ads_skip` (bez double-count).
 - **Agentúra:** Google agentúra (VK) z denníka, ak v mesiaci chýba — z Tatra MOJA účtu. Meta agency: riadky denníka (`meta_agency_journal`) → ak chýbajú, debet Tatra `honzabartos` → od 2026-09-01 dočasný fix 1014,71 €/mes (kým nepríde faktúra). Prebiehajúci mesiac sa alikvotuje podľa uplynutých dní.
 - **Scorecards:** predvolene ukončený mesiac (voliteľne MTD); MER = Revenue / Total MKT, PER / Media MER = Revenue / Media; break-even tržby 19 300 € (`web/lib/marketingMerTargets.ts`). Pri režime **Ukončený** mesačný graf neukazuje prebiehajúci kalendárny mesiac (tabuľka mesiacov ho stále obsahuje). API: `GET /api/marketing/mer?scorecardMode=completed|mtd`.
 - UTM atribúcia (`MarketingUtmClient.tsx`) nie je v živom `/marketing`.
