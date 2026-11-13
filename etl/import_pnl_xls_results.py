@@ -165,18 +165,20 @@ def extract_expenses(
 
 
 def extract_results(xlsx_path: Path, sheet_name: str = "Výsledky") -> tuple[list[dict], list[dict]]:
-    wb = load_workbook(xlsx_path, read_only=True, data_only=True)
+    # read_only can leave max_column/max_row as None on some Excel exports
+    wb = load_workbook(xlsx_path, data_only=True)
     if sheet_name not in wb.sheetnames:
         raise SystemExit(
             f"Hárok '{sheet_name}' nie je v {xlsx_path.name}. Dostupné: {', '.join(wb.sheetnames)}"
         )
     ws = wb[sheet_name]
+    max_col = int(ws.max_column or 26)
 
     # Header s mesiacmi býva v riadku 4 a mesiace v stĺpcoch 3..11 (pre template s 9 mesiacmi).
     header_row = 4
     month_cols: list[int] = []
     month_nums: list[int] = []
-    for c in range(1, ws.max_column + 1):
+    for c in range(1, max_col + 1):
         v = ws.cell(header_row, c).value
         if isinstance(v, (int, float)) and 1 <= int(v) <= 12:
             month_cols.append(c)
@@ -184,7 +186,7 @@ def extract_results(xlsx_path: Path, sheet_name: str = "Výsledky") -> tuple[lis
 
     if not month_cols:
         # Fallback: month numbers often on row 20/37 in cost/revenue blocks
-        for c in range(1, ws.max_column + 1):
+        for c in range(1, max_col + 1):
             v = ws.cell(37, c).value
             if isinstance(v, (int, float)) and 1 <= int(v) <= 12:
                 month_cols.append(c)

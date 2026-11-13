@@ -92,7 +92,8 @@ def _parse_month_num(raw: object) -> Optional[int]:
 
 
 def extract_sklad(xlsx_path: Path, sheet_name: str = SHEET) -> list[dict]:
-    wb = load_workbook(xlsx_path, read_only=True, data_only=True)
+    # read_only can leave max_row as None on some Excel exports
+    wb = load_workbook(xlsx_path, data_only=True)
     if sheet_name not in wb.sheetnames:
         wb.close()
         raise SystemExit(f"Hárok {sheet_name!r} v XLS chýba. Dostupné: {wb.sheetnames}")
@@ -100,8 +101,9 @@ def extract_sklad(xlsx_path: Path, sheet_name: str = SHEET) -> list[dict]:
     ws = wb[sheet_name]
     rows_out: list[dict] = []
     current_year: Optional[int] = None
+    max_row = int(ws.max_row or 200)
 
-    for r in range(4, min(ws.max_row, 200) + 1):
+    for r in range(4, min(max_row, 200) + 1):
         year_val = _to_number(ws.cell(r, 2).value)
         if year_val is None:
             year_val = _to_number(ws.cell(r, 20).value)
